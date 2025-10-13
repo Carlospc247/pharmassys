@@ -273,7 +273,7 @@ class MovimentacaoFinanceira(TimeStampedModel):
         related_name='transferencias_recebidas',
         help_text="Para transferências entre contas"
     )
-    plano_contas = models.ForeignKey(, on_delete=models.PROTECT)
+    plano_contas = models.ForeignKey('financeiro.PlanoContas', on_delete=models.PROTECT)
     centro_custo = models.ForeignKey(CentroCusto, on_delete=models.PROTECT, null=True, blank=True)
     
     # Relacionamentos
@@ -430,7 +430,7 @@ class ContaPagar(TimeStampedModel):
     
     # Relacionamentos
     fornecedor = models.ForeignKey(Fornecedor, on_delete=models.SET_NULL, null=True, blank=True)
-    plano_contas = models.ForeignKey(, on_delete=models.PROTECT)
+    plano_contas = models.ForeignKey('PlanoContas', on_delete=models.PROTECT)
     centro_custo = models.ForeignKey(CentroCusto, on_delete=models.PROTECT, null=True, blank=True)
     
     # Parcelamento
