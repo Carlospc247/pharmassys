@@ -80,6 +80,7 @@ class PlanoContas(TimeStampedModel):
             return f"{self.conta_pai.nome_completo} > {self.nome}"
         return self.nome
 
+
 class CentroCusto(TimeStampedModel):
     """Centros de custo para controle gerencial"""
     codigo = models.CharField(max_length=20, unique=True)

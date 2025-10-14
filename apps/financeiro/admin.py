@@ -189,6 +189,12 @@ class MovimentacaoFinanceiraAdmin(admin.ModelAdmin):
         messages.success(request, f'{canceladas} movimentações canceladas.')
     cancelar_movimentacoes.short_description = "Cancelar movimentações selecionadas"
 
+
+class ContaPagarInline(admin.TabularInline):
+    model = ContaPagar
+    fk_name = 'conta_pai'  # indica qual ForeignKey usar
+    extra = 1
+
 @admin.register(ContaPagar)
 class ContaPagarAdmin(admin.ModelAdmin):
     list_display = [
@@ -280,6 +286,12 @@ class ContaPagarAdmin(admin.ModelAdmin):
         messages.success(request, f'{count} contas marcadas como pagas.')
     marcar_como_paga.short_description = "Marcar como paga"
 
+
+class ContaReceberInline(admin.TabularInline):
+    model = ContaReceber
+    fk_name = 'conta_pai'  # indica qual ForeignKey usar
+    extra = 1
+
 @admin.register(ContaReceber)
 class ContaReceberAdmin(admin.ModelAdmin):
     list_display = [
@@ -299,7 +311,7 @@ class ContaReceberAdmin(admin.ModelAdmin):
         if obj.valor_saldo > 0:
             color = 'red' if obj.esta_vencida else 'orange'
             return format_html(
-                '<span style="color: {}; font-weight: bold;">R$ {:.2f}</span>',
+                '<span style="color: {}; font-weight: bold;">AKZ {:.2f}</span>',
                 color, obj.valor_saldo
             )
         return format_html('<span style="color: green;">R$ 0,00</span>')
@@ -391,11 +403,11 @@ class OrcamentoFinanceiroAdmin(admin.ModelAdmin):
     actions = ['atualizar_realizados']
     
     def valor_orcado_display(self, obj):
-        return format_html('R$ {:.2f}', obj.valor_orcado)
+        return format_html('AKZ {:.2f}', obj.valor_orcado)
     valor_orcado_display.short_description = 'Orçado'
     
     def valor_realizado_display(self, obj):
-        return format_html('R$ {:.2f}', obj.valor_realizado)
+        return format_html('AKZ {:.2f}', obj.valor_realizado)
     valor_realizado_display.short_description = 'Realizado'
     
     def percentual_realizacao_display(self, obj):
@@ -426,3 +438,4 @@ class OrcamentoFinanceiroAdmin(admin.ModelAdmin):
         
         messages.success(request, f'Valores realizados atualizados para {queryset.count()} orçamentos.')
     atualizar_realizados.short_description = "Atualizar valores realizados"
+
