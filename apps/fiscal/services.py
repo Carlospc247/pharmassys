@@ -5,7 +5,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 from apps.core.models import Empresa
-from apps.fiscal.models import AssinaturaDigital
+from django.apps import apps  # ✅ Import atrasado
 from apps.core.services import gerar_numero_documento # Importamos a sua função de numeração
 
 # IMPORTANTE: Use um algoritmo de hashing forte, como SHA256, conforme recomendado pela AGT.
@@ -58,7 +58,11 @@ class FaturaFiscalService:
                 serie_documento_puro = numero_documento_formatado.split(' ')[0] 
             except (IndexError, AttributeError):
                  raise ValueError("Formato de número de documento inválido para extração de série/sequencial.")
+            
+            # ✅ Import atrasado do model (evita circular import)
+            AssinaturaDigital = apps.get_model('fiscal', 'AssinaturaDigital')
 
+    
             # 2. Obter o registo fiscal OneToOne da empresa
             assinatura, _ = AssinaturaDigital.objects.select_for_update().get_or_create(
                 empresa=self.empresa,

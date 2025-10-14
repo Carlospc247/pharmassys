@@ -10,8 +10,8 @@ from django.conf import settings
 from decimal import Decimal
 from apps.core.models import TimeStampedModel, Empresa,  Loja
 from apps.clientes.models import Cliente
-from apps.fiscal.services import FaturaFiscalService
-from apps.produtos.models import Produto
+
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.validators import RegexValidator, MinValueValidator, MaxValueValidator
