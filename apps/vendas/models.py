@@ -242,7 +242,7 @@ class ItemVenda(TimeStampedModel):
         decimal_places=2, 
         default=0.00
     )
-    taxa_iva = models.ForeignKey(
+    iva_percentual = models.ForeignKey(
         'fiscais.TaxaIVAAGT', # Usa string para evitar circular import se necessário
         on_delete=models.PROTECT, 
         verbose_name="Regime Fiscal (AGT)"
@@ -262,9 +262,9 @@ class ItemVenda(TimeStampedModel):
 
     # ADICIONAR UM MÉTODO SAVE PARA PREENCHER OS NOVOS CAMPOS
     def save(self, *args, **kwargs):
-        if self.taxa_iva:
-            self.tax_type = self.taxa_iva.tax_type
-            self.tax_code = self.taxa_iva.tax_code
+        if self.iva_percentual:
+            self.tax_type = self.iva_percentual.tax_type
+            self.tax_code = self.iva_percentual.tax_code
             # Se for um item de serviço, use 'S'. Se for produto, use 'M'.
             # Se fosse necessário o ProductType no ItemVenda, seria definido aqui.
             
@@ -296,8 +296,8 @@ class ItemVenda(TimeStampedModel):
     @property
     def iva_percentual(self):
         """MANTÉM A COMPATIBILIDADE com o código antigo (Property Getter)."""
-        if self.taxa_iva and self.taxa_iva.tax_type == 'IVA':
-            return self.taxa_iva.tax_percentage 
+        if self.iva_percentual and self.iva_percentual.tax_type == 'IVA':
+            return self.iva_percentual.tax_percentage 
         return Decimal('0.00')
     
     @property

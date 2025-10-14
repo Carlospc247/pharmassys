@@ -117,7 +117,7 @@ class Command(BaseCommand):
             status='finalizada',
             hash_documento__isnull=False # Apenas faturas assinadas
         ).prefetch_related(
-            Prefetch('itens', queryset=ItemVenda.objects.select_related('taxa_iva'))
+            Prefetch('itens', queryset=ItemVenda.objects.select_related('iva_percentual'))
         ).order_by('data_venda')
 
         if not faturas.exists():
@@ -156,10 +156,10 @@ class Command(BaseCommand):
                 
                 # Detalhe Fiscal (Tax) - CRÍTICO!
                 tax = ET.SubElement(line, 'Tax')
-                taxa_iva = item.taxa_iva # FK para TaxaIVAAGT
+                iva_percentual = item.iva_percentual # FK para TaxaIVAAGT
                 ET.SubElement(tax, 'TaxType').text = item.tax_type # IVA, IS, NS
                 ET.SubElement(tax, 'TaxCode').text = item.tax_code # NOR, ISE, NSU
-                ET.SubElement(tax, 'TaxPercentage').text = f"{taxa_iva.tax_percentage:.2f}"
+                ET.SubElement(tax, 'TaxPercentage').text = f"{iva_percentual.tax_percentage:.2f}"
                 ET.SubElement(tax, 'TaxAmount').text = f"{item.iva_valor:.2f}"
 
             # Totais da Fatura (DocumentTotals)

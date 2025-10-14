@@ -43,8 +43,8 @@ class ItemVendaSerializer(serializers.ModelSerializer):
             desconto_item = internal_data.get('desconto_item', Decimal('0'))
             
             # 1. Obter a Taxa Fiscal AGT
-            taxa_iva_agt = produto.taxa_iva # FK TaxaIVAAGT do modelo Produto
-            if not taxa_iva_agt:
+            iva_percentual_agt = produto.iva_percentual # FK TaxaIVAAGT do modelo Produto
+            if not iva_percentual_agt:
                  raise serializers.ValidationError("Produto não tem taxa de IVA legal associada.")
             
             # 2. Cálculos Base
@@ -52,15 +52,15 @@ class ItemVendaSerializer(serializers.ModelSerializer):
             valor_liquido_item = subtotal_bruto - desconto_item
             
             # 3. Cálculo do IVA
-            taxa_percentual = taxa_iva_agt.tax_percentage / Decimal('100.00')
+            taxa_percentual = iva_percentual_agt.tax_percentage / Decimal('100.00')
             iva_valor = valor_liquido_item * taxa_percentual
             total_item = valor_liquido_item + iva_valor
             
             # 4. Inserir dados fiscais e calculados
             internal_data['produto'] = produto
-            internal_data['taxa_iva'] = taxa_iva_agt
-            internal_data['tax_type'] = taxa_iva_agt.tax_type
-            internal_data['tax_code'] = taxa_iva_agt.tax_code
+            internal_data['iva_percentual'] = iva_percentual_agt
+            internal_data['tax_type'] = iva_percentual_agt.tax_type
+            internal_data['tax_code'] = iva_percentual_agt.tax_code
             internal_data['iva_valor'] = iva_valor.quantize(Decimal('0.01'))
             internal_data['subtotal_sem_iva'] = valor_liquido_item.quantize(Decimal('0.01'))
             internal_data['total'] = total_item.quantize(Decimal('0.01'))
@@ -121,13 +121,13 @@ class VendaSerializer(serializers.ModelSerializer):
         item_vendas = []
         for item_data in itens_data:
             produto = item_data.pop('produto')
-            taxa_iva = item_data.pop('taxa_iva')
+            iva_percentual = item_data.pop('iva_percentual')
             
             # Usa os campos de 'ItemVenda' já calculados e os objetos FK
             item = ItemVenda(
                 venda=venda, 
                 produto=produto, 
-                taxa_iva=taxa_iva,
+                iva_percentual=iva_percentual,
                 nome_produto=produto.nome, # Cache do nome
                 **item_data
             )
