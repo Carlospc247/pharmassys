@@ -390,6 +390,7 @@ class MovimentacaoFinanceira(TimeStampedModel):
             empresa=self.empresa
         )
 
+
 class ContaPagar(TimeStampedModel):
     """Contas a pagar"""
     STATUS_CHOICES = [
@@ -521,6 +522,7 @@ class ContaPagar(TimeStampedModel):
         self.save()
         
         return movimentacao
+
 
 class ContaReceberManager(models.Manager):
     def abertas(self):

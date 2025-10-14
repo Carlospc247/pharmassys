@@ -192,13 +192,8 @@ class MovimentacaoFinanceiraAdmin(admin.ModelAdmin):
 
 class ContaPagarFilhaInline(admin.TabularInline):
     model = ContaPagar
-    fk_name = 'conta_pai'
     extra = 0
-    readonly_fields = ['valor_original', 'valor_pago', 'valor_saldo', 'status', 'dias_vencimento']
-    fields = ['numero_parcela', 'valor_original', 'valor_pago', 'valor_saldo', 'status', 'dias_vencimento']
-    can_delete = False
-    verbose_name = "Parcela Filha"
-    verbose_name_plural = "Parcelas Filhas"
+
 
 @admin.register(ContaPagar)
 class ContaPagarAdmin(admin.ModelAdmin):
@@ -295,13 +290,7 @@ class ContaPagarAdmin(admin.ModelAdmin):
 
 class ContaReceberFilhaInline(admin.TabularInline):
     model = ContaReceber
-    fk_name = 'conta_pai'
     extra = 0
-    readonly_fields = ['valor_original', 'valor_pago', 'valor_saldo', 'status', 'dias_vencimento']
-    fields = ['numero_parcela', 'valor_original', 'valor_pago', 'valor_saldo', 'status', 'dias_vencimento']
-    can_delete = False
-    verbose_name = "Parcela Filha"
-    verbose_name_plural = "Parcelas Filhas"
 
 @admin.register(ContaReceber)
 class ContaReceberAdmin(admin.ModelAdmin):
@@ -315,7 +304,7 @@ class ContaReceberAdmin(admin.ModelAdmin):
     date_hierarchy = 'data_vencimento'
     
     inlines = [ContaReceberFilhaInline]
-    
+
     def valor_original_display(self, obj):
         return format_html('<span>{}</span>', format_money(obj.valor_original))
     valor_original_display.short_description = "Valor Original"
