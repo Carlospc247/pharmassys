@@ -539,7 +539,7 @@ class ContaPagar(TimeStampedModel):
     numero_parcela = models.IntegerField(default=1)
     total_parcelas = models.IntegerField(default=1)
     conta_pai = models.ForeignKey(
-        'self', 
+        ContaPai, 
         on_delete=models.CASCADE, 
         null=True, 
         blank=True,
@@ -703,7 +703,7 @@ class ContaReceber(TimeStampedModel):
     numero_parcela = models.IntegerField(default=1)
     total_parcelas = models.IntegerField(default=1)
     conta_pai = models.ForeignKey(
-        'self', 
+        ContaPai, 
         on_delete=models.CASCADE, 
         null=True, 
         blank=True,
