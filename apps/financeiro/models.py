@@ -390,6 +390,106 @@ class MovimentacaoFinanceira(TimeStampedModel):
             empresa=self.empresa
         )
 
+from django.db import models
+from django.core.exceptions import ValidationError
+from django.utils.timezone import now
+from datetime import date
+
+class ContaPai(models.Model):
+    """Conta principal que consolida parcelas"""
+    
+    STATUS_CHOICES = [
+        ('aberta', 'Aberta'),
+        ('vencida', 'Vencida'),
+        ('paga', 'Paga'),
+        ('recebida', 'Recebida'),
+        ('cancelada', 'Cancelada'),
+        ('renegociada', 'Renegociada'),
+    ]
+
+    # Identificação
+    numero_documento = models.CharField(max_length=50)
+    descricao = models.CharField(max_length=255)
+    
+    # Datas
+    data_emissao = models.DateField()
+    data_vencimento = models.DateField()
+    data_pagamento = models.DateField(null=True, blank=True)
+    data_recebimento = models.DateField(null=True, blank=True)
+
+    # Valores
+    valor_original = models.DecimalField(max_digits=12, decimal_places=2)
+    valor_juros = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    valor_multa = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    valor_desconto = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    valor_pago = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    valor_recebido = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    valor_saldo = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    # Status
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='aberta')
+    observacoes = models.TextField(blank=True)
+
+    # Relacionamentos opcionais para integração com contas a pagar ou receber
+    empresa = models.ForeignKey('Empresa', on_delete=models.CASCADE)
+    cliente = models.ForeignKey('Cliente', on_delete=models.SET_NULL, null=True, blank=True)
+    fornecedor = models.ForeignKey('Fornecedor', on_delete=models.SET_NULL, null=True, blank=True)
+    plano_contas = models.ForeignKey('PlanoContas', on_delete=models.PROTECT, null=True, blank=True)
+    centro_custo = models.ForeignKey('CentroCusto', on_delete=models.PROTECT, null=True, blank=True)
+    
+    class Meta:
+        verbose_name = "Conta Principal"
+        verbose_name_plural = "Contas Principais"
+        indexes = [
+            models.Index(fields=['data_vencimento', 'status']),
+            models.Index(fields=['status', 'empresa']),
+        ]
+        ordering = ['data_vencimento']
+
+    def __str__(self):
+        return f"{self.numero_documento} - {self.descricao} - R$ {self.valor_original}"
+
+    def atualizar_saldo_status(self):
+        """Atualiza saldo e status baseado nas parcelas"""
+        # Para pagamento
+        total_pago = self.parcelas.aggregate(total=models.Sum('valor_pago'))['total'] or 0
+        self.valor_pago = total_pago
+
+        # Para recebimento
+        total_recebido = self.parcelas.aggregate(total=models.Sum('valor_recebido'))['total'] or 0
+        self.valor_recebido = total_recebido
+
+        # Calcula saldo
+        self.valor_saldo = (self.valor_original + self.valor_juros + self.valor_multa - self.valor_desconto) - max(total_pago, total_recebido)
+
+        # Atualiza status
+        hoje = date.today()
+        if self.valor_saldo <= 0:
+            if self.valor_pago > 0:
+                self.status = 'paga'
+                if not self.data_pagamento:
+                    self.data_pagamento = hoje
+            elif self.valor_recebido > 0:
+                self.status = 'recebida'
+                if not self.data_recebimento:
+                    self.data_recebimento = hoje
+        elif self.data_vencimento < hoje:
+            self.status = 'vencida'
+        else:
+            self.status = 'aberta'
+
+        self.save()
+
+    @property
+    def dias_vencimento(self):
+        """Dias para vencimento (negativo se vencida)"""
+        return (self.data_vencimento - date.today()).days
+
+    @property
+    def esta_vencida(self):
+        """Verifica se a conta está vencida"""
+        return self.data_vencimento < date.today() and self.status in ['aberta', 'vencida']
+
 
 class ContaPagar(TimeStampedModel):
     """Contas a pagar"""
@@ -465,6 +565,7 @@ class ContaPagar(TimeStampedModel):
     def __str__(self):
         return f"{self.numero_documento} - {self.descricao} - R$ {self.valor_original}"
     
+    
     def save(self, *args, **kwargs):
         # Calcular valor do saldo
         total = self.valor_original + self.valor_juros + self.valor_multa - self.valor_desconto
@@ -479,7 +580,11 @@ class ContaPagar(TimeStampedModel):
             self.status = 'vencida'
         
         super().save(*args, **kwargs)
-    
+
+        # Atualiza a conta pai se existir
+        if self.conta_pai:
+            self.conta_pai.atualizar_saldo_status()
+
     @property
     def dias_vencimento(self):
         """Dias para vencimento (negativo se vencida)"""
@@ -491,10 +596,8 @@ class ContaPagar(TimeStampedModel):
         return self.data_vencimento < date.today() and self.status in ['aberta', 'vencida']
     
     def pagar(self, valor_pagamento, conta_bancaria, tipo_documento='transferencia', observacoes=""):
-        """Registra pagamento da conta"""
         if self.status not in ['aberta', 'vencida']:
             raise ValidationError("Apenas contas abertas ou vencidas podem ser pagas")
-        
         if valor_pagamento <= 0:
             raise ValidationError("Valor do pagamento deve ser maior que zero")
         
@@ -513,14 +616,25 @@ class ContaPagar(TimeStampedModel):
             status='confirmada',
             confirmada=True,
             data_confirmacao=datetime.now(),
-            usuario_responsavel=conta_bancaria.empresa.funcionarios.first().usuario,  # Simplificado
+            usuario_responsavel=conta_bancaria.empresa.funcionarios.first().usuario,
             empresa=self.empresa
         )
         
-        # Atualizar valores da conta
+        # Atualizar valores da parcela
         self.valor_pago += valor_pagamento
         self.save()
-        
+
+        # Atualizar saldo da conta pai, se existir
+        if self.conta_pai:
+            total_pago = self.conta_pai.parcelas.aggregate(total=models.Sum('valor_pago'))['total'] or 0
+            self.conta_pai.valor_pago = total_pago
+            self.conta_pai.valor_saldo = self.conta_pai.valor_original + self.conta_pai.valor_juros + self.conta_pai.valor_multa - self.conta_pai.valor_desconto - total_pago
+            if self.conta_pai.valor_saldo <= 0:
+                self.conta_pai.status = 'paga'
+                if not self.conta_pai.data_pagamento:
+                    self.conta_pai.data_pagamento = date.today()
+            self.conta_pai.save()
+
         return movimentacao
 
 
@@ -631,13 +745,16 @@ class ContaReceber(TimeStampedModel):
         elif self.data_vencimento < hoje and self.status != 'recebida':
             self.status = 'vencida'
         elif (self.data_vencimento - hoje).days <= 3 and self.status == 'aberta':
-            # até 3 dias para vencer
-            pass  # Manter como aberta
+            pass
         else:
             self.status = 'aberta'
 
         super().save(*args, **kwargs)
-    
+
+        # Atualiza a conta pai se existir
+        if self.conta_pai:
+            self.conta_pai.atualizar_saldo_status()
+
     @property
     def dias_vencimento(self):
         """Dias para vencimento (negativo se vencida)"""
@@ -649,10 +766,8 @@ class ContaReceber(TimeStampedModel):
         return self.data_vencimento < date.today() and self.status in ['aberta', 'vencida']
     
     def receber(self, valor_recebimento, conta_bancaria, tipo_documento='transferencia', observacoes=""):
-        """Registra recebimento da conta"""
         if self.status not in ['aberta', 'vencida']:
             raise ValidationError("Apenas contas abertas ou vencidas podem ser recebidas")
-        
         if valor_recebimento <= 0:
             raise ValidationError("Valor do recebimento deve ser maior que zero")
         
@@ -672,14 +787,25 @@ class ContaReceber(TimeStampedModel):
             status='confirmada',
             confirmada=True,
             data_confirmacao=timezone.now(),
-            usuario_responsavel=conta_bancaria.empresa.funcionarios.first().usuario,  # Simplificado
+            usuario_responsavel=conta_bancaria.empresa.funcionarios.first().usuario,
             empresa=self.empresa
         )
         
-        # Atualizar valores da conta
+        # Atualizar valores da parcela
         self.valor_recebido += valor_recebimento
         self.save()
-        
+
+        # Atualizar saldo da conta pai, se existir
+        if self.conta_pai:
+            total_recebido = self.conta_pai.parcelas.aggregate(total=models.Sum('valor_recebido'))['total'] or 0
+            self.conta_pai.valor_recebido = total_recebido
+            self.conta_pai.valor_saldo = self.conta_pai.valor_original + self.conta_pai.valor_juros + self.conta_pai.valor_multa - self.conta_pai.valor_desconto - total_recebido
+            if self.conta_pai.valor_saldo <= 0:
+                self.conta_pai.status = 'recebida'
+                if not self.conta_pai.data_recebimento:
+                    self.conta_pai.data_recebimento = date.today()
+            self.conta_pai.save()
+
         return movimentacao
 
     

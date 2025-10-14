@@ -37,7 +37,6 @@ def format_percentage(value):
 
 class ContasFilhasInline(admin.TabularInline):
     model = PlanoContas
-    fk_name = 'conta_pai'
     extra = 0
     fields = ['codigo', 'nome', 'tipo_conta', 'natureza', 'aceita_lancamento', 'ativa']
     readonly_fields = []
@@ -515,7 +514,6 @@ class ContaPagarAdmin(admin.ModelAdmin):
 
 class ParcelasContaReceberInline(admin.TabularInline):
     model = ContaReceber
-    fk_name = 'conta_pai'
     extra = 0
     fields = ['numero_parcela', 'data_vencimento', 'valor_original', 'valor_recebido', 'status']
     readonly_fields = ['valor_saldo']
