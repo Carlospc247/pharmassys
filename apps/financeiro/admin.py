@@ -190,10 +190,15 @@ class MovimentacaoFinanceiraAdmin(admin.ModelAdmin):
     cancelar_movimentacoes.short_description = "Cancelar movimentações selecionadas"
 
 
-class ContaPagarInline(admin.TabularInline):
+class ContaPagarFilhaInline(admin.TabularInline):
     model = ContaPagar
-    fk_name = 'conta_pai'  # indica qual ForeignKey usar
-    extra = 1
+    fk_name = 'conta_pai'
+    extra = 0
+    readonly_fields = ['valor_original', 'valor_pago', 'valor_saldo', 'status', 'dias_vencimento']
+    fields = ['numero_parcela', 'valor_original', 'valor_pago', 'valor_saldo', 'status', 'dias_vencimento']
+    can_delete = False
+    verbose_name = "Parcela Filha"
+    verbose_name_plural = "Parcelas Filhas"
 
 @admin.register(ContaPagar)
 class ContaPagarAdmin(admin.ModelAdmin):
@@ -231,6 +236,7 @@ class ContaPagarAdmin(admin.ModelAdmin):
             'classes': ['collapse']
         }),
     )
+    inlines = [ContaPagarFilhaInline]
     
     actions = ['marcar_como_paga']
     
@@ -287,10 +293,15 @@ class ContaPagarAdmin(admin.ModelAdmin):
     marcar_como_paga.short_description = "Marcar como paga"
 
 
-class ContaReceberInline(admin.TabularInline):
+class ContaReceberFilhaInline(admin.TabularInline):
     model = ContaReceber
-    fk_name = 'conta_pai'  # indica qual ForeignKey usar
-    extra = 1
+    fk_name = 'conta_pai'
+    extra = 0
+    readonly_fields = ['valor_original', 'valor_pago', 'valor_saldo', 'status', 'dias_vencimento']
+    fields = ['numero_parcela', 'valor_original', 'valor_pago', 'valor_saldo', 'status', 'dias_vencimento']
+    can_delete = False
+    verbose_name = "Parcela Filha"
+    verbose_name_plural = "Parcelas Filhas"
 
 @admin.register(ContaReceber)
 class ContaReceberAdmin(admin.ModelAdmin):
@@ -302,6 +313,8 @@ class ContaReceberAdmin(admin.ModelAdmin):
     search_fields = ['numero_documento', 'descricao', 'cliente__nome_completo']
     readonly_fields = ['valor_saldo', 'dias_vencimento_display', 'esta_vencida_display']
     date_hierarchy = 'data_vencimento'
+    
+    inlines = [ContaReceberFilhaInline]
     
     def valor_original_display(self, obj):
         return format_html('<span>{}</span>', format_money(obj.valor_original))
