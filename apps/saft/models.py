@@ -9,14 +9,8 @@ from apps.clientes.models import Cliente
 from apps.core.models import Empresa
 from apps.produtos.models import Produto
 from apps.vendas.models import Venda
+from django.db import models
 
-# 🚨 IMPORTAÇÕES REQUERIDAS
-# Ajuste as paths conforme a sua estrutura (e.g., core.models, vendas.models, etc.)
-# from apps.core.models import Empresa
-# from apps.vendas.models import Venda, ItemVenda
-# from apps.clientes.models import Cliente
-# from apps.produtos.models import Produto
-# from apps.fiscais.models import TaxaIVAAGT 
 
 
 # Namespace XML do SAF-T (Angola V1.01)
