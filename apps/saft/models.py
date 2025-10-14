@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 import xml.etree.ElementTree as ET
 from django.db.models import Sum
-
+from django.db import models
 from apps.clientes.models import Cliente
 from apps.core.models import Empresa
 from apps.produtos.models import Produto
