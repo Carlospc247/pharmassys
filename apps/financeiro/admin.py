@@ -40,7 +40,7 @@ class ContasFilhasInline(admin.TabularInline):
     fk_name = 'conta_pai'
     extra = 0
     fields = ['codigo', 'nome', 'tipo_conta', 'natureza', 'aceita_lancamento', 'ativa']
-    readonly_fields = []b
+    readonly_fields = []
 
 @admin.register(PlanoContas)
 class PlanoContasAdmin(admin.ModelAdmin):
