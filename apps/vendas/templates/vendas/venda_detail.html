@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h2>Venda #{{ venda.id }}</h2>
+  <p><strong>Cliente:</strong> {{ venda.cliente }}</p>
+  <p><strong>Vendedor:</strong> {{ venda.vendedor }}</p>
+  <p><strong>Data:</strong> {{ venda.data_venda }}</p>
+  <p><strong>Status:</strong> {{ venda.status }}</p>
+  <p><strong>Total:</strong> {{ venda.total }}</p>
+
+  {% if orcamento_origem %}
+    <p>
+      Orçamento de origem:
+      <a href="{% url 'orcamentos:orcamento_detail' orcamento_origem.pk %}">
+        {{ orcamento_origem.numero_orcamento }}
+      </a>
+    </p>
+  {% endif %}
+
+  <h3>Itens</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Produto</th>
+        <th>Qtd</th>
+        <th>Unitário</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in itens %}
+        <tr>
+          <td>{{ item.produto.nome }}</td>
+          <td>{{ item.quantidade }}</td>
+          <td>{{ item.valor_unitario }}</td>
+          <td>{{ item.total }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

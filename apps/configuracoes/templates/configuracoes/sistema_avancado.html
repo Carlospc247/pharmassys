@@ -1,0 +1,998 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Configurações Avançadas - vistoGEST{% endblock %}
+
+{% block extra_css %}
+<style>
+    .config-section {
+        border-left: 4px solid #2E7D32;
+        transition: all 0.3s ease;
+    }
+    .config-section:hover {
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .integration-card {
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    .integration-card.active {
+        border-color: #2E7D32;
+        background-color: #f0f9ff;
+    }
+    .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .status-connected { background-color: #10B981; }
+    .status-disconnected { background-color: #EF4444; }
+    .status-testing { background-color: #F59E0B; animation: pulse 2s infinite; }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block main_content %}
+<div id="configuracoesSistema" class="module active">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Configurações do Sistema</h1>
+            <p class="text-gray-600 dark:text-gray-400">Configurações avançadas e integrações</p>
+        </div>
+        <div class="flex space-x-3">
+            <button id="btnBackup" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <i class="fas fa-download mr-2"></i>Backup Agora
+            </button>
+            <button id="btnLogs" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <i class="fas fa-file-alt mr-2"></i>Ver Logs
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabs de Configurações -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-6">
+        <div class="border-b border-gray-200 dark:border-gray-700">
+            <div class="flex space-x-0">
+                <button class="tab-config active" data-tab="integracoes">
+                    <i class="fas fa-plug mr-2"></i>Integrações
+                </button>
+                <button class="tab-config" data-tab="backup">
+                    <i class="fas fa-shield-alt mr-2"></i>Backup
+                </button>
+                <button class="tab-config" data-tab="seguranca">
+                    <i class="fas fa-lock mr-2"></i>Segurança
+                </button>
+                <button class="tab-config" data-tab="performance">
+                    <i class="fas fa-tachometer-alt mr-2"></i>Performance
+                </button>
+                <button class="tab-config" data-tab="alertas">
+                    <i class="fas fa-bell mr-2"></i>Alertas
+                </button>
+                <button class="tab-config" data-tab="auditoria">
+                    <i class="fas fa-history mr-2"></i>Auditoria
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab: Integrações -->
+    <div id="tabIntegracoes" class="tab-content">
+        <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            <!-- WhatsApp Business -->
+            <div class="integration-card bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                            <i class="fab fa-whatsapp text-2xl text-green-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900 dark:text-white">WhatsApp Business</h3>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Envio de mensagens</p>
+                        </div>
+                    </div>
+                    <span class="status-indicator status-disconnected" title="Desconectado"></span>
+                </div>
+                
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Envie faturas, receitas e notificações diretamente pelo WhatsApp.
+                </p>
+                
+                <div class="flex space-x-2">
+                    <button onclick="configurarIntegracao('whatsapp')" 
+                            class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-3 rounded-lg text-sm transition-colors">
+                        <i class="fas fa-cog mr-1"></i>Configurar
+                    </button>
+                    <button onclick="testarIntegracao('whatsapp')" 
+                            class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-3 rounded-lg text-sm transition-colors">
+                        <i class="fas fa-vial mr-1"></i>Testar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Correios -->
+            <div class="integration-card bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-shipping-fast text-2xl text-yellow-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900 dark:text-white">Correios</h3>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Consulta Postal frete</p>
+                        </div>
+                    </div>
+                    <span class="status-indicator status-connected" title="Conectado"></span>
+                </div>
+                
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Consulta automática de Postal e cálculo de frete para entregas.
+                </p>
+                
+                <div class="flex space-x-2">
+                    <button onclick="configurarIntegracao('correios')" 
+                            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg text-sm transition-colors">
+                        <i class="fas fa-cog mr-1"></i>Configurar
+                    </button>
+                    <button onclick="testarIntegracao('correios')" 
+                            class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-3 rounded-lg text-sm transition-colors">
+                        <i class="fas fa-vial mr-1"></i>Testar
+                    </button>
+                </div>
+            </div>
+
+            <!-- NFe Paulista -->
+            <div class="integration-card bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-file-invoice text-2xl text-blue-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900 dark:text-white">NFe Paulista</h3>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Notas fiscais</p>
+                        </div>
+                    </div>
+                    <span class="status-indicator status-testing" title="Testando"></span>
+                </div>
+                
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Emissão automática de notas fiscais eletrônicas.
+                </p>
+                
+                <div class="flex space-x-2">
+                    <button onclick="configurarIntegracao('nfe')" 
+                            class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 px-3 rounded-lg text-sm transition-colors">
+                        <i class="fas fa-cog mr-1"></i>Configurar
+                    </button>
+                    <button onclick="testarIntegracao('nfe')" 
+                            class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-3 rounded-lg text-sm transition-colors">
+                        <i class="fas fa-vial mr-1"></i>Testar
+                    </button>
+                </div>
+            </div>
+
+            <!-- PagSeguro -->
+            <div class="integration-card bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-credit-card text-2xl text-orange-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900 dark:text-white">PagSeguro</h3>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Gateway pagamento</p>
+                        </div>
+                    </div>
+                    <span class="status-indicator status-disconnected" title="Desconectado"></span>
+                </div>
+                
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Processar pagamentos online e conciliar transações.
+                </p>
+                
+                <div class="flex space-x-2">
+                    <button onclick="configurarIntegracao('pagseguro')" 
+                            class="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-2 px-3 rounded-lg text-sm transition-colors">
+                        <i class="fas fa-cog mr-1"></i>Configurar
+                    </button>
+                    <button onclick="testarIntegracao('pagseguro')" 
+                            class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-3 rounded-lg text-sm transition-colors">
+                        <i class="fas fa-vial mr-1"></i>Testar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Contabilidade Online -->
+            <div class="integration-card bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-calculator text-2xl text-indigo-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900 dark:text-white">Contabilidade</h3>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Integração contábil</p>
+                        </div>
+                    </div>
+                    <span class="status-indicator status-disconnected" title="Desconectado"></span>
+                </div>
+                
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Envio automático de dados para sistema de contabilidade.
+                </p>
+                
+                <div class="flex space-x-2">
+                    <button onclick="configurarIntegracao('contabilidade')" 
+                            class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-3 rounded-lg text-sm transition-colors">
+                        <i class="fas fa-cog mr-1"></i>Configurar
+                    </button>
+                    <button onclick="testarIntegracao('contabilidade')" 
+                            class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-3 rounded-lg text-sm transition-colors">
+                        <i class="fas fa-vial mr-1"></i>Testar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Email Marketing -->
+            <div class="integration-card bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-envelope-open text-2xl text-pink-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900 dark:text-white">Email Marketing</h3>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Campanhas automáticas</p>
+                        </div>
+                    </div>
+                    <span class="status-indicator status-connected" title="Conectado"></span>
+                </div>
+                
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Campanhas de email marketing e automação.
+                </p>
+                
+                <div class="flex space-x-2">
+                    <button onclick="configurarIntegracao('email_marketing')" 
+                            class="flex-1 bg-pink-600 hover:bg-pink-700 text-white py-2 px-3 rounded-lg text-sm transition-colors">
+                        <i class="fas fa-cog mr-1"></i>Configurar
+                    </button>
+                    <button onclick="testarIntegracao('email_marketing')" 
+                            class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-3 rounded-lg text-sm transition-colors">
+                        <i class="fas fa-vial mr-1"></i>Testar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab: Backup -->
+    <div id="tabBackup" class="tab-content hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Configurações de Backup -->
+            <div class="config-section bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Configurações de Backup</h3>
+                
+                <form id="formBackupConfig">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="backupAutomatico" class="rounded border-gray-300" checked>
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Backup automático</span>
+                            </label>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Frequência</label>
+                            <select id="frequenciaBackup" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                                <option value="diario">Diário</option>
+                                <option value="semanal">Semanal</option>
+                                <option value="mensal">Mensal</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Horário</label>
+                            <input type="time" id="horarioBackup" value="02:00" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Manter backups (dias)</label>
+                            <input type="number" id="manterBackups" value="30" min="7" max="365"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        </div>
+                        
+                        <div>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="incluirArquivos" class="rounded border-gray-300" checked>
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Incluir arquivos (imagens, documentos)</span>
+                            </label>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Emails para notificação</label>
+                            <input type="email" id="emailsNotificacao" placeholder="admin@empresa.com, ti@empresa.com"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                            <p class="text-xs text-gray-500 mt-1">Emails separados por vírgula</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 flex space-x-3">
+                        <button type="submit" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-save mr-2"></i>Salvar Configurações
+                        </button>
+                        <button type="button" onclick="criarBackupManual()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-download mr-2"></i>Backup Manual
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Histórico de Backups -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Histórico de Backups</h3>
+                
+                <div class="space-y-3" id="historicoBackups">
+                    <!-- Backups serão carregados via JavaScript -->
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fas fa-archive text-4xl mb-2 opacity-50"></i>
+                        <p>Carregando histórico...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab: Performance -->
+    <div id="tabPerformance" class="tab-content hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <!-- Métricas de Performance -->
+            <div class="metric-card p-6 rounded-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/80 text-sm">Tempo Resposta Médio</p>
+                        <p class="text-3xl font-bold text-white" id="tempoRespostaMedio">245ms</p>
+                    </div>
+                    <div class="bg-white/20 p-3 rounded-lg">
+                        <i class="fas fa-clock text-2xl text-white"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-r from-green-500 to-green-600 p-6 rounded-xl text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/80 text-sm">Uptime</p>
+                        <p class="text-3xl font-bold">99.8%</p>
+                    </div>
+                    <div class="bg-white/20 p-3 rounded-lg">
+                        <i class="fas fa-check-circle text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-6 rounded-xl text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/80 text-sm">Uso de Memória</p>
+                        <p class="text-3xl font-bold">68%</p>
+                    </div>
+                    <div class="bg-white/20 p-3 rounded-lg">
+                        <i class="fas fa-memory text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráfico de Performance -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Performance das Últimas 24h</h3>
+            <div style="height: 400px;">
+                <canvas id="chartPerformance"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab: Alertas -->
+    <div id="tabAlertas" class="tab-content hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Configurações de Alertas -->
+            <div class="config-section bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Configurações de Alertas</h3>
+                
+                <form id="formAlertasConfig">
+                    <div class="space-y-6">
+                        <!-- Alertas de Estoque -->
+                        <div>
+                            <h4 class="font-medium text-gray-900 dark:text-white mb-3">Estoque</h4>
+                            <div class="space-y-3">
+                                <label class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">Estoque baixo</span>
+                                    <input type="checkbox" class="rounded border-gray-300" checked>
+                                </label>
+                                <label class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">Produtos vencendo</span>
+                                    <input type="checkbox" class="rounded border-gray-300" checked>
+                                </label>
+                                <label class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">Produtos vencidos</span>
+                                    <input type="checkbox" class="rounded border-gray-300" checked>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Alertas Financeiros -->
+                        <div>
+                            <h4 class="font-medium text-gray-900 dark:text-white mb-3">Financeiro</h4>
+                            <div class="space-y-3">
+                                <label class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">Vendas baixas</span>
+                                    <input type="checkbox" class="rounded border-gray-300" checked>
+                                </label>
+                                <label class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">Metas não atingidas</span>
+                                    <input type="checkbox" class="rounded border-gray-300">
+                                </label>
+                                <label class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">Contas a receber vencidas</span>
+                                    <input type="checkbox" class="rounded border-gray-300" checked>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Alertas de Sistema -->
+                        <div>
+                            <h4 class="font-medium text-gray-900 dark:text-white mb-3">Sistema</h4>
+                            <div class="space-y-3">
+                                <label class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">Erros críticos</span>
+                                    <input type="checkbox" class="rounded border-gray-300" checked>
+                                </label>
+                                <label class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">Performance degradada</span>
+                                    <input type="checkbox" class="rounded border-gray-300" checked>
+                                </label>
+                                <label class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">Backup falhado</span>
+                                    <input type="checkbox" class="rounded border-gray-300" checked>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6">
+                        <button type="submit" class="w-full bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-save mr-2"></i>Salvar Configurações
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Alertas Ativos -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Alertas Ativos</h3>
+                
+                <div class="space-y-3" id="alertasAtivos">
+                    <!-- Alertas serão carregados via JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab: Auditoria -->
+    <div id="tabAuditoria" class="tab-content hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Log de Auditoria</h3>
+                <div class="flex space-x-3">
+                    <select id="filtroTipoAuditoria" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        <option value="">Todos os tipos</option>
+                        <option value="create">Criação</option>
+                        <option value="update">Alteração</option>
+                        <option value="delete">Exclusão</option>
+                    </select>
+                    <button id="btnExportarAuditoria" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-download mr-2"></i>Exportar
+                    </button>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full" id="tabelaAuditoria">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Data/Hora</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Usuário</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ação</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Objeto</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Detalhes</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700" id="corpoTabelaAuditoria">
+                        <!-- Dados serão carregados via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Configuração de Integração -->
+<div id="modalConfiguracaoIntegracao" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex justify-between items-center">
+                <h2 id="tituloModalIntegracao" class="text-xl font-bold text-gray-900 dark:text-white">Configurar Integração</h2>
+                <button onclick="fecharModalIntegracao()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <div id="conteudoModalIntegracao" class="p-6">
+            <!-- Conteúdo será carregado dinamicamente -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Sistema de Configurações Avançadas
+class ConfiguracoesAvancadas {
+    constructor() {
+        this.tabAtiva = 'integracoes';
+        this.init();
+    }
+    
+    init() {
+        this.setupEventListeners();
+        this.carregarDados();
+        this.setupTabs();
+    }
+    
+    setupEventListeners() {
+        // Tabs
+        document.querySelectorAll('.tab-config').forEach(button => {
+            button.addEventListener('click', (e) => {
+                this.trocarTab(e.target.dataset.tab);
+            });
+        });
+        
+        // Formulários
+        document.getElementById('formBackupConfig').addEventListener('submit', this.salvarConfigBackup.bind(this));
+        document.getElementById('formAlertasConfig').addEventListener('submit', this.salvarConfigAlertas.bind(this));
+        
+        // Botões
+        document.getElementById('btnBackup').addEventListener('click', this.criarBackupManual.bind(this));
+        document.getElementById('btnLogs').addEventListener('click', this.abrirLogs.bind(this));
+    }
+    
+    setupTabs() {
+        this.atualizarVisibilidadeTabs();
+    }
+    
+    trocarTab(novaTab) {
+        this.tabAtiva = novaTab;
+        
+        // Atualizar botões
+        document.querySelectorAll('.tab-config').forEach(button => {
+            button.classList.remove('active');
+        });
+        document.querySelector(`[data-tab="${novaTab}"]`).classList.add('active');
+        
+        // Atualizar conteúdo
+        this.atualizarVisibilidadeTabs();
+        
+        // Carregar dados específicos da tab
+        this.carregarDadosTab(novaTab);
+    }
+    
+    atualizarVisibilidadeTabs() {
+        const tabs = ['integracoes', 'backup', 'seguranca', 'performance', 'alertas', 'auditoria'];
+        
+        tabs.forEach(tab => {
+            const elemento = document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`);
+            if (elemento) {
+                if (tab === this.tabAtiva) {
+                    elemento.classList.remove('hidden');
+                } else {
+                    elemento.classList.add('hidden');
+                }
+            }
+        });
+    }
+    
+    async carregarDados() {
+        // Carregar dados iniciais
+        await Promise.all([
+            this.carregarStatusIntegracoes(),
+            this.carregarMetricasPerformance(),
+            this.carregarAlertasAtivos()
+        ]);
+    }
+    
+    async carregarDadosTab(tab) {
+        switch(tab) {
+            case 'backup':
+                await this.carregarHistoricoBackups();
+                break;
+            case 'auditoria':
+                await this.carregarLogAuditoria();
+                break;
+            case 'performance':
+                this.initChartPerformance();
+                break;
+        }
+    }
+    
+    async carregarStatusIntegracoes() {
+        try {
+            const response = await fetch('/api/integracoes/status/');
+            const data = await response.json();
+            
+            if (data.success) {
+                this.atualizarStatusIntegracoes(data.integracoes);
+            }
+        } catch (error) {
+            console.error('Erro ao carregar status das integrações:', error);
+        }
+    }
+    
+    atualizarStatusIntegracoes(integracoes) {
+        integracoes.forEach(integracao => {
+            const card = document.querySelector(`[onclick="configurarIntegracao('${integracao.codigo}')"]`).closest('.integration-card');
+            const indicator = card.querySelector('.status-indicator');
+            
+            indicator.className = `status-indicator status-${integracao.status}`;
+            indicator.title = integracao.status_texto;
+            
+            if (integracao.configurada) {
+                card.classList.add('active');
+            }
+        });
+    }
+    
+    async carregarMetricasPerformance() {
+        try {
+            const response = await fetch('/api/performance/metricas/');
+            const data = await response.json();
+            
+            if (data.success) {
+                document.getElementById('tempoRespostaMedio').textContent = `${data.tempo_resposta_medio}ms`;
+                // Atualizar outras métricas
+            }
+        } catch (error) {
+            console.error('Erro ao carregar métricas:', error);
+        }
+    }
+    
+    async carregarAlertasAtivos() {
+        try {
+            const response = await fetch('/api/alertas/ativos/');
+            const data = await response.json();
+            
+            if (data.success) {
+                this.renderAlertasAtivos(data.alertas);
+            }
+        } catch (error) {
+            console.error('Erro ao carregar alertas:', error);
+        }
+    }
+    
+    renderAlertasAtivos(alertas) {
+        const container = document.getElementById('alertasAtivos');
+        
+        if (alertas.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-check-circle text-4xl mb-2 opacity-50"></i>
+                    <p>Nenhum alerta ativo</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = alertas.map(alerta => `
+            <div class="p-4 border border-gray-200 rounded-lg">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <span class="px-2 py-1 text-xs rounded-full ${this.getPrioridadeClass(alerta.prioridade)}">
+                                ${alerta.prioridade}
+                            </span>
+                            <span class="text-sm text-gray-500">${alerta.tipo}</span>
+                        </div>
+                        <h4 class="font-medium text-gray-900 dark:text-white">${alerta.titulo}</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">${alerta.mensagem}</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="resolverAlerta(${alerta.id})" class="text-green-600 hover:text-green-800">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button onclick="ignorarAlerta(${alerta.id})" class="text-gray-600 hover:text-gray-800">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    getPrioridadeClass(prioridade) {
+        const classes = {
+            'baixa': 'bg-blue-100 text-blue-800',
+            'media': 'bg-yellow-100 text-yellow-800',
+            'alta': 'bg-orange-100 text-orange-800',
+            'critica': 'bg-red-100 text-red-800'
+        };
+        return classes[prioridade] || 'bg-gray-100 text-gray-800';
+    }
+    
+    async carregarHistoricoBackups() {
+        try {
+            const response = await fetch('/api/backups/historico/');
+            const data = await response.json();
+            
+            if (data.success) {
+                this.renderHistoricoBackups(data.backups);
+            }
+        } catch (error) {
+            console.error('Erro ao carregar histórico de backups:', error);
+        }
+    }
+    
+    renderHistoricoBackups(backups) {
+        const container = document.getElementById('historicoBackups');
+        
+        if (backups.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-archive text-4xl mb-2 opacity-50"></i>
+                    <p>Nenhum backup encontrado</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = backups.map(backup => `
+            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 ${this.getBackupStatusClass(backup.status)} rounded-lg flex items-center justify-center">
+                        <i class="fas ${this.getBackupStatusIcon(backup.status)} text-white"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-gray-900 dark:text-white">${backup.nome}</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">
+                            ${backup.data_criacao} • ${backup.tamanho} • ${backup.tipo}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex space-x-2">
+                    ${backup.status === 'concluido' ? `
+                        <button onclick="downloadBackup(${backup.id})" class="text-blue-600 hover:text-blue-800">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <button onclick="restaurarBackup(${backup.id})" class="text-green-600 hover:text-green-800">
+                            <i class="fas fa-undo"></i>
+                        </button>
+                    ` : ''}
+                    <button onclick="excluirBackup(${backup.id})" class="text-red-600 hover:text-red-800">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    getBackupStatusClass(status) {
+        const classes = {
+            'concluido': 'bg-green-500',
+            'erro': 'bg-red-500',
+            'em_progresso': 'bg-yellow-500'
+        };
+        return classes[status] || 'bg-gray-500';
+    }
+    
+    getBackupStatusIcon(status) {
+        const icons = {
+            'concluido': 'fa-check',
+            'erro': 'fa-times',
+            'em_progresso': 'fa-clock'
+        };
+        return icons[status] || 'fa-archive';
+    }
+    
+    initChartPerformance() {
+        const ctx = document.getElementById('chartPerformance').getContext('2d');
+        
+        // Dados mockados - implementar com dados reais
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+                datasets: [{
+                    label: 'Tempo de Resposta (ms)',
+                    data: Array.from({length: 24}, () => Math.random() * 500 + 200),
+                    borderColor: '#3B82F6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value + 'ms';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    async salvarConfigBackup(event) {
+        event.preventDefault();
+        
+        const dados = {
+            backup_automatico: document.getElementById('backupAutomatico').checked,
+            frequencia: document.getElementById('frequenciaBackup').value,
+            horario: document.getElementById('horarioBackup').value,
+            manter_backups: document.getElementById('manterBackups').value,
+            incluir_arquivos: document.getElementById('incluirArquivos').checked,
+            emails_notificacao: document.getElementById('emailsNotificacao').value
+        };
+        
+        try {
+            const response = await fetch('/api/backup/configuracao/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCSRFToken(),
+                },
+                body: JSON.stringify(dados)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showToast('Configurações de backup salvas!', 'success');
+            } else {
+                this.showToast('Erro ao salvar configurações', 'error');
+            }
+        } catch (error) {
+            this.showToast('Erro de comunicação', 'error');
+        }
+    }
+    
+    async criarBackupManual() {
+        if (confirm('Deseja criar um backup manual agora?')) {
+            try {
+                const response = await fetch('/api/backup/manual/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': this.getCSRFToken(),
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.showToast('Backup iniciado! Você será notificado quando concluído.', 'success');
+                } else {
+                    this.showToast('Erro ao iniciar backup', 'error');
+                }
+            } catch (error) {
+                this.showToast('Erro de comunicação', 'error');
+            }
+        }
+    }
+    
+    // Utilitários
+    getCSRFToken() {
+        return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    }
+    
+    showToast(message, type = 'info') {
+        if (window.dashboard && window.dashboard.showToast) {
+            window.dashboard.showToast(message, type);
+        } else {
+            console.log(`${type.toUpperCase()}: ${message}`);
+        }
+    }
+}
+
+// Funções globais para integrações
+function configurarIntegracao(tipo) {
+    // Implementar modal de configuração específico para cada integração
+    console.log('Configurar integração:', tipo);
+}
+
+function testarIntegracao(tipo) {
+    // Implementar teste de integração
+    console.log('Testar integração:', tipo);
+}
+
+function fecharModalIntegracao() {
+    document.getElementById('modalConfiguracaoIntegracao').classList.add('hidden');
+}
+
+function resolverAlerta(alertaId) {
+    if (confirm('Marcar este alerta como resolvido?')) {
+        // Implementar resolução de alerta
+        console.log('Resolver alerta:', alertaId);
+    }
+}
+
+function ignorarAlerta(alertaId) {
+    if (confirm('Ignorar este alerta?')) {
+        // Implementar ignorar alerta
+        console.log('Ignorar alerta:', alertaId);
+    }
+}
+
+// Inicializar sistema
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('configuracoesSistema')) {
+        window.configuracoesAvancadas = new ConfiguracoesAvancadas();
+    }
+});
+
+// Estilos para tabs
+const tabStyles = `
+    .tab-config {
+        padding: 1rem 1.5rem;
+        border-bottom: 2px solid transparent;
+        transition: all 0.3s ease;
+        background: transparent;
+        border: none;
+        color: #6B7280;
+        cursor: pointer;
+    }
+    
+    .tab-config:hover {
+        background-color: #F3F4F6;
+        color: #374151;
+    }
+    
+    .tab-config.active {
+        border-bottom-color: #2E7D32;
+        color: #2E7D32;
+        background-color: #f0f9ff;
+    }
+    
+    .modal-overlay {
+        background-color: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+    }
+`;
+
+// Adicionar estilos
+const styleSheet = document.createElement('style');
+styleSheet.textContent = tabStyles;
+document.head.appendChild(styleSheet);
+</script>
+{% endblock %}

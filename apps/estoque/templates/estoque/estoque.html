@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ title|default:"Dashboard de Estoque" }}{% endblock %}
+
+{% block page_title %}{{ title|default:"Dashboard de Estoque" }}{% endblock %}
+
+{% block page_subtitle %}
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Uma visão geral da saúde e movimentação do seu inventário.
+    </p>
+{% endblock %}
+
+{% block page_actions %}
+    <a href="{% url 'estoque:movimentacao_create' %}" class="inline-flex items-center gap-x-2 rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+        <i class="fas fa-plus -ml-0.5 h-5 w-5"></i>
+        Nova Movimentação
+    </a>
+{% endblock %}
+
+
+{% block content %}
+<div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow-sm sm:p-6">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/50">
+                    <i class="fas fa-box text-2xl text-blue-500"></i>
+                </div>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+                <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">Produtos Ativos no Estoque</dt>
+                <dd class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{{ total_produtos_ativos|default:"0" }}</dd>
+            </div>
+        </div>
+    </div>
+
+    <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow-sm sm:p-6">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <div class="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-50 dark:bg-yellow-900/50">
+                    <i class="fas fa-exclamation-triangle text-2xl text-yellow-500"></i>
+                </div>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+                <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">Produtos com Estoque Baixo</dt>
+                <dd class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{{ produtos_estoque_baixo|default:"0" }}</dd>
+            </div>
+        </div>
+    </div>
+    
+    <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow-sm sm:p-6">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <div class="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 dark:bg-red-900/50">
+                    <i class="fas fa-calendar-times text-2xl text-red-500"></i>
+                </div>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+                <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">Lotes a Vencer (30 dias)</dt>
+                <dd class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{{ lotes_a_vencer|default:"0" }}</dd>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-8 overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
+    <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-white">Últimas Movimentações de Estoque</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-700/50">
+                <tr>
+                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-white sm:pl-6">Data</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Produto</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Tipo</th>
+                    <th scope="col" class="px-3 py-3.5 text-center text-sm font-semibold text-gray-900 dark:text-white">Quantidade</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Utilizador</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
+                {% for mov in movimentacoes_recentes %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-500 dark:text-gray-400 sm:pl-6">
+                        {{ mov.created_at|date:"d/m/Y H:i" }}
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm font-medium text-gray-900 dark:text-white">
+                        {{ mov.produto.nome_produto }}
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                        <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset
+                            {% if mov.tipo == 'entrada' %} bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-900/50 dark:text-green-300 {% endif %}
+                            {% if mov.tipo == 'saida' %} bg-red-50 text-red-700 ring-red-600/10 dark:bg-red-900/50 dark:text-red-300 {% endif %}
+                            {% if mov.tipo == 'ajuste' %} bg-yellow-50 text-yellow-800 ring-yellow-600/20 dark:bg-yellow-900/50 dark:text-yellow-300 {% endif %}">
+                            {{ mov.get_tipo_display }}
+                        </span>
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-center font-semibold 
+                        {% if mov.quantidade > 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                        {{ mov.quantidade }}
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                        {{ mov.usuario.username|default:"Sistema" }}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-12 text-gray-500 dark:text-gray-400">
+                        <i class="fas fa-exchange-alt text-4xl mb-4"></i>
+                        <p>Nenhuma movimentação de estoque registada recentemente.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

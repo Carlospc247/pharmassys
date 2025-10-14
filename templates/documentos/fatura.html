@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Fatura {{ venda.numero_venda }}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+        body { font-family: 'Roboto', sans-serif; font-size: 10pt; color: #333; }
+        .invoice-container { width: 100%; margin: 0 auto; background: #fff; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 20px; border-bottom: 2px solid #000; }
+        .header .company-details { flex: 2; }
+        .header .company-details h1 { margin: 0; font-size: 24pt; color: #000; }
+        .header .company-details p { margin: 2px 0; font-size: 9pt; }
+        .header .qr-code { flex: 1; text-align: right; }
+        .header .qr-code img { width: 100px; height: 100px; }
+        .invoice-details { display: flex; justify-content: space-between; margin-top: 20px; }
+        .invoice-details .bill-to p, .invoice-details .invoice-info p { margin: 2px 0; }
+        .invoice-details h3 { font-size: 14pt; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px;}
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: 700; }
+        .text-right { text-align: right; }
+        .totals { margin-top: 20px; float: right; width: 40%; }
+        .totals table { width: 100%; }
+        .totals td { border: none; }
+        .totals .grand-total { font-weight: 700; font-size: 14pt; }
+        .footer { margin-top: 50px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 8pt; color: #777; position: fixed; bottom: 0; width: 100%; }
+        .certification { font-family: monospace; font-size: 7pt; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <div class="header">
+            <div class="company-details">
+                <h1>{{ empresa.nome }}</h1>
+                <p>{{ empresa.endereco }}</p>
+                <p>NIF: {{ empresa.nif }}</p>
+                <p>Telefone: {{ empresa.telefone }} | Email: {{ empresa.email }}</p>
+            </div>
+            <div class="qr-code">
+                <img src="{{ qr_code }}" alt="QR Code de Certificação">
+            </div>
+        </div>
+
+        <div class="invoice-details">
+            <div class="bill-to">
+                <h3>Faturar Para</h3>
+                <p><strong>{{ venda.cliente.nome_completo|default:"Consumidor Final" }}</strong></p>
+                <p>{{ venda.cliente.endereco|default:"" }}</p>
+                <p>NIF: {{ venda.cliente.nif|default:"999999999" }}</p>
+            </div>
+            <div class="invoice-info text-right">
+                <h3>Fatura #{{ venda.numero_venda }}</h3>
+                <p><strong>Data da Fatura:</strong> {{ venda.data_venda|date:"d/m/Y" }}</p>
+                <p><strong>Vencimento:</strong> {{ venda.data_venda|date:"d/m/Y" }}</p>
+                <p><strong>Vendedor:</strong> {{ venda.vendedor.get_full_name|default:"N/A" }}</p>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Produto/Serviço</th>
+                    <th class="text-right">Qtd.</th>
+                    <th class="text-right">Preço Unit.</th>
+                    <th class="text-right">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in venda.itens.all %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ item.produto.nome_comercial }}</td>
+                    <td class="text-right">{{ item.quantidade }}</td>
+                    <td class="text-right">AKZ {{ item.preco_unitario|floatformat:2 }}</td>
+                    <td class="text-right">AKZ {{ item.total|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="totals">
+            <table>
+                <tr>
+                    <td>Subtotal:</td>
+                    <td class="text-right">AKZ {{ venda.subtotal|floatformat:2 }}</td>
+                </tr>
+                {% if venda.desconto_valor > 0 %}
+                <tr>
+                    <td>Desconto:</td>
+                    <td class="text-right">- AKZ {{ venda.desconto_valor|floatformat:2 }}</td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td colspan="2"><hr></td>
+                </tr>
+                <tr class="grand-total">
+                    <td>TOTAL:</td>
+                    <td class="text-right">AKZ {{ venda.total|floatformat:2 }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="footer">
+            <p>Forma de Pagamento: {{ venda.forma_pagamento|capfirst }}</p>
+            <p class="certification">Certificado em {{ data_certificacao|date:"d/m/Y H:i" }}. Hash: {{ hash_certificacao }}</p>
+            <p>Obrigado pela sua preferência!</p>
+        </div>
+    </div>
+</body>
+</html>

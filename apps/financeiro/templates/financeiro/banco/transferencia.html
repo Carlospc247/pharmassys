@@ -1,0 +1,31 @@
+<!-- templates/financeiro/banco/transferencia.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Transferência Bancária{% endblock %}
+{% block page_title %}Transferência entre Contas{% endblock %}
+
+{% block content %}
+<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+        Transferência entre Contas
+    </h1>
+
+    <form method="POST">
+        {% csrf_token %}
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700">Conta de Destino:</label>
+            <select name="conta_destino" class="border p-2 rounded">
+                {% for conta in contas %}
+                <option value="{{ conta.id }}">{{ conta.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700">Valor:</label>
+            <input type="number" name="valor" class="border p-2 rounded" required />
+        </div>
+        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Transferir</button>
+    </form>
+</div>
+{% endblock %}

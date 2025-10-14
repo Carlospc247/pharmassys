@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>{{ fatura.tipo_venda }} Nº {{ fatura.numero }}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            font-size: 10px; /* Ajustado para 80mm */
+            line-height: 1.4;
+            color: #000;
+            background: #fff;
+            width: 80mm;
+        }
+
+        .container {
+            padding: 8px;
+        }
+
+        /* ==================== Header ==================== */
+        .header {
+            text-align: center;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #000;
+            padding: 5px 0;
+        }
+
+        .header img {
+            max-width: 50mm;
+            display: block;
+            margin: 0 auto 5px;
+        }
+
+        .company-name {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .company-details {
+            font-size: 9px;
+            line-height: 1.3;
+        }
+
+        /* ==================== Invoice Info ==================== */
+        .invoice-info {
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .invoice-number {
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .invoice-date {
+            font-size: 9px;
+        }
+
+        /* ==================== Client Info ==================== */
+        .client-info {
+            margin: 10px 0;
+            border-top: 1px solid #000;
+            padding-top: 5px;
+        }
+
+        .client-title {
+            font-size: 10px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .client-details {
+            font-size: 8px;
+            line-height: 1.4;
+        }
+
+        /* ==================== Items Section ==================== */
+        .items-section {
+            margin: 10px 0;
+        }
+
+        .section-title {
+            font-size: 10px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 5px;
+            border-bottom: 1px solid #000;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+
+        .items-table th, .items-table td {
+            padding: 4px 2px;
+            font-size: 9px;
+            border: 1px solid #000; /* Linhas mais expressivas */
+        }
+
+        .items-table th {
+            text-align: left;
+            background-color: #f7fafc; /* Cor de fundo para cabeçalho */
+        }
+
+        .items-table td {
+            text-align: right;
+        }
+
+        /* ==================== Totals Section ==================== */
+        .totals-section {
+            margin: 10px 0;
+            border-top: 2px solid #000;
+            padding-top: 5px;
+        }
+
+        .totals-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .totals-table td {
+            padding: 4px 0;
+            font-size: 9px;
+            border-top: 1px solid #000; /* Linhas expressivas */
+        }
+
+        .totals-table .label {
+            font-weight: 500;
+            width: 60%;
+        }
+
+        .totals-table .value {
+            text-align: right;
+            font-weight: 600;
+            width: 40%;
+        }
+
+        /* ==================== Footer ==================== */
+        .footer {
+            text-align: center;
+            margin-top: 10px;
+            padding: 5px 0;
+            border-top: 2px solid #000;
+        }
+
+        .footer-message {
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        /* ==================== Meta Info ==================== */
+        .created-by {
+            text-align: center;
+            font-size: 7px;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        .page-info {
+            text-align: center;
+            font-size: 7px;
+            margin-top: 2px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header da Fatura -->
+        <div class="header">
+            {% if empresa.logo_url %}
+            <img src="{{ empresa.logo_url }}" alt="Logo">
+            {% endif %}
+            <div class="company-name">{{ empresa.razao_social|default:empresa.nome_fantasia|default:"Empresa" }}</div>
+            <div class="company-details">
+                {{ empresa.endereco|default:"Endereço não informado" }}<br>
+                NIF: {{ empresa.nif|default:"N/A" }}<br>
+                Tel: {{ empresa.telefone|default:"N/A" }}
+            </div>
+        </div>
+
+        <!-- Invoice Info -->
+        <div class="invoice-info">
+            <div class="invoice-number">FATURA RECIBO Nº {{ fatura.numero }}</div>
+            <div class="invoice-date">{{ fatura.data_emissao|date:"d/m/Y H:i" }}</div>
+        </div>
+
+        <!-- Client Info -->
+        <div class="client-info">
+            <div class="client-title">Dados do Cliente</div>
+            {% if cliente.nome %}
+            <div class="client-details">
+                {{ cliente.nome }}<br>
+                NIF: {{ cliente.nif|default:"N/A" }}<br>
+                Tel: {{ cliente.telefone|default:"N/A" }}<br>
+                End: {{ cliente.endereco|default:"N/A" }}<br>
+                Email: {{ cliente.email|default:"N/A" }}
+            </div>
+            {% else %}
+            <div class="client-details">Consumidor Final<br>NIF: N/A</div>
+            {% endif %}
+        </div>
+
+        <!-- Items Section -->
+        <div class="items-section">
+            <div class="section-title">Produtos/Serviços</div>
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th>Cod</th>
+                        <th>Descrição</th>
+                        <th>Qtd</th>
+                        <th>Preço</th>
+                        <th>Desc (%)</th>
+                        <th>IVA</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in itens_venda %}
+                    <tr>
+                        {% if item.tipo == "produto" and item.produto %}
+                            <td>{{ item.produto.codigo_barras|default:item.produto.codigo_interno|default:"N/A" }}</td>
+                            <td>{{ item.produto.nome_produto }}</td>
+                        {% elif item.tipo == "servico" and item.servico %}
+                            <td>N/A</td>
+                            <td>
+                                {{ item.servico.nome }}<br>
+                                <small style="color: #6b7280;">
+                                    {% if item.duracao %}Duração: {{ item.duracao.total_seconds|floatformat:0 }} min<br>{% endif %}
+                                    {% if item.instrucoes %}{{ item.instrucoes|truncatechars:50 }}{% endif %}
+                                </small>
+                            </td>
+                        {% else %}
+                            {% comment %} Fallback para itens sem relação ou campos diretos {% endcomment %}
+                            <td>{{ item.codigo|default:"N/A" }}</td>
+                            <td>{{ item.nome|default:item.nome_item|default:"Item" }}</td>
+                        {% endif %}
+                        <td class="text-center">{{ item.quantidade }}</td>
+                        <td class="text-right">{{ item.preco_unitario|floatformat:2 }} Kz</td>
+                        <td class="text-center">{{ item.desconto_percentual|floatformat:1 }}%</td>
+                        <td class="text-center">{{ item.iva_percentual|floatformat:1 }}%</td>
+                        <td class="text-right">{{ item.total|floatformat:2 }} Kz</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Totals Section -->
+        <div class="totals-section">
+            <table class="totals-table">
+                <tr>
+                    <td class="label">Subtotal:</td>
+                    <td class="value">{{ totais.subtotal|floatformat:2 }} Kz</td>
+                </tr>
+                {% if totais.desconto_valor and totais.desconto_valor > 0 %}
+                <tr>
+                    <td class="label">Desconto:</td>
+                    <td class="value">-{{ totais.desconto_valor|floatformat:2 }} Kz</td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td class="label">Total IVA:</td>
+                    <td class="value">{{ totais.iva_valor|floatformat:2 }} Kz</td>
+                </tr>
+                <tr>
+                    <td class="label">Total a Pagar:</td>
+                    <td class="value">{{ totais.total|floatformat:2 }} Kz</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div class="footer-message">Obrigado pela Preferência!</div>
+        </div>
+
+        <!-- Meta Info -->
+        <div class="created-by">
+            Operador: {{ request.user.get_full_name|default:request.user.username|default:"Sistema" }}
+        </div>
+
+        <div class="page-info">
+            {{ fatura.data_emissao|date:"d/m/Y H:i:s" }} | Pág. 1/1
+        </div>
+    </div>
+</body>
+
+</html>

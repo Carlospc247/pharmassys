@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Detalhe Pedido: {{ pedido.numero_pedido }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Pedido de Compra #{{ pedido.numero_pedido }}</h2>
+        <div class="btn-group">
+            <a href="{% url 'fornecedores:pedido_editar' pk=pedido.pk %}" class="btn btn-info">
+                <i class="fas fa-edit"></i> Editar
+            </a>
+            <a href="{% url 'fornecedores:pedido_deletar' pk=pedido.pk %}" class="btn btn-danger">
+                <i class="fas fa-trash-alt"></i> Cancelar/Deletar
+            </a>
+            {# Botão de Ação Lógica (Ex: Enviar) #}
+            {% if pedido.status == 'rascunho' %}
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalEnviar">
+                <i class="fas fa-paper-plane"></i> Enviar Pedido
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        {# Coluna Principal - Detalhes e Status #}
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-dark text-white">
+                    Informações Gerais
+                    <span class="float-end badge" style="background-color: {{ pedido.cor_status }};">
+                        {{ pedido.get_status_display }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-4">Fornecedor:</dt>
+                        <dd class="col-sm-8">{{ pedido.fornecedor.nome_exibicao }} ({{ pedido.fornecedor.codigo_fornecedor }})</dd>
+
+                        <dt class="col-sm-4">Data Pedido:</dt>
+                        <dd class="col-sm-8">{{ pedido.data_pedido|date:"d/m/Y" }}</dd>
+
+                        <dt class="col-sm-4">Entrega Prevista:</dt>
+                        <dd class="col-sm-8">
+                            {% if pedido.dias_em_atraso > 0 %}
+                                <span class="text-danger fw-bold">{{ pedido.data_entrega_prevista|date:"d/m/Y" }} (+{{ pedido.dias_em_atraso }} dias de atraso)</span>
+                            {% else %}
+                                {{ pedido.data_entrega_prevista|date:"d/m/Y"|default:"Não definido" }}
+                            {% endif %}
+                        </dd>
+                        
+                        <dt class="col-sm-4">Solicitante:</dt>
+                        <dd class="col-sm-8">{{ pedido.solicitante.get_full_name|default:pedido.solicitante.username }}</dd>
+                        
+                        <dt class="col-sm-4">Endereço de Entrega:</dt>
+                        <dd class="col-sm-8 text-wrap">{{ pedido.endereco_entrega|default:"Endereço Padrão da Empresa" }}</dd>
+                    </dl>
+                </div>
+            </div>
+            
+            {# Seção de Itens (Assumindo que existe um related_name 'itens') #}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-secondary text-white">Itens do Pedido</div>
+                <div class="card-body">
+                    {% if pedido.itens.all %}
+                        <table class="table table-bordered table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Qtde</th>
+                                    <th>Preço Un.</th>
+                                    <th>Total Item</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in pedido.itens.all %}
+                                <tr>
+                                    <td>{{ item.produto.nome }}</td>
+                                    <td>{{ item.quantidade }}</td>
+                                    <td>Kz {{ item.preco_unitario|floatformat:2 }}</td>
+                                    <td>Kz {{ item.total|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="alert alert-info">Nenhum item adicionado a este pedido.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        {# Coluna Lateral - Totais e Resumo #}
+        <div class="col-lg-4">
+            <div class="card shadow-sm bg-light mb-4">
+                <div class="card-header bg-primary text-white">Resumo Financeiro</div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Subtotal:</span>
+                        <span class="fw-bold">Kz {{ pedido.subtotal|floatformat:2 }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between text-danger">
+                        <span>Desconto ({{ pedido.desconto_percentual }}%):</span>
+                        <span class="fw-bold">- Kz {{ pedido.desconto_valor|floatformat:2 }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Frete/Seguro/Outros:</span>
+                        <span class="fw-bold">+ Kz {{ pedido.valor_frete|add:pedido.valor_seguro|add:pedido.outras_despesas|floatformat:2 }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between bg-warning fw-bold">
+                        <span>TOTAL GERAL:</span>
+                        <span>Kz {{ pedido.total|floatformat:2 }}</span>
+                    </li>
+                </ul>
+            </div>
+            
+            {# Informações de Rastreamento #}
+            {% if pedido.transportadora %}
+            <div class="card shadow-sm">
+                <div class="card-header">Rastreamento</div>
+                <div class="card-body">
+                    <p>Transportadora: {{ pedido.transportadora }}</p>
+                    <p>Nº Rastreamento: **{{ pedido.numero_rastreamento|default:"N/A" }}**</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="{% url 'fornecedores:pedido_lista' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Voltar à Lista
+        </a>
+    </div>
+</div>
+
+{% comment %} Modal de Exemplo para Envio de Pedido (Ação Lógica) {% endcomment %}
+<div class="modal fade" id="modalEnviar" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Envio</h5>
+            </div>
+            <div class="modal-body">
+                Tem certeza que deseja **enviar** este pedido para o fornecedor **{{ pedido.fornecedor.nome_exibicao }}**? Esta ação mudará o status para **ENVIADO**.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                {# Este link deve ir para uma URL que invoca o método pedido.enviar_pedido() na View #}
+                <a href="#" class="btn btn-primary">Sim, Enviar</a> 
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,76 @@
+<!-- templates/financeiro/dashboard.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard Financeiro{% endblock %}
+{% block page_title %}Dashboard Financeiro{% endblock %}
+
+{% block content %}
+<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+        Dashboard Financeiro
+    </h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="bg-green-100 dark:bg-green-900 p-4 rounded-lg shadow">
+            <h2 class="text-lg font-bold">Total a Receber</h2>
+            <p class="text-2xl">{{ total_receber|floatformat:2 }} Kz</p>
+            <a href="{% url 'financeiro:conta_receber_lista' %}" class="mt-2 inline-block text-blue-500 hover:underline">Ver Contas a Receber</a>
+        </div>
+        
+        <div class="bg-red-100 dark:bg-red-900 p-4 rounded-lg shadow">
+            <h2 class="text-lg font-bold">Total a Pagar</h2>
+            <p class="text-2xl">{{ total_pagar|floatformat:2 }} Kz</p>
+            <a href="{% url 'financeiro:conta_pagar_lista' %}" class="mt-2 inline-block text-blue-500 hover:underline">Ver Contas a Pagar</a>
+        </div>
+        
+        <div class="bg-blue-100 dark:bg-blue-900 p-4 rounded-lg shadow">
+            <h2 class="text-lg font-bold">Saldo em Caixa</h2>
+            <p class="text-2xl">{{ saldo_caixa|floatformat:2 }} Kz</p>
+            <a href="{% url 'financeiro:caixa' %}" class="mt-2 inline-block text-blue-500 hover:underline">Gerenciar Caixa</a>
+        </div>
+        
+        <div class="bg-yellow-100 dark:bg-yellow-900 p-4 rounded-lg shadow">
+            <h2 class="text-lg font-bold">Saldo em Bancos</h2>
+            <p class="text-2xl">{{ saldo_bancos|floatformat:2 }} Kz</p>
+            <a href="{% url 'financeiro:banco_lista' %}" class="mt-2 inline-block text-blue-500 hover:underline">Ver Contas Bancárias</a>
+        </div>
+    </div>
+
+    <div class="mt-6">
+        <h3 class="text-lg font-bold">Acessos Rápidos</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            <a href="{% url 'financeiro:fluxo_caixa' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Fluxo de Caixa</a>
+            <a href="{% url 'financeiro:dre' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">DRE</a>
+            <a href="{% url 'financeiro:balanco' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Balanço Patrimonial</a>
+            <a href="{% url 'financeiro:lancamento_lista' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Lançamentos</a>
+            <a href="{% url 'financeiro:categoria_lista' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Categorias</a>
+            <a href="{% url 'financeiro:centro_custo_lista' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Centros de Custo</a>
+            <a href="{% url 'financeiro:orcamento' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Orçamento</a>
+            <a href="{% url 'financeiro:relatorios' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Relatórios</a>
+            <a href="{% url 'financeiro:contas_vencidas' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Contas Vencidas</a>
+            <a href="{% url 'financeiro:contas_vencendo' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Contas Venciendo</a>
+            <a href="{% url 'financeiro:agenda_pagamentos' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Agendar Pagamento</a>
+            <a href="{% url 'financeiro:aprovacao_pagamentos' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Aprovação Pagamento</a>
+            <a href="{% url 'financeiro:pagamento_lote' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Pagamento Lote</a>
+            <a href="{% url 'financeiro:receitas' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Receitas</a>
+            <a href="{% url 'financeiro:despesas' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Despesas</a>
+            <a href="{% url 'financeiro:transferencias' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Transferências</a>
+            <a href="{% url 'financeiro:banco_lista' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Contas bancárias</a>
+       
+            
+
+            <a href="{% url 'financeiro:caixa' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Ver Caixa</a>
+            <a href="{% url 'financeiro:sangria_caixa' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Retirar Sangria</a>
+            <a href="{% url 'financeiro:suprimento_caixa' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Suprimento Caixa/a>
+            <a href="{% url 'financeiro:conferencia_caixa' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Conferência Caixa</a>
+            <a href="{% url 'financeiro:relatorio_caixa_diario' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Relatorio caixa diario</a>
+            <a href="{% url 'financeiro:banco_lista' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Contas bancárias</a>
+            <a href="{% url 'financeiro:banco_lista' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Contas bancárias</a>
+            <a href="{% url 'financeiro:banco_lista' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Contas bancárias</a>
+            <a href="{% url 'financeiro:banco_lista' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Contas bancárias</a>
+            <a href="{% url 'financeiro:banco_lista' %}" class="bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600">Contas bancárias</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

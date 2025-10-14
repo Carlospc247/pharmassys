@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_subtitle %}<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Informações completas sobre o lote selecionado.</p>{% endblock %}
+
+{% block page_actions %}
+    <div class="flex items-center space-x-2">
+        <a href="{% url 'produtos:lote_list' %}" class="inline-flex items-center gap-x-2 rounded-md bg-white dark:bg-gray-700 px-3.5 py-2.5 text-sm font-semibold text-gray-900 dark:text-white shadow-sm hover:bg-gray-100 dark:hover:bg-gray-600">
+            &larr; Voltar para a Lista
+        </a>
+        <a href="{% url 'produtos:lote_update' lote.pk %}" class="inline-flex items-center gap-x-2 rounded-md bg-yellow-500 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-yellow-400">
+            <i class="fas fa-edit h-5 w-5"></i> Editar
+        </a>
+    </div>
+{% endblock %}
+
+{% block content %}
+<div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-sm p-6">
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-8">
+        <div class="sm:col-span-1">
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Produto</dt>
+            <dd class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ lote.produto.nome_comercial }}</dd>
+        </div>
+        <div class="sm:col-span-1">
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Número do Lote</dt>
+            <dd class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ lote.numero_lote }}</dd>
+        </div>
+        <div class="sm:col-span-1">
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Data de Validade</dt>
+            <dd class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ lote.data_validade|date:"d/m/Y" }}</dd>
+        </div>
+        <div class="sm:col-span-1">
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Quantidade Inicial / Atual</dt>
+            <dd class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ lote.quantidade_inicial|intcomma }} / {{ lote.quantidade_atual|intcomma }}</dd>
+        </div>
+        <div class="sm:col-span-1">
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Preço de Custo (unitário)</dt>
+            <dd class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">AKZ {{ lote.preco_custo_lote|floatformat:2|intcomma }}</dd>
+        </div>
+         <div class="sm:col-span-1">
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Valor Total em Custo</dt>
+            <dd class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">AKZ {% widthratio lote.quantidade_atual 1 lote.preco_custo_lote as total %} {{ total|floatformat:2|intcomma }}</dd>
+        </div>
+    </dl>
+</div>
+{% endblock %}

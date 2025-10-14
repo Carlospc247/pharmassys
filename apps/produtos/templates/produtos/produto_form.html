@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block page_subtitle %}
+<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+    Preencha os dados abaixo para registar um novo produto no seu catálogo.
+</p>
+{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'produtos:produto_list' %}"
+   class="inline-flex items-center gap-x-2 rounded-lg bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-white shadow-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-300">
+    &larr; Voltar para a Lista
+</a>
+{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="space-y-8">
+
+        <div class="rounded-2xl bg-white dark:bg-gray-800 shadow-xl p-8 transition-transform transform hover:-translate-y-1">
+            <h2 class="text-2xl font-bold text-blue-500 dark:text-white mb-2 flex items-center gap-x-3">
+                <i class="fas fa-box text-blue-500"></i> Identificação do Produto
+            </h2>
+            <p class="text-gray-600 dark:text-gray-400">Informações principais para identificar o produto no sistema e nas vendas.</p>
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-6 gap-x-6 gap-y-8">
+                <div class="md:col-span-6">
+                    {{ form.nome_produto.label_tag }}
+                    <div class="mt-2">{{ form.nome_produto }}</div>
+                    {% for error in form.nome_produto.errors %}<p class="mt-2 text-sm text-red-500">{{ error }}</p>{% endfor %}
+                </div>
+                <div class="md:col-span-3">
+                    {{ form.codigo_barras.label_tag }}
+                    <div class="mt-2">{{ form.codigo_barras }}</div>
+                    {% for error in form.codigo_barras.errors %}<p class="mt-2 text-sm text-red-500">{{ error }}</p>{% endfor %}
+                </div>
+                <div class="md:col-span-3">
+                    {{ form.codigo_interno.label_tag }}
+                    <div class="mt-2">{{ form.codigo_interno }}</div>
+                    {% for error in form.codigo_interno.errors %}<p class="mt-2 text-sm text-red-500">{{ error }}</p>{% endfor %}
+                </div>
+
+                <div class="md:col-span-6">
+                    <label for="{{ form.foto.id_for_label }}" class="block text-sm font-medium leading-6 text-gray-900 dark:text-white">
+                        Foto do Produto
+                    </label>
+                    <div class="mt-2 flex items-center gap-x-3">
+                        <div class="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500">
+                            <i class="fas fa-image fa-3x"></i>
+                        </div>
+                        {{ form.foto }}
+                    </div>
+                    {% for error in form.foto.errors %}<p class="mt-2 text-sm text-red-500">{{ error }}</p>{% endfor %}
+                    <p class="mt-1 text-xs leading-5 text-gray-600 dark:text-gray-400">
+                        Adicione uma imagem clara do produto para exibição no catálogo.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="rounded-2xl bg-white dark:bg-gray-800 shadow-xl p-8 transition-transform transform hover:-translate-y-1">
+            <h2 class="text-2xl font-bold text-orange-500 dark:text-white mb-2 flex items-center gap-x-3">
+                <i class="fas fa-tags text-orange-500"></i> Classificação e Preços
+            </h2>
+            <p class="text-gray-600 dark:text-gray-400">Organize e defina os valores de custo e venda do produto.</p>
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-6 gap-x-6 gap-y-8">
+                <div class="md:col-span-3">
+                    {{ form.categoria.label_tag }}
+                    <div class="mt-2">{{ form.categoria }}</div>
+                    {% for error in form.categoria.errors %}<p class="mt-2 text-sm text-red-500">{{ error }}</p>{% endfor %}
+                </div>
+                <div class="md:col-span-3">
+                    {{ form.fabricante.label_tag }}
+                    <div class="mt-2">{{ form.fabricante }}</div>
+                    {% for error in form.fabricante.errors %}<p class="mt-2 text-sm text-red-500">{{ error }}</p>{% endfor %}
+                </div>
+                <div class="md:col-span-3">
+                    {{ form.preco_custo.label_tag }}
+                    <div class="mt-2">{{ form.preco_custo }}</div>
+                    {% for error in form.preco_custo.errors %}<p class="mt-2 text-sm text-red-500">{{ error }}</p>{% endfor %}
+                </div>
+                <div class="md:col-span-3">
+                    {{ form.margem_lucro.label_tag }}
+                    <div class="mt-2">{{ form.margem_lucro }}</div>
+                    {% for error in form.margem_lucro.errors %}<p class="mt-2 text-sm text-red-500">{{ error }}</p>{% endfor %}
+                </div>
+                <div class="md:col-span-3">
+                    {{ form.preco_venda.label_tag }}
+                    <div class="mt-2">{{ form.preco_venda }}</div>
+                    {% for error in form.preco_venda.errors %}<p class="mt-2 text-sm text-red-500">{{ error }}</p>{% endfor %}
+                </div>
+                <div class="md:col-span-3">
+                    <div class="relative flex items-start">
+                        <div class="flex h-6 items-center">{{ form.iva_percentual }}</div>
+                        <div class="ml-3 text-sm leading-6">{{ form.iva_percentual.label_tag }}</div>
+                    </div>
+                </div>
+                <div class="md:col-span-3">
+                    <div class="relative flex items-start">
+                        <div class="flex h-6 items-center">{{ form.desconto_percentual }}</div>
+                        <div class="ml-3 text-sm leading-6">{{ form.desconto_percentual.label_tag }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="rounded-2xl bg-white dark:bg-gray-800 shadow-xl p-8 transition-transform transform hover:-translate-y-1">
+            <h2 class="text-2xl font-bold text-green-700 dark:text-white mb-2 flex items-center gap-x-3">
+                <i class="fas fa-warehouse text-green-900"></i> Regras de Estoque e Status
+            </h2>
+            <p class="text-gray-600 dark:text-gray-600">Defina as quantidades mínimas e máximas para gerir o seu inventário.</p>
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-6 gap-x-6 gap-y-8">
+                <div class="md:col-span-3">
+                    {{ form.estoque_minimo.label_tag }}
+                    <div class="mt-2">{{ form.estoque_minimo }}</div>
+                    {% for error in form.estoque_minimo.errors %}<p class="mt-2 text-sm text-red-500">{{ error }}</p>{% endfor %}
+                </div>
+                <div class="md:col-span-3">
+                    {{ form.estoque_maximo.label_tag }}
+                    <div class="mt-2">{{ form.estoque_maximo }}</div>
+                    {% for error in form.estoque_maximo.errors %}<p class="mt-2 text-sm text-red-500">{{ error }}</p>{% endfor %}
+                </div>
+                <div class="md:col-span-6">
+                    <div class="relative flex items-start">
+                        <div class="flex h-6 items-center">{{ form.ativo }}</div>
+                        <div class="ml-3 text-sm leading-6">{{ form.ativo.label_tag }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-10 flex items-center justify-end gap-x-4">
+        <a href="{% url 'produtos:produto_list' %}"
+           class="text-sm font-semibold leading-6 text-gray-900 dark:text-white hover:text-gray-700 transition-colors duration-300">
+            Cancelar
+        </a>
+        <button type="submit"
+                class="rounded-lg bg-gradient-to-r from-teal-500 to-green-600 px-6 py-3 text-lg font-semibold text-white shadow-lg hover:from-teal-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105">
+            Salvar Produto
+        </button>
+    </div>
+</form>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const precoCustoInput = document.getElementById('id_preco_custo');
+        const margemLucroInput = document.getElementById('id_margem_lucro');
+        const precoVendaInput = document.getElementById('id_preco_venda');
+
+        function calcularPrecoVenda() {
+            const precoCusto = parseFloat(precoCustoInput.value);
+            const margemLucro = parseFloat(margemLucroInput.value);
+
+            if (!isNaN(precoCusto) && !isNaN(margemLucro)) {
+                let precoVendaCalculado = precoCusto + (precoCusto * (margemLucro / 100));
+                precoVendaInput.value = precoVendaCalculado.toFixed(2);
+            }
+        }
+
+        precoCustoInput.addEventListener('input', calcularPrecoVenda);
+        margemLucroInput.addEventListener('input', calcularPrecoVenda);
+    });
+</script>
+{% endblock %}

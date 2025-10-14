@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{% if form.instance.pk %}Editar Cliente{% else %}Novo Cliente{% endif %}{% endblock %}
+{% block page_title %}{% if form.instance.pk %}Editar Cliente{% else %}Novo Cliente{% endif %}{% endblock %}
+
+{% block content %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if form.instance.pk %}Editar Cliente{% else %}Novo Cliente{% endif %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        input, select, textarea {
+            transition: all 0.3s ease;
+        }
+        input:focus, select:focus, textarea:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        }
+        .form-input {
+            width: 100%;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            border: 1px solid #d1d5db;
+            background-color: #f9fafb;
+        }
+        .form-input:focus {
+            background-color: white;
+            border-color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen flex items-center justify-center p-4">
+        <div class="w-full max-w-3xl">
+            <div class="bg-white rounded-xl shadow-xl overflow-hidden" data-aos="fade-up">
+                <div class="bg-gradient-to-r from-blue-600 to-blue-500 p-6 text-white">
+                    <h1 class="text-2xl font-bold flex items-center">
+                        <i data-feather="{% if form.instance.pk %}edit{% else %}user-plus{% endif %}" class="mr-3"></i>
+                        {% if form.instance.pk %}Editar Cliente{% else %}Novo Cliente{% endif %}
+                    </h1>
+                </div>
+                
+                <form method="post" class="space-y-6 p-8">
+                    {% csrf_token %}
+
+                    <div class="space-y-6">
+                        {% for field in form %}
+                            <div class="space-y-2">
+                                <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                                    {{ field.label }}
+                                    {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
+                                </label>
+                                <div class="mt-1">
+                                    {{ field }}
+                                </div>
+                                {% if field.help_text %}
+                                    <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <p class="text-sm text-red-600">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="flex items-center justify-end space-x-4 pt-6">
+                        <a href="{% url 'clientes:lista' %}" 
+                           class="px-5 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition duration-200 flex items-center">
+                            <i data-feather="x" class="mr-2 w-4 h-4"></i>
+                            Cancelar
+                        </a>
+                        <button type="submit" 
+                                class="px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-md transition duration-200 flex items-center">
+                            <i data-feather="save" class="mr-2 w-4 h-4"></i>
+                            Salvar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        AOS.init({
+            duration: 600,
+            easing: 'ease-out-quad',
+            once: true
+        });
+        feather.replace();
+        
+        // Apply custom classes to form fields
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputs = document.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                input.classList.add('form-input');
+            });
+        });
+    </script>
+{% endblock %}
+
+
+

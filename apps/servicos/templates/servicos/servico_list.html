@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Catálogo de Serviços{% endblock %}
+{% block page_title %}Catálogo de Serviços{% endblock %}
+{% block page_actions %}
+<a href="{% url 'servicos:servico_create' %}" class="inline-flex items-center ...">
+    <i class="fas fa-plus"></i> Novo Serviço
+</a>
+{% endblock %}
+{% block content %}
+<div class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
+    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead class="bg-gray-50 dark:bg-gray-700/50">
+            <tr>
+                <th class="py-3.5 pl-6 text-left ...">Nome</th>
+                <th class="px-3 py-3.5 text-left ...">Categoria</th>
+                <th class="px-3 py-3.5 text-right ...">Preço Padrão</th>
+                <th class="px-3 py-3.5 text-right ...">Desconto (%)</th>
+                <th class="px-3 py-3.5 text-right ...">IVA (%)</th>
+                <th class="px-3 py-3.5 text-center ...">Ações</th>
+                <th class="relative py-3.5 pr-6"></th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-indigo-200 dark:divide-gray-700">
+            {% for servico in servicos %}
+            <tr>
+                <td class="py-4 pl-6 font-medium">{{ servico.nome }}</td>
+                <td class="px-3 py-4">{{ servico.categoria.nome }}</td>
+                <td class="px-3 py-4 text-right">AKZ {{ servico.preco_padrao|floatformat:2 }}</td>
+                <td class="px-3 py-4 text-right">{{ servico.desconto_percentual|floatformat:2 }}%</td>
+                <td class="px-3 py-4 text-right">{{ servico.iva_percentual|floatformat:2 }}%</td>
+                <td class="py-4 pr-6 text-right space-x-4">
+                    <a href="{% url 'servicos:servico_update' servico.pk %}" class="text-blue-600">Editar</a>
+                    <a href="{% url 'servicos:servico_delete' servico.pk %}" class="text-red-600">Eliminar</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center py-12">Nenhum serviço cadastrado.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

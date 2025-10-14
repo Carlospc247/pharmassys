@@ -1,0 +1,21 @@
+<div class="module-content">
+    <div class="dashboard-header">
+        <div class="dashboard-title">
+            <h1 class="text-2xl font-bold text-gray-900">Gestão de Produtos</h1>
+        </div>
+    </div>
+
+    <div class="filters-container my-6 p-4 bg-white rounded-lg shadow">
+        <form   hx-get="{% url 'produtos:produto_list' %}"
+                hx-target="#product-table-container"
+                hx-swap="innerHTML"
+                class="flex items-center space-x-4">
+            <input type="text" name="search" placeholder="Buscar produto..." class="search-input">
+            <button type="submit" class="btn btn-primary">Filtrar</button>
+        </form>
+    </div>
+
+    <div id="product-table-container" class="table-container">
+        {% include 'produtos/partials/tabela_produtos.html' %}
+    </div>
+</div>

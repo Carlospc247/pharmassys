@@ -1,0 +1,21 @@
+<!-- templates/financeiro/banco/conciliacao.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Conciliação Bancária{% endblock %}
+{% block page_title %}Conciliação da Conta Bancária{% endblock %}
+
+{% block content %}
+<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+        Conciliação da Conta Bancária: {{ conta.nome }}
+    </h1>
+
+    <p>Detalhes da conciliação e movimentações associadas.</p>
+    <!-- Adicione detalhes sobre a conciliação aqui -->
+
+    <div class="mt-6">
+        <a href="{% url 'financeiro:banco_update' conta.id %}" class="bg-yellow-500 text-white px-4 py-2 rounded-lg">Editar</a>
+    </div>
+</div>
+{% endblock %}

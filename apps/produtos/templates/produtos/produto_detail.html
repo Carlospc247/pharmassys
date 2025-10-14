@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    {% comment %} O título da página é dinâmico, baseado no nome do produto. {% endcomment %}
+    <title>Detalhes de {{ produto.nome_comercial }}</title>
+    
+    {% comment %} Link para o Tailwind CSS (CDN para exemplo funcional). No seu projeto real, isto pode estar no seu ficheiro base. {% endcomment %}
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 p-4 sm:p-6 lg:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ produto.nome_produto }}</h1>
+                <p class="text-md text-gray-500 dark:text-gray-400">{{ produto.categoria.nome|default:"Sem Categoria" }} | {{ produto.fabricante.nome|default:"Sem Fabricante" }}</p>
+            </div>
+            <div class="flex space-x-3 mt-4 sm:mt-0">
+                {% comment %} Links dinâmicos para as views de Update e Delete {% endcomment %}
+                <a href="{% url 'produto_update' produto.pk %}" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Editar
+                </a>
+                <a href="{% url 'produto_delete' produto.pk %}" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                    Apagar
+                </a>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4 border-b pb-2">Informações do Produto</h2>
+            <dl class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Código de Barras</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ produto.codigo_barras }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Preço de Venda</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">AOA {{ produto.preco_venda|floatformat:2 }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Estoque Atual</dt>
+                    {% comment %} O filtro |safe é crucial aqui para renderizar o HTML (cores) da sua property estoque_status {% endcomment %}
+                    <dd class="mt-1 text-sm">{{ produto.estoque_status|safe }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Ponto de Reposição</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ produto.ponto_reposicao }} unidades</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Status</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">
+                        {% if produto.ativo %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Ativo</span>
+                        {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Inativo</span>
+                        {% endif %}
+                    </dd>
+                </div>
+            </dl>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4 border-b pb-2">Lotes em Estoque</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Número do Lote</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Quantidade</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Validade</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {% comment %} Loop sobre a lista de lotes enviada pela view {% endcomment %}
+                        {% for lote in lotes %}
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ lote.numero_lote }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{{ lote.quantidade }}</td>
+                                {% comment %} O filtro |date formata a data para um padrão mais legível {% endcomment %}
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{{ lote.validade|date:"d/m/Y" }}</td>
+                            </tr>
+                        {% empty %}
+                            {% comment %} Mensagem exibida se não houver lotes {% endcomment %}
+                            <tr>
+                                <td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500">Nenhum lote registado para este produto.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4 border-b pb-2">Adicionar Novo Lote</h2>
+            
+            {% comment %} O 'action' aponta para a nossa view 'adicionar_lote', passando o ID do produto atual {% endcomment %}
+            <form method="post" action="{% url 'adicionar_lote' produto.id %}">
+                {% csrf_token %}
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {% comment %} Renderiza cada campo do formulário para melhor estilização com Tailwind.
+                                 Poderia usar {{ form_lote.as_p }} para uma versão mais simples. {% endcomment %}
+                    <div>
+                        <label for="{{ form_lote.numero_lote.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Número do Lote</label>
+                        {{ form_lote.numero_lote }}
+                    </div>
+                    <div>
+                        <label for="{{ form_lote.quantidade.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Quantidade</label>
+                        {{ form_lote.quantidade }}
+                    </div>
+                    <div>
+                        <label for="{{ form_lote.validade.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Validade</label>
+                        {{ form_lote.validade }}
+                    </div>
+                </div>
+                
+                <div class="mt-6">
+                    <button type="submit" class="px-6 py-2 font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                        Adicionar Lote
+                    </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+
+</body>
+</html>

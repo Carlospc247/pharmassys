@@ -1,0 +1,51 @@
+<!-- templates/financeiro/conciliacao/lista.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Conciliações Bancárias{% endblock %}
+{% block page_title %}Lista de Conciliações Bancárias{% endblock %}
+
+{% block content %}
+<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+        Conciliações Bancárias
+    </h1>
+
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                    <th class="px-6 py-3 text-left">Conta Bancária</th>
+                    <th class="px-6 py-3 text-left">Data Início</th>
+                    <th class="px-6 py-3 text-left">Data Fim</th>
+                    <th class="px-6 py-3 text-left">Saldo Inicial</th>
+                    <th class="px-6 py-3 text-left">Saldo Final</th>
+                    <th class="px-6 py-3 text-left">Ações</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {% for conciliacao in conciliacoes %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td class="px-6 py-4">{{ conciliacao.conta_bancaria.nome }}</td>
+                    <td class="px-6 py-4">{{ conciliacao.data_inicio|date:"d/m/Y" }}</td>
+                    <td class="px-6 py-4">{{ conciliacao.data_fim|date:"d/m/Y" }}</td>
+                    <td class="px-6 py-4">{{ conciliacao.saldo_banco_inicial|floatformat:2 }} Kz</td>
+                    <td class="px-6 py-4">{{ conciliacao.saldo_banco_final|floatformat:2 }} Kz</td>
+                    <td class="px-6 py-4">
+                        <a href="{% url 'financeiro:conciliacao_detail' conciliacao.id %}" class="text-blue-600 hover:text-blue-900">Detalhes</a>
+                        <form method="POST" action="{% url 'financeiro:conciliacao_update' conciliacao.id %}" class="inline">
+                            {% csrf_token %}
+                            <button type="submit" class="text-yellow-600 hover:text-yellow-900">Editar</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Nenhuma conciliação encontrada.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

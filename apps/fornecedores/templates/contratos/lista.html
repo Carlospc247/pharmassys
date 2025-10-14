@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Lista de Contratos de Fornecedores{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Contratos de Fornecedores ({{ contratos.count }} Ativos/Expirados)</h2>
+        <a href="{% url 'fornecedores:contrato_criar' %}" class="btn btn-success">
+            <i class="fas fa-file-contract"></i> Novo Contrato
+        </a>
+    </div>
+
+    {% if contratos %}
+    <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Número</th>
+                    <th>Fornecedor</th>
+                    <th>Tipo</th>
+                    <th>Início</th>
+                    <th>Validade</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for contrato in contratos %}
+                <tr>
+                    <td>
+                        <a href="{% url 'fornecedores:contrato_detail' pk=contrato.pk %}">
+                            <strong>{{ contrato.numero_contrato }}</strong>
+                        </a>
+                    </td>
+                    <td>{{ contrato.fornecedor.nome_exibicao }}</td>
+                    <td>{{ contrato.get_tipo_display }}</td>
+                    <td>{{ contrato.data_inicio|date:"d/m/Y" }}</td>
+                    <td>
+                        {% if contrato.data_fim %}
+                            {{ contrato.data_fim|date:"d/m/Y" }}
+                        {% else %}
+                            <span class="badge bg-secondary">Indeterminado</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if contrato.is_ativo %}
+                            <span class="badge bg-success">Vigente</span>
+                        {% elif contrato.is_encerrado %}
+                            <span class="badge bg-dark">Encerrado</span>
+                        {% elif contrato.is_expirado %}
+                            <span class="badge bg-danger">Expirado</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Rascunho</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if contrato.is_expirado or contrato.is_ativo %}
+                        <a href="{% url 'fornecedores:contrato_editar' pk=contrato.pk %}" class="btn btn-sm btn-info" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-warning" role="alert">
+        Não há contratos de fornecedores registrados.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

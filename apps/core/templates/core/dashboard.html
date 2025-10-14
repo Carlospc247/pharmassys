@@ -1,0 +1,242 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Dashboard Executivo{% endblock %}
+
+{% block page_title %}Dashboard Executivo{% endblock %}
+
+{% block page_subtitle %}
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Visão geral em tempo real - {% now "d/m/Y H:i" %}
+    </p>
+{% endblock %}
+
+{% block page_actions %}
+    <div class="flex items-center space-x-2">
+        <select id="periodFilter" class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white py-2 pl-3 pr-10 text-base focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm">
+            <option value="7">Últimos 7 dias</option>
+            <option value="30" selected>Últimos 30 dias</option>
+            <option value="90">Últimos 90 dias</option>
+        </select>
+        <button id="exportBtn" class="inline-flex items-center gap-x-2 rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+            <i class="fas fa-download -ml-0.5 h-5 w-5"></i>
+            Exportar
+        </button>
+    </div>
+{% endblock %}
+
+{% block content %}
+<div class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
+    <div class="flex-1 overflow-hidden rounded-lg bg-gradient-to-br from-green-400 to-green-600 px-6 py-8 shadow-md transition-transform duration-300 hover:scale-105">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <div class="flex h-16 w-16 items-center justify-center rounded-full bg-white bg-opacity-30">
+                    <i class="fas fa-shopping-cart text-3xl text-white"></i>
+                </div>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+                <dt class="truncate text-lg font-medium text-white">Vendas Hoje</dt>
+                <dd class="text-3xl font-bold tracking-tight text-white mt-1">AKZ {{ vendas_hoje.total|floatformat:2|default:"0,00"|intcomma }}</dd>
+            </div>
+        </div>
+        <div class="mt-4 text-xs text-white text-opacity-80">
+            {{ vendas_hoje.quantidade|default:"0" }} transações
+        </div>
+    </div>
+
+    <div class="flex-1 overflow-hidden rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 px-6 py-8 shadow-md transition-transform duration-300 hover:scale-105">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <div class="flex h-16 w-16 items-center justify-center rounded-full bg-white bg-opacity-30">
+                    <i class="fas fa-pills text-3xl text-white"></i>
+                </div>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+                <dt class="truncate text-lg font-medium text-white">Total Produtos</dt>
+                <dd class="text-3xl font-bold tracking-tight text-white mt-1">{{ produtos_stats.total|default:"0" }}</dd>
+            </div>
+        </div>
+        <div class="mt-4 text-xs text-white text-opacity-80">
+            Em {{ produtos_stats.total_categorias|default:"0" }} categorias
+        </div>
+    </div>
+
+    <div class="flex-1 overflow-hidden rounded-lg bg-gradient-to-br from-red-400 to-red-600 px-6 py-8 shadow-md transition-transform duration-300 hover:scale-105">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <div class="flex h-16 w-16 items-center justify-center rounded-full bg-white bg-opacity-30">
+                    <i class="fas fa-exclamation-triangle text-3xl text-white"></i>
+                </div>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+                <dt class="truncate text-lg font-medium text-white">Estoque Baixo</dt>
+                <dd class="text-3xl font-bold tracking-tight text-white mt-1">{{ estoque_stats.estoque_baixo|default:"0" }}</dd>
+            </div>
+        </div>
+        <div class="mt-4 text-xs text-white text-opacity-80">
+            Produtos a necessitar de reposição
+        </div>
+    </div>
+</div>
+
+<div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <div class="lg:col-span-2">
+        <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-6 py-5 shadow-sm">
+            <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-white mb-4">Gráfico de Faturamento Mensal</h3>
+            <canvas id="faturamentoChart"></canvas>
+        </div>
+    </div>
+
+    <div class="lg:col-span-1">
+        <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-sm">
+            <div class="p-6">
+                <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-white">Vendas Recentes</h3>
+                <ul role="list" class="mt-4 divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for venda in vendas_recentes %}
+                        <li class="flex py-4">
+                            <div class="flex-shrink-0">
+                                <span class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/50">
+                                    <i class="fas fa-receipt text-blue-500"></i>
+                                </span>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">Venda #{{ venda.id }}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">{{ venda.cliente.nome_completo|default:"Consumidor Final" }}</p>
+                            </div>
+                            <div class="ml-auto flex flex-col items-end">
+                                <p class="text-sm font-semibold text-gray-900 dark:text-white">AKZ {{ venda.total|floatformat:2|intcomma }}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">{{ venda.data_venda|date:"H:i" }}</p>
+                            </div>
+                        </li>
+                    {% empty %}
+                        <li class="py-4 text-center text-sm text-gray-500 dark:text-gray-400">Nenhuma venda registada hoje.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    {% if user.is_superuser %}
+    <div class="lg:col-span-2 mt-8">
+        <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-sm">
+            <div class="p-6">
+                <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-white">Administração do Sistema</h3>
+                <div class="mt-4 flow-root">
+                    <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                        <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                            <table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
+                                <thead>
+                                    <tr>
+                                        <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-white sm:pl-0">Empresa</th>
+                                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">NIF</th>
+                                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Registo</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                    {% for empresa in lista_empresas %}
+                                    <tr>
+                                        <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-white sm:pl-0">{{ empresa.nome }}</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">{{ empresa.nif }}</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">{{ empresa.data_cadastro|date:"d/m/Y" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const faturamentoLabels = JSON.parse("{{ faturamento_labels|safe }}");
+        const faturamentoData = JSON.parse("{{ faturamento_data|safe }}");
+
+        const ctx = document.getElementById('faturamentoChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: faturamentoLabels,
+                datasets: [{
+                    label: 'Faturamento Total (AKZ)',
+                    data: faturamentoData,
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Valor (AKZ)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Mês'
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}
+
+<!--
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const faturamentoLabels = JSON.parse("{{ faturamento_labels|safe }}");
+        const faturamentoData = JSON.parse("{{ faturamento_data|safe }}");
+
+        const ctx = document.getElementById('faturamentoChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: faturamentoLabels,
+                datasets: [{
+                    label: 'Faturamento Total (AKZ)',
+                    data: faturamentoData,
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Valor (AKZ)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Mês'
+                        }
+                    }
+                }
+            }
+        });
+    });
+
+</script>
+
+
+-->

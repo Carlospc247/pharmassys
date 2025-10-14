@@ -1,0 +1,45 @@
+<!-- templates/financeiro/conta_pagar/agenda.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Agenda de Pagamentos{% endblock %}
+{% block page_title %}Contas Agendadas{% endblock %}
+
+{% block content %}
+<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+        Agenda de Pagamentos
+    </h1>
+
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                    <th class="px-6 py-3 text-left">Fornecedor</th>
+                    <th class="px-6 py-3 text-left">Data Agendamento</th>
+                    <th class="px-6 py-3 text-left">Valor</th>
+                    <th class="px-6 py-3 text-left">Status</th>
+                    <th class="px-6 py-3 text-left">Ações</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {% for conta in contas %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td class="px-6 py-4">{{ conta.fornecedor.nome }}</td>
+                    <td class="px-6 py-4">{{ conta.data_agendamento|date:"d/m/Y" }}</td>
+                    <td class="px-6 py-4">{{ conta.valor|floatformat:2 }} Kz</td>
+                    <td class="px-6 py-4">{{ conta.get_status_display }}</td>
+                    <td class="px-6 py-4">
+                        <a href="{% url 'financeiro:conta_pagar_detail' conta.id %}" class="text-blue-600 hover:text-blue-900">Detalhes</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Nenhuma conta agendada encontrada.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

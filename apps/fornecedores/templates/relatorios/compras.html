@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Relatório de Volume de Compras{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Relatório de Volume e Distribuição de Compras</h2>
+    <p class="lead">Monitoramento dos gastos e concentração de compras.</p>
+    <hr>
+    
+    {# Assumindo que a view injeta 'compras_data' #}
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-header">Total Gasto (Últimos 12 Meses)</div>
+                <div class="card-body"><h1 class="card-title">Kz {{ compras_data.total_gasto_anual|floatformat:2|default:"0.00" }}</h1></div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card shadow-sm p-3">
+                <h4>Evolução Mensal do Gasto</h4>
+                <canvas id="spendingChart" height="100"></canvas>
+                <p class="text-muted small">Gráfico de linha mostrando `compras_data.gasto_mensal`.</p>
+            </div>
+        </div>
+    </div>
+    
+    <h4>Top 5 Fornecedores por Volume de Compras</h4>
+    <table class="table table-bordered">
+        <thead>
+            <tr class="table-secondary"><th>Posição</th><th>Fornecedor</th><th>Total Gasto (Kz)</th><th>% Total</th></tr>
+        </thead>
+        <tbody>
+            {# Itere sobre compras_data.top_fornecedores #}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,1295 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="pt-pt" class="h-full {% if interface_prefs.tema == 'dark' %}dark{% endif %}">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <meta name="description" content="vistoGEST - Vistoria e Gestão Personalizada">
+
+    <title>{% block title %}vistoGEST{% endblock %} | Sistema de Gestão</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{% load static %}{% static 'img/favicon.ico' %}">
+    <link rel="apple-touch-icon" href="{% load static %}{% static 'images/apple-touch-icon.png' %}">
+
+    <!-- TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.3/dist/tailwind.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            /* --- 1.1 Escalas Fundamentais --- */
+            --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+
+            --space-1: 0.25rem;
+            /* 4px */
+            --space-2: 0.5rem;
+            /* 8px */
+            --space-3: 0.75rem;
+            /* 12px */
+            --space-4: 1rem;
+            /* 16px */
+            --space-5: 1.25rem;
+            /* 20px */
+            --space-6: 1.5rem;
+            /* 24px */
+            --space-8: 2rem;
+            /* 32px */
+            --space-10: 2.5rem;
+            /* 40px */
+            --space-12: 3rem;
+            /* 48px */
+            --space-16: 4rem;
+            /* 64px */
+
+            --radius-sm: 0.125rem;
+            /* 2px */
+            --radius-base: 0.375rem;
+            /* 6px */
+            --radius-md: 0.5rem;
+            /* 8px */
+            --radius-lg: 0.75rem;
+            /* 12px */
+            --radius-xl: 1rem;
+            /* 16px */
+            --radius-2xl: 1.5rem;
+            /* 24px */
+            --radius-full: 9999px;
+
+            --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-base: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+            --z-dropdown: 1000;
+            --z-modal: 1050;
+            --z-toast: 1080;
+
+            --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-base: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+            /* --- 1.2 Paleta de Cores Primitivas --- */
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --gray-950: #030712;
+            --primary-50: #eef2ff;
+            --primary-100: #e0e7ff;
+            --primary-200: #c7d2fe;
+            --primary-300: #a5b4fc;
+            --primary-400: #818cf8;
+            --primary-500: #6366f1;
+            --primary-600: #4f46e5;
+            --primary-700: #4338ca;
+            --primary-800: #3730a3;
+            --primary-900: #312e81;
+            --primary-950: #1e1b4b;
+            --success-50: #ecfdf5;
+            --success-500: #10b981;
+            --success-600: #059669;
+            --success-700: #047857;
+            --success-900: #064e3b;
+            --warning-50: #fffbeb;
+            --warning-500: #f59e0b;
+            --warning-600: #d97706;
+            --warning-700: #b45309;
+            --warning-900: #78350f;
+            --error-50: #fef2f2;
+            --error-500: #ef4444;
+            --error-600: #dc2626;
+            --error-700: #b91c1c;
+            --error-900: #7f1d1d;
+            --info-50: #eff6ff;
+            --info-500: #3b82f6;
+            --info-600: #2563eb;
+            --info-700: #1d4ed8;
+            --info-900: #1e3a8a;
+
+            /* --- 1.3 Tokens Semânticos (Modo Claro) --- */
+            --color-background: var(--gray-50);
+            --color-surface: #ffffff;
+            --color-surface-hover: var(--gray-50);
+            --color-border: var(--gray-200);
+            --color-text-primary: var(--gray-900);
+            --color-text-secondary: var(--gray-600);
+            --color-text-muted: var(--gray-500);
+            --color-text-disabled: var(--gray-400);
+            --color-text-link: var(--primary-600);
+            --color-text-link-hover: var(--primary-700);
+            --color-primary: var(--primary-600);
+            --color-primary-hover: var(--primary-700);
+            --focus-ring: 0 0 0 3px rgb(99 102 241 / 0.12);
+        }
+
+        /* --- 1.4 Tokens Semânticos (Modo Escuro) --- */
+        [data-theme="dark"],
+        :root:not([data-theme]) .dark {
+            --color-background: var(--gray-950);
+            --color-surface: var(--gray-900);
+            --color-surface-hover: var(--gray-800);
+            --color-border: var(--gray-800);
+            --color-text-primary: var(--gray-100);
+            --color-text-secondary: var(--gray-300);
+            --color-text-muted: var(--gray-400);
+            --color-text-disabled: var(--gray-600);
+            --color-text-link: var(--primary-400);
+            --color-text-link-hover: var(--primary-300);
+            --color-primary: var(--primary-500);
+            --color-primary-hover: var(--primary-400);
+            --focus-ring: 0 0 0 3px rgb(99 102 241 / 0.25);
+        }
+
+        /* ============================================
+   2. ESTILOS DE BASE GLOBAIS
+============================================ */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        html {
+            font-family: var(--font-primary);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--color-background);
+            color: var(--color-text-secondary);
+        }
+
+        /* ============================================
+   3. BIBLIOTECA DE UTILITÁRIOS
+============================================ */
+
+        /* --- 3.1 Layout & Estrutura --- */
+        .container {
+            width: 100%;
+            margin: 0 auto;
+            padding: 0 var(--space-4);
+        }
+
+        .mx-auto {
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .flex {
+            display: flex;
+        }
+
+        .grid {
+            display: grid;
+        }
+
+        .block {
+            display: block;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .flex-col {
+            flex-direction: column;
+        }
+
+        .flex-grow {
+            flex-grow: 1;
+        }
+
+        .items-center {
+            align-items: center;
+        }
+
+        .justify-center {
+            justify-content: center;
+        }
+
+        .justify-between {
+            justify-content: space-between;
+        }
+
+        .grid-cols-1 {
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+        }
+
+        /* --- 3.2 Espaçamento --- */
+        .p-6 {
+            padding: var(--space-6);
+        }
+
+        .p-3 {
+            padding: var(--space-3);
+        }
+
+        .px-4 {
+            padding-left: var(--space-4);
+            padding-right: var(--space-4);
+        }
+
+        .py-8 {
+            padding-top: var(--space-8);
+            padding-bottom: var(--space-8);
+        }
+
+        .mt-4 {
+            margin-top: var(--space-4);
+        }
+
+        .mb-2 {
+            margin-bottom: var(--space-2);
+        }
+
+        .mb-4 {
+            margin-bottom: var(--space-4);
+        }
+
+        .mb-8 {
+            margin-bottom: var(--space-8);
+        }
+
+        .mr-2 {
+            margin-right: var(--space-2);
+        }
+
+        .mr-4 {
+            margin-right: var(--space-4);
+        }
+
+        .gap-6 {
+            gap: var(--space-6);
+        }
+
+        /* --- 3.3 Tipografia --- */
+        .text-3xl {
+            font-size: 1.875rem;
+            font-weight: 700;
+        }
+
+        .text-2xl {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .text-xl {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .text-lg {
+            font-size: 1.125rem;
+            font-weight: 500;
+        }
+
+        .text-sm {
+            font-size: 0.875rem;
+        }
+
+        .font-bold {
+            font-weight: 700;
+        }
+
+        .font-semibold {
+            font-weight: 600;
+        }
+
+        .font-medium {
+            font-weight: 500;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        /* --- 3.4 Bordas & Sombras --- */
+        .rounded-lg {
+            border-radius: var(--radius-lg);
+        }
+
+        .rounded-full {
+            border-radius: var(--radius-full);
+        }
+
+        .shadow-md {
+            box-shadow: var(--shadow-base);
+        }
+
+        /* --- 3.5 Cores (Utilitários) --- */
+        .bg-white {
+            background-color: var(--color-surface);
+        }
+
+        .bg-gray-100 {
+            background-color: var(--color-background);
+        }
+
+        .bg-gray-200 {
+            background-color: var(--color-surface-hover);
+        }
+
+        .text-gray-900 {
+            color: var(--color-text-primary);
+        }
+
+        .text-gray-600 {
+            color: var(--color-text-secondary);
+        }
+
+        .text-gray-500 {
+            color: var(--color-text-muted);
+        }
+
+        .bg-primary {
+            background-color: var(--color-primary);
+        }
+
+        .text-white {
+            color: #fff;
+        }
+
+        .hover\:bg-primary-dark:hover {
+            background-color: var(--color-primary-hover);
+        }
+
+        .text-green-500 {
+            color: var(--success-500);
+        }
+
+        .text-red-500 {
+            color: var(--error-500);
+        }
+
+        /* Dark Mode Overrides */
+        .dark .dark\:bg-gray-900 {
+            background-color: var(--color-background);
+        }
+
+        .dark .dark\:bg-gray-800 {
+            background-color: var(--color-surface);
+        }
+
+        .dark .dark\:bg-gray-700 {
+            background-color: var(--color-surface-hover);
+        }
+
+        .dark .dark\:text-gray-100,
+        .dark .dark\:text-gray-200 {
+            color: var(--color-text-primary);
+        }
+
+        .dark .dark\:text-gray-300 {
+            color: var(--color-text-secondary);
+        }
+
+        .dark .dark\:text-gray-400 {
+            color: var(--color-text-muted);
+        }
+
+        /* --- 3.6 Interações & Transições --- */
+        .transition-transform {
+            transition: transform var(--transition-base);
+        }
+
+        .hover\:scale-105:hover {
+            transform: scale(1.05);
+        }
+
+        /*-----------------------------
+        */
+        .gradient-bg {
+            background: linear-gradient(135deg, #0ea5e9 0%, #8b5cf6 100%);
+        }
+        .card-gradient {
+            background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+        }
+        .dark .card-gradient {
+            background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        /* ============================================
+   4. COMPONENTES E ANIMAÇÕES
+============================================ */
+        .loading-spinner {
+            animation: spin 2s linear infinite;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ============================================
+   5. ACESSIBILIDADE E IMPRESSÃO
+============================================ */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        @media print {
+            * {
+                background: transparent !important;
+                color: black !important;
+                box-shadow: none !important;
+            }
+        }
+
+        /* Adicione este código ao seu <style> principal em base.html */
+
+        .loading-overlay {
+            z-index: 9999;
+            /* Um valor muito alto para garantir que fica no topo de tudo */
+        }
+
+        /* Adicione esta classe ao seu <style> principal em base.html */
+
+        .gradient-overlay-bg {
+            /* O gradiente indigo */
+            background-image: linear-gradient(to top right, rgba(55, 48, 163, 0.7), rgba(30, 27, 75, 0.8));
+
+            /* Opcional: Adiciona um brilho subtil por trás */
+            box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.2);
+        }
+
+
+
+        /* Em templates/base.html, dentro de <style> */
+
+        /* --- Estilos para Toggle Switch --- */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.toggle-slider {
+            background-color: #4f46e5;
+            /* Cor primária */
+        }
+
+        input:checked+.toggle-slider:before {
+            transform: translateX(16px);
+        }
+
+        .dark .toggle-slider {
+            background-color: #4b5563;
+            /* cinza escuro */
+        }
+
+        .dark input:checked+.toggle-slider {
+            background-color: #6366f1;
+            /* primário mais claro */
+        }
+
+
+        /* --- Estilos para a biblioteca Select2.js (Tema Tailwind) --- */
+        /* (Estes estilos fazem o Select2 combinar com o resto do seu design) */
+        .select2-container--default .select2-selection--multiple {
+            background-color: white;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            padding: 0.25rem;
+            min-height: 42px;
+        }
+
+        .dark .select2-container--default .select2-selection--multiple {
+            background-color: #374151;
+            /* dark:bg-gray-700 */
+            border-color: #4b5563;
+            /* dark:ring-gray-600 */
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            background-color: #e0e7ff;
+            /* primary-100 */
+            border-color: #a5b4fc;
+            /* primary-300 */
+            color: #3730a3;
+            /* primary-800 */
+            padding: 2px 8px;
+            border-radius: 0.25rem;
+        }
+
+        .dark .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            background-color: #312e81;
+            /* primary-900 */
+            border-color: #4f46e5;
+            /* primary-600 */
+            color: #e0e7ff;
+            /* primary-100 */
+        }
+
+        .select2-container--default .select2-search--inline .select2-search__field {
+            color: #111827;
+        }
+
+        .dark .select2-container--default .select2-search--inline .select2-search__field {
+            color: #f9fafb;
+        }
+
+        .select2-dropdown {
+            background-color: white;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+        }
+
+        .dark .select2-dropdown {
+            background-color: #1f2937;
+            border-color: #4b5563;
+        }
+
+        .dark .select2-results__option {
+            color: #f9fafb;
+        }
+
+        .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+            background-color: #4f46e5;
+            color: white;
+        }
+
+        nav {/*garante que a área do menu (<nav>) seja rolável quando o conteúdo ultrapassar a altura da tela*/
+            max-height: calc(100vh - 64px); /* Ajuste conforme necessário */
+            overflow-y: auto; /* Torna a área rolável */
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body class="h-full overflow-hidden" x-data="appData('{{ interface_prefs.tema|default:'light' }}')" x-init="initApp()">
+    <!-- Loading Overlay -->
+    <div x-show="loading" x-cloak x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200"
+        x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+        class="fixed inset-0 flex flex-col items-center justify-center backdrop-blur-sm loading-overlay gradient-overlay-bg">
+        <!--class="fixed inset-0 flex flex-col items-center justify-center bg-gray-900 bg-opacity-50 backdrop-blur-sm loading-overlay">-->
+
+        <svg class="loading-spinner h-12 w-12 text-white" xmlns="http://www.w3.org/2000/svg" fill="none"
+            viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+            </path>
+        </svg>
+
+        <span class="mt-4 text-white text-lg font-medium tracking-wider">Carregando...</span>
+    </div>
+
+    <!--Fechar e abrir sidebar/menu em dispositivo model-->
+    <div x-show="mobileMenuOpen" x-cloak @click="mobileMenuOpen = false" x-transition:enter="ease-out duration-300"
+        x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+        x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0" class="fixed inset-0 z-40 bg-black bg-opacity-50 backdrop-blur-sm lg:hidden">
+    </div>
+
+  <div class="flex h-full ">
+        <!-- Sidebar -->
+        <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" class="fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 
+                      sidebar-transition lg:translate-x-0 lg:static lg:inset-0">
+
+            <!-- Logo -->
+            <div class="flex h-16 shrink-0 items-center px-6 border-b border-gray-200 dark:border-gray-700">
+                <img class="h-8 w-auto" src="{% load static %}{% static 'img/logo.png' %}" alt="vistoGEST">
+                <span class="ml-3 text-xl font-bold text-indigo-900 dark:text-white">vistoGEST</span>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex flex-1 flex-col overflow-y-auto p-4 custom-scrollbar">
+                <ul role="list" class="flex flex-1 flex-col gap-y-1">
+                    <!-- Dashboard -->
+                    <li>
+                        <a href="{% url 'core:dashboard' %}" class="{% if request.resolver_match.namespace == 'core' and request.resolver_match.url_name == 'dashboard' %}bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-200{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800{% endif %} 
+                                  group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold">
+                            <i class="fas fa-tachometer-alt h-6 w-6 shrink-0"></i>
+                            Dashboard
+                        </a>
+                    </li>
+
+                    <!-- Vendas -->
+                    {% if perms.vendas.view_venda %}
+                    <li
+                        x-data="{ open: {% if request.resolver_match.namespace == 'vendas' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open"
+                            class="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                                       group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
+                            <i class="fas fa-shopping-cart h-6 w-6 shrink-0"></i>
+                            Vendas
+                            <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform"
+                                :class="open ? 'rotate-90' : ''"></i>
+                        </button>
+                        <ul x-show="open" x-cloak class="mt-1 px-2">
+                            <li><a href="{% url 'vendas:pdv' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-cash-register mr-2"></i>PDV
+                            </a></li>
+                            <li><a href="{% url 'vendas:lista' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-list mr-2"></i>Vendas
+                            </a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+
+                    {% if perms.vendas.view_venda or perms.vendas.view_faturacredito or perms.vendas.view_recibo or perms.vendas.view_faturaproforma %}
+                    <li x-data="{ open: {% if 'fatura' in request.path or 'recibo' in request.path or 'proforma' in request.path or 'pdv' in request.path or 'documentos' in request.path %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open"
+                            class="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                                group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
+                            <i class="fas fa-file-invoice-dollar h-6 w-6 shrink-0"></i> 
+                            Faturamento e Documentos
+                            <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform"
+                            :class="open ? 'rotate-90' : ''"></i>
+                        </button>
+                        <ul x-show="open" x-cloak class="mt-1 px-2">
+                            
+                            <!-- Dashboard -->
+                            <li><a href="{% url 'vendas:documentos_dashboard' %}" 
+                                class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-chart-line mr-2"></i>Dashboard Documentos
+                            </a></li>
+                            
+                            <li class="border-t border-gray-200 dark:border-gray-700 my-2"></li>
+                            
+                            <!-- PDV - Vendas Diretas -->
+                            <li class="px-2 py-1">
+                                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                    Vendas Diretas (FR)
+                                </span>
+                            </li>
+                            
+                            {% if perms.vendas.add_venda %}
+                            <li><a href="{% url 'vendas:pdv' %}" 
+                                class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-cash-register mr-2"></i>PDV - Ponto de Venda
+                            </a></li>
+                            {% endif %}
+                            
+                            {% if perms.vendas.view_venda %}
+                            <li><a href="{% url 'vendas:vendas_lista' %}" 
+                                class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-receipt mr-2"></i>Vendas Realizadas (FR)
+                            </a></li>
+                            {% endif %}
+                            
+                            <li class="border-t border-gray-200 dark:border-gray-700 my-2"></li>
+                            
+                            <!-- Em Desenvolvimento -->
+                             <!--
+                            <li class="px-2 py-1">
+                                <span class="text-xs font-semibold text-green-500 dark:text-green-400 uppercase tracking-wide">
+                                    ✅ Documentos Disponíveis
+                                </span>
+                            </li>
+                             -->
+                            
+                            {% if perms.vendas.view_faturacredito %}
+                            <li><a href="{% url 'vendas:faturas_credito_lista' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-file-invoice mr-2"></i>Faturas a Crédito (FT)
+                                </a></li>
+                            {% endif %}
+                            
+                            {% if perms.vendas.view_recibo %}
+                            <li><a href="{% url 'vendas:recibos_lista' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-money-check-alt mr-2"></i>Recibos (REC)
+                                </a></li>
+                            {% endif %}
+                            
+                            {% if perms.vendas.view_faturaproforma %}
+                            <li><a href="{% url 'vendas:proformas_lista' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-file-contract mr-2"></i>Proformas
+                                </a></li>
+                            {% endif %}
+                            
+                            <li class="border-t border-gray-200 dark:border-gray-700 my-2"></li>
+                            
+                            {% if perms.vendas.add_faturacredito %}
+                            <li><a href="{% url 'vendas:nova_fatura_credito' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-plus-circle mr-2"></i>Nova Fatura Crédito
+                                </a></li>
+                            {% endif %}
+                            
+                            {% if perms.vendas.add_faturaproforma %}
+                            <li><a href="{% url 'vendas:nova_proforma' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-hand-holding-usd mr-2"></i>Nova Proforma
+                                </a></li>
+                            {% endif %}
+                            
+                            {% if perms.vendas.view_faturacredito %}
+                            <li><a href="{% url 'vendas:contas_receber' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-coins mr-2"></i>Contas a Receber
+                                </a></li>
+                            {% endif %}
+                            
+                            </ul>
+                            </li>
+                            {% endif %}
+
+
+                    <!-- Produtos -->
+                    {% if perms.produtos.view_produto %}
+                    <li
+                        x-data="{ open: {% if request.resolver_match.namespace == 'produtos' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open"
+                            class="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                                       group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
+                            <i class="fas fa-box h-6 w-6 shrink-0"></i>
+                            Produtos/Serviços
+                            <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform"
+                                :class="open ? 'rotate-90' : ''"></i>
+                        </button>
+                        <ul x-show="open" x-cloak class="mt-1 px-2">
+                            <li><a href="{% url 'produtos:produto_list' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-list mr-2"></i>Produtos
+                                </a>
+                            </li>
+                            <li><a href="{% url 'servicos:servico_list' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-hands-helping mr-2"></i></i>Serviços
+                                </a>
+                            </li>
+                            <li><a href="{% url 'produtos:categoria_list' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-tags mr-2"></i>Categorias
+                                </a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    <!-- Estoque -->
+                    {% if perms.estoque.view_movimentacaoestoque %}
+                    <li
+                        x-data="{ open: {% if request.resolver_match.namespace == 'estoque' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open"
+                            class="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                                       group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
+                            <i class="fas fa-warehouse h-6 w-6 shrink-0"></i>
+                            Estoque
+                            <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform"
+                                :class="open ? 'rotate-90' : ''"></i>
+                        </button>
+                        <ul x-show="open" x-cloak class="mt-1 px-2">
+                            <li><a href="{% url 'estoque:dashboard' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-chart-bar mr-2"></i>Visão Geral
+                                </a></li>
+                            <li><a href="{% url 'estoque:movimentacao_lista' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-exchange-alt mr-2"></i>Movimentações
+                                </a></li>
+                            <li><a href="{% url 'estoque:inventario_lista' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-clipboard-list mr-2"></i>Inventário
+                                </a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    <!-- Clientes -->
+                    {% if perms.clientes.view_cliente %}
+                    <li
+                        x-data="{ open: {% if request.resolver_match.namespace == 'clientes' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open"
+                            class="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                                       group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
+                            <i class="fas fa-users h-6 w-6 shrink-0"></i>
+                            Clientes
+                            <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform"
+                                :class="open ? 'rotate-90' : ''"></i>
+                        </button>
+                        <ul x-show="open" x-cloak class="mt-1 px-2">
+                            <li><a href="{% url 'clientes:dashboard' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-list mr-2"></i>Clientes
+                                </a></li>
+                            
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    <!-- Fornecedores -->
+                    {% if perms.fornecedores.view_fornecedor %}
+                    <li>
+                        <a href="{% url 'fornecedores:lista' %}" class="{% if request.resolver_match.namespace == 'fornecedores' %}bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-200{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800{% endif %} 
+                                  group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold">
+                            <i class="fas fa-truck h-6 w-6 shrink-0"></i>
+                            Fornecedores
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    <!-- Funcionários -->
+                    {% if perms.funcionarios.view_funcionario %}
+                    <li
+                        x-data="{ open: {% if request.resolver_match.namespace == 'funcionarios' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open"
+                            class="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                                       group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
+                            <i class="fas fa-user-tie h-6 w-6 shrink-0"></i>
+                            Funcionários
+                            <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform"
+                                :class="open ? 'rotate-90' : ''"></i>
+                        </button>
+                        <ul x-show="open" x-cloak class="mt-1 px-2">
+                            <li><a href="{% url 'funcionarios:dashboard' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-list mr-2"></i>Dashboard
+                                </a></li>
+                            <li><a href="{% url 'funcionarios:funcionarios' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-list mr-2"></i>Ver Funcionários
+                                </a></li>
+                            <li><a href="{% url 'funcionarios:cargo_lista' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-briefcase mr-2"></i>Ver Cargos
+                                </a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    <!-- Financeiro -->
+                    {% if perms.financeiro.view_contareceber %}
+                    <li
+                        x-data="{ open: {% if request.resolver_match.namespace == 'financeiro' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open"
+                            class="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                                       group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
+                            <i class="fas fa-dollar-sign h-6 w-6 shrink-0"></i>
+                            Financeiro
+                            <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform"
+                                :class="open ? 'rotate-90' : ''"></i>
+                        </button>
+                        <ul x-show="open" x-cloak class="mt-1 px-2">
+                            <li><a href="{% url 'financeiro:dashboard' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-chart-line mr-2"></i>Visão Geral
+                                </a></li>
+                            <li><a href="{% url 'financeiro:conta_receber_lista' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-arrow-down mr-2 text-green-500"></i>Contas a Receber
+                                </a></li>
+                            <li><a href="{% url 'financeiro:conta_pagar_lista' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-arrow-up mr-2 text-red-500"></i>Contas a Pagar
+                                </a></li>
+                            <li><a href="{% url 'financeiro:fluxo_caixa' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-money-bill-wave mr-2"></i>Fluxo de Caixa
+                                </a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    <!-- Relatórios -->
+                    {% if perms.relatorios.view_relatorio %}
+                    <li
+                        x-data="{ open: {% if request.resolver_match.namespace == 'relatorios' %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open"
+                            class="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                                       group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
+                            <i class="fas fa-chart-bar h-6 w-6 shrink-0"></i>
+                            Relatórios
+                            <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform"
+                                :class="open ? 'rotate-90' : ''"></i>
+                        </button>
+                        <ul x-show="open" x-cloak class="mt-1 px-2">
+                            <li><a href="{% url 'relatorios:dashboard' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-tachometer-alt mr-2"></i>Dashboard
+                                </a></li>
+                            <li><a href="{% url 'relatorios:vendas' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-shopping-cart mr-2"></i>Vendas
+                                </a>
+                            </li>
+                            <li><a href="{% url 'relatorios:estoque' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-warehouse mr-2"></i>Estoque
+                                </a></li>
+                            <li><a href="{% url 'relatorios:financeiro' %}"
+                                    class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-dollar-sign mr-2"></i>Financeiro
+                                </a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    <!-- Configurações -->
+                    {% if perms.configuracoes.view_personalizacaointerface %}
+                    <li class="mt-auto">
+                        <a href="{% url 'configuracoes:dashboard' %}" class="{% if request.resolver_match.namespace == 'configuracoes' %}bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-200{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800{% endif %} 
+                                  group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold">
+                            <i class="fas fa-cog h-6 w-6 shrink-0"></i>
+                            Configurações
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex flex-1 flex-col lg:pl-0">
+            <!-- Top Navigation -->
+            <header class="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 dark:border-gray-700 
+                          bg-white dark:bg-gray-900 px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+
+                <!-- Mobile menu button -->
+                <button @click="sidebarOpen = !sidebarOpen" type="button"
+                    class="-m-2.5 p-2.5 text-gray-700 dark:text-gray-300 lg:hidden">
+                    <span class="sr-only">Abrir sidebar</span>
+                    <i class="fas fa-bars h-6 w-6"></i>
+                </button>
+
+                <!-- Separator -->
+                <div class="h-6 w-px bg-gray-200 dark:bg-gray-700 lg:hidden"></div>
+
+                <!-- Breadcrumbs -->
+                <div class="flex flex-1 gap-x-4 lg:gap-x-6">
+                    <nav class="flex" aria-label="Breadcrumb">
+                        <ol role="list" class="flex items-center space-x-4">
+                            {% block breadcrumbs %}
+                            <li><a href="{% url 'core:dashboard' %}"
+                                    class="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400">
+                                    <i class="fas fa-home h-5 w-5"></i>
+                                </a></li>
+                            {% endblock %}
+                        </ol>
+                    </nav>
+                </div>
+
+                <!-- Right side -->
+                <div class="flex items-center gap-x-4 lg:gap-x-6">
+                    <!-- Notifications -->
+                    <div x-data="{ open: false }" class="relative">
+                        <button @click="open = !open" type="button"
+                            class="relative -m-2.5 p-2.5 text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400">
+                            <span class="sr-only">Ver notificações</span>
+                            <i class="fas fa-bell h-6 w-6"></i>
+                            <span
+                                class="absolute -top-1 -right-1 h-4 w-4 bg-red-400 rounded-full text-xs text-white flex items-center justify-center">
+                                {{ notifications_count|default:0 }}
+                            </span>
+                        </button>
+
+                        <div x-show="open" @click.away="open = false" x-cloak
+                            x-transition:enter="transition ease-out duration-200"
+                            x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                            x-transition:leave="transition ease-in duration-75"
+                            x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+                            class="absolute right-0 z-10 mt-2 w-80 origin-top-right rounded-md bg-white dark:bg-gray-800 
+                                    py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                            <div class="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                                <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Notificações</h3>
+                            </div>
+                            <div class="max-h-96 overflow-y-auto">
+                                {% for notification in notifications|slice:":5" %}
+                                <a href="{{ notification.url|default:'#' }}"
+                                    class="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <div class="flex">
+                                        <div class="flex-shrink-0">
+                                            <i
+                                                class="fas fa-{{ notification.icon|default:'info-circle' }} h-5 w-5 text-{{ notification.type|default:'blue' }}-500"></i>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{
+                                                notification.title }}</p>
+                                            <p class="text-sm text-gray-500 dark:text-gray-400">{{
+                                                notification.message|truncatechars:50 }}</p>
+                                            <p class="text-xs text-gray-400 dark:text-gray-500">{{
+                                                notification.created_at|timesince }} atrás</p>
+                                        </div>
+                                    </div>
+                                </a>
+                                {% empty %}
+                                <div class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">
+                                    Nenhuma notificação
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="border-t border-gray-200 dark:border-gray-700">
+                                <a href="{% url 'core:notifications' %}"
+                                    class="block px-4 py-2 text-sm text-center text-blue-600 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    Ver todas as notificações
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div x-data="{ open: false }" class="relative">
+                        <button @click="open = !open" type="button"
+                            class="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400">
+                            <span class="sr-only">Ações rápidas</span>
+                            <i class="fas fa-plus h-6 w-6"></i>
+                        </button>
+
+                        <div x-show="open" @click.away="open = false" x-cloak class="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-gray-800 
+                                    py-1 shadow-lg ring-1 ring-black ring-opacity-5">
+                            <a href="{% url 'vendas:pdv' %}"
+                                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i class="fas fa-cash-register mr-2"></i>Nova Venda (PDV)
+                            </a>
+                            <a href="{% url 'produtos:lote_create' %}"
+                                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i class="fas fa-box mr-2"></i>Cadastrar Produto
+                            </a>
+                            <a href="{% url 'clientes:novo' %}"
+                                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i class="fas fa-user-plus mr-2"></i>Cadastrar Cliente
+                            </a>
+                            <a href="{% url 'produtos:lote_create' %}"
+                                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i class="fas fa-truck mr-2"></i>Entrada de Estoque
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Separator -->
+                    <div class="hidden lg:block lg:h-6 lg:w-px lg:bg-gray-200 dark:lg:bg-gray-700"></div>
+
+                    <!-- User menu -->
+                    <div x-data="{ open: false }" class="relative">
+                        <button @click="open = !open" type="button" class="flex items-center -m-1.5 p-1.5">
+                            <span class="sr-only">Abrir menu do usuário</span>
+                            <img class="h-8 w-8 rounded-full bg-gray-50"
+                                src="{% if user.funcionario.foto %}{{ user.funcionario.foto.url }}{% else %}{% load static %}{% static 'images/default-avatar.png' %}{% endif %}"
+                                alt="{{ user.get_full_name|default:user.username }}">
+                            <span class="hidden lg:flex lg:items-center">
+                                <span class="ml-4 text-sm font-semibold leading-6 text-gray-900 dark:text-gray-100">
+                                    {{ user.get_full_name|default:user.username }}
+                                </span>
+                                <i class="ml-2 h-5 w-5 text-gray-400 fas fa-chevron-down"></i>
+                            </span>
+                        </button>
+
+                        <div x-show="open" @click.away="open = false" x-cloak
+                            x-transition:enter="transition ease-out duration-200"
+                            x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                            x-transition:leave="transition ease-in duration-75"
+                            x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+                            class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white dark:bg-gray-800 
+                                    py-1 shadow-lg ring-1 ring-black ring-opacity-5">
+
+                            <div class="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                                <p class="text-sm text-gray-700 dark:text-gray-300">{{
+                                    user.get_full_name|default:user.username }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ user.email }}</p>
+                                {% if user.funcionario.cargo %}
+                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ user.funcionario.cargo.nome }}
+                                </p>
+                                {% endif %}
+                            </div>
+
+                            {% if user.funcionario %}
+                            <a href="{% url 'funcionarios:perfil' user.funcionario.pk %}"
+                                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i class="fas fa-user mr-2"></i>Meu Perfil
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'configuracoes:interface' %}"
+                                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i class="fas fa-palette mr-2"></i>Preferências
+                            </a>
+                            <button @click="toggleDarkMode()"
+                                class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i class="fas fa-moon mr-2"></i><span
+                                    x-text="darkMode ? 'Modo Claro' : 'Modo Escuro'"></span>
+                            </button>
+
+                            <div class="border-t border-gray-200 dark:border-gray-700"></div>
+
+                            <form method="post" action="{% url 'logout' %}">
+                                {% csrf_token %}
+                                <button type="submit"
+                                    class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                    <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <main class="flex-1 py-6 overflow-y-auto">
+                <div class="px-4 sm:px-6 lg:px-8">
+                    <!-- Page Header -->
+                    {% block page_header %}
+                    <div class="mb-8">
+                        <div class="md:flex md:items-center md:justify-between">
+                            <div class="min-w-0 flex-1">
+                                <h1
+                                    class="text-2xl font-bold leading-7 text-gray-900 dark:text-gray-100 sm:truncate sm:text-3xl sm:tracking-tight">
+                                    {% block page_title %}{{ title|default:"Dashboard" }}{% endblock %}
+                                </h1>
+                                {% block page_subtitle %}{% endblock %}
+                            </div>
+                            <div class="mt-4 flex md:ml-4 md:mt-0">
+                                {% block page_actions %}{% endblock %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endblock %}
+
+                    <!-- Messages -->
+                    {% if messages %}
+                    <div x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)"
+                        class="mb-6 space-y-2">
+                        {% for message in messages %}
+                        <div
+                            class="rounded-md p-4 {% if message.tags == 'error' %}bg-red-50 dark:bg-red-900{% elif message.tags == 'warning' %}bg-yellow-50 dark:bg-yellow-900{% elif message.tags == 'success' %}bg-green-50 dark:bg-green-900{% else %}bg-blue-50 dark:bg-blue-900{% endif %}">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    {% if message.tags == 'error' %}
+                                    <i class="fas fa-exclamation-circle h-5 w-5 text-red-400"></i>
+                                    {% elif message.tags == 'warning' %}
+                                    <i class="fas fa-exclamation-triangle h-5 w-5 text-yellow-400"></i>
+                                    {% elif message.tags == 'success' %}
+                                    <i class="fas fa-check-circle h-5 w-5 text-green-400"></i>
+                                    {% else %}
+                                    <i class="fas fa-info-circle h-5 w-5 text-blue-400"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="ml-3">
+                                    <p
+                                        class="text-sm font-medium {% if message.tags == 'error' %}text-red-800 dark:text-red-200{% elif message.tags == 'warning' %}text-yellow-800 dark:text-yellow-200{% elif message.tags == 'success' %}text-green-800 dark:text-green-200{% else %}text-blue-800 dark:text-blue-200{% endif %}">
+                                        {{ message }}
+                                    </p>
+                                </div>
+                                <div class="ml-auto pl-3">
+                                    <button @click="show = false"
+                                        class="inline-flex {% if message.tags == 'error' %}text-red-400 hover:text-red-500{% elif message.tags == 'warning' %}text-yellow-400 hover:text-yellow-500{% elif message.tags == 'success' %}text-green-400 hover:text-green-500{% else %}text-blue-400 hover:text-blue-500{% endif %}">
+                                        <i class="fas fa-times h-5 w-5"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Main Content -->
+                    {% block content %}{% endblock %}
+                </div>
+            </main>
+        </div>
+    </div>  
+
+    <!-- Footer -->
+    <footer class="no-print bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+        <div class="mx-auto max-w-7xl px-6 py-4 lg:px-8">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        © 2024 vistoGEST. Todos os direitos reservados.
+                    </p>
+                    <span class="text-sm text-gray-500 dark:text-gray-400">
+                        Empresa: {{ request.user.funcionario.empresa.razao_social|default:"vistoGEST" }}
+                    </span>
+                </div>
+                <div class="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                    <span>Versão 1.0.0</span>
+                    <a href="{% url 'configuracoes:suporte' %}" class="hover:text-gray-700 dark:hover:text-gray-300">
+                        <i class="fas fa-question-circle mr-1"></i>Suporte
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        // Em templates/base.html, dentro do <script> no final
+
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>

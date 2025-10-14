@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Eliminar Agendamento{% endblock %}
+{% block content %}
+<div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-sm">
+    <form method="post">
+        {% csrf_token %}
+        <div class="p-6 text-center">
+            <i class="fas fa-exclamation-triangle text-5xl text-red-400 mb-4"></i>
+            <h3 class="text-lg font-medium">Tem a certeza?</h3>
+            <p class="mt-2 text-sm">Você está prestes a eliminar o agendamento de <strong>"{{ object.servico.nome }}"</strong>.</p>
+        </div>
+        <div class="flex items-center justify-center gap-x-4 px-6 py-4 bg-gray-50 dark:bg-gray-800/50">
+            <a href="{% url 'servicos:agendamento_list' %}" class="rounded-md bg-white px-4 py-2 ...">Cancelar</a>
+            <button type="submit" class="rounded-md bg-red-600 px-4 py-2 ...">Sim, Eliminar</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

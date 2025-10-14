@@ -1,0 +1,768 @@
+{% extends 'core/dashboard.html' %}
+{% load static %}
+
+{% block title %}Centro de Comunicação - vistoGEST{% endblock %}
+
+{% block extra_css %}
+<style>
+    .email-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+    }
+    .email-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .email-enviado { border-left-color: #10B981; }
+    .email-erro { border-left-color: #EF4444; }
+    .email-pendente { border-left-color: #F59E0B; }
+    
+    .template-editor {
+        min-height: 400px;
+    }
+    
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .comunicacao-tabs {
+        border-bottom: 2px solid #e5e7eb;
+    }
+    
+    .tab-button {
+        padding: 1rem 1.5rem;
+        border-bottom: 2px solid transparent;
+        transition: all 0.3s ease;
+    }
+    
+    .tab-button.active {
+        border-bottom-color: #2E7D32;
+        color: #2E7D32;
+        background-color: #f0f9ff;
+    }
+</style>
+{% endblock %}
+
+{% block main_content %}
+<div id="centroComunicacao" class="module active">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Centro de Comunicação</h1>
+            <p class="text-gray-600 dark:text-gray-400">Gestão de emails, receitas e comunicações</p>
+        </div>
+        <div class="flex space-x-3">
+            <button id="btnNovoTemplate" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors">
+                <i class="fas fa-plus mr-2"></i>Novo Template
+            </button>
+            <button id="btnConfiguracoes" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <i class="fas fa-cog mr-2"></i>Configurações
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabs de Navegação -->
+    <div class="comunicacao-tabs mb-6">
+        <div class="flex space-x-0">
+            <button class="tab-button active" data-tab="emails">
+                <i class="fas fa-envelope mr-2"></i>Emails Enviados
+            </button>
+            <button class="tab-button" data-tab="templates">
+                <i class="fas fa-file-alt mr-2"></i>Templates
+            </button>
+            <button class="tab-button" data-tab="receitas">
+                <i class="fas fa-prescription mr-2"></i>Receitas
+            </button>
+            <button class="tab-button" data-tab="campanhas">
+                <i class="fas fa-bullhorn mr-2"></i>Campanhas
+            </button>
+        </div>
+    </div>
+
+    <!-- Tab: Emails Enviados -->
+    <div id="tabEmails" class="tab-content">
+        <!-- Filtros -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <input type="text" id="buscarEmail" placeholder="Buscar por destinatário..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <select id="filtroStatus" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        <option value="">Todos os status</option>
+                        <option value="enviado">Enviados</option>
+                        <option value="erro">Com erro</option>
+                        <option value="pendente">Pendentes</option>
+                    </select>
+                </div>
+                <div>
+                    <select id="filtroTemplate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        <option value="">Todos os templates</option>
+                        {% for template in templates_email %}
+                        <option value="{{ template.id }}">{{ template.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <button id="btnFiltrarEmails" class="w-full bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-search mr-2"></i>Filtrar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de Emails -->
+        <div class="space-y-4" id="listaEmails">
+            {% for email in emails_enviados %}
+            <div class="email-card email-{{ email.status }} bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
+                            <i class="fas fa-envelope text-gray-600"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 dark:text-white">{{ email.assunto }}</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Para: {{ email.destinatario }}</p>
+                            <p class="text-xs text-gray-500">{{ email.enviado_em|date:"d/m/Y H:i" }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-3">
+                        <!-- Status -->
+                        {% if email.status == 'enviado' %}
+                        <span class="status-badge bg-green-100 text-green-800">Enviado</span>
+                        {% elif email.status == 'erro' %}
+                        <span class="status-badge bg-red-100 text-red-800">Erro</span>
+                        {% else %}
+                        <span class="status-badge bg-yellow-100 text-yellow-800">Pendente</span>
+                        {% endif %}
+                        
+                        <!-- Template usado -->
+                        {% if email.template %}
+                        <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">{{ email.template.nome }}</span>
+                        {% endif %}
+                        
+                        <!-- Ações -->
+                        <div class="flex space-x-2">
+                            <button onclick="verDetalhesEmail({{ email.id }})" 
+                                    class="text-blue-600 hover:text-blue-800 transition-colors">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            {% if email.status == 'erro' %}
+                            <button onclick="reenviarEmail({{ email.id }})" 
+                                    class="text-green-600 hover:text-green-800 transition-colors">
+                                <i class="fas fa-redo"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                {% if email.status == 'erro' and email.erro_detalhes %}
+                <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p class="text-sm text-red-800">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        {{ email.erro_detalhes }}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="text-center py-12">
+                <i class="fas fa-envelope text-6xl text-gray-300 mb-4"></i>
+                <h3 class="text-xl font-semibold text-gray-600 mb-2">Nenhum email encontrado</h3>
+                <p class="text-gray-500">Emails enviados aparecerão aqui</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Tab: Templates -->
+    <div id="tabTemplates" class="tab-content hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Lista de Templates -->
+            <div class="lg:col-span-1">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Templates</h3>
+                        <button id="btnAdicionarTemplate" class="text-primary hover:text-primary-dark">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="space-y-3" id="listaTemplates">
+                        {% for template in templates_email %}
+                        <div class="template-item p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                             data-template-id="{{ template.id }}"
+                             onclick="carregarTemplate({{ template.id }})">
+                            <h4 class="font-medium text-gray-900">{{ template.nome }}</h4>
+                            <p class="text-sm text-gray-600">{{ template.get_tipo_display }}</p>
+                            <div class="flex justify-between items-center mt-2">
+                                <span class="text-xs text-gray-500">
+                                    {% if template.ativo %}
+                                    <i class="fas fa-check-circle text-green-500"></i> Ativo
+                                    {% else %}
+                                    <i class="fas fa-times-circle text-red-500"></i> Inativo
+                                    {% endif %}
+                                </span>
+                                <div class="flex space-x-1">
+                                    <button onclick="editarTemplate({{ template.id }})" class="text-blue-600 hover:text-blue-800">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="duplicarTemplate({{ template.id }})" class="text-green-600 hover:text-green-800">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                    <button onclick="excluirTemplate({{ template.id }})" class="text-red-600 hover:text-red-800">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Editor de Template -->
+            <div class="lg:col-span-2">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Editor de Template</h3>
+                    
+                    <form id="formTemplate">
+                        <input type="hidden" id="templateId">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Template</label>
+                                <input type="text" id="nomeTemplate" required 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
+                                <select id="tipoTemplate" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                                    <option value="">Selecione o tipo...</option>
+                                    <option value="receita_consultorio">Receita para Consultório</option>
+                                    <option value="fatura_cliente">Fatura para Cliente</option>
+                                    <option value="lembrete_vencimento">Lembrete de Vencimento</option>
+                                    <option value="promocao">Promoção</option>
+                                    <option value="aniversario">Aniversário</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assunto</label>
+                            <input type="text" id="assuntoTemplate" required 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                                   placeholder="Ex: Sua receita da {{ empresa.nome }}">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conteúdo HTML</label>
+                            <div class="template-editor">
+                                <textarea id="corpoTemplate" rows="15" 
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                                          placeholder="Digite o conteúdo HTML do template..."></textarea>
+                            </div>
+                        </div>
+                        
+                        <!-- Variáveis Disponíveis -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Variáveis Disponíveis</label>
+                            <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">{{ '{{ empresa.nome }}' }}</span>
+                                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">{{ '{{ cliente.nome }}' }}</span>
+                                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">{{ '{{ venda.numero }}' }}</span>
+                                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">{{ '{{ data_atual }}' }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center space-x-3">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="templateAtivo" class="rounded border-gray-300">
+                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Template ativo</span>
+                                </label>
+                            </div>
+                            
+                            <div class="flex space-x-3">
+                                <button type="button" id="btnPreviewTemplate" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                                    <i class="fas fa-eye mr-2"></i>Preview
+                                </button>
+                                <button type="submit" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors">
+                                    <i class="fas fa-save mr-2"></i>Salvar Template
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab: Receitas -->
+    <div id="tabReceitas" class="tab-content hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Envio de Receitas</h3>
+                <button id="btnEnviarReceita" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-paper-plane mr-2"></i>Enviar Receita
+                </button>
+            </div>
+            
+            <!-- Formulário de Envio -->
+            <form id="formEnviarReceita" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Receita</label>
+                    <select id="receitaSelect" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        <option value="">Selecione a receita...</option>
+                        {% for receita in receitas_pendentes %}
+                        <option value="{{ receita.id }}">{{ receita.numero_receita }} - {{ receita.cliente.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email do Consultório</label>
+                    <input type="email" id="emailConsultorio" required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                           placeholder="consultorio@exemplo.com">
+                </div>
+                
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mensagem Adicional</label>
+                    <textarea id="mensagemAdicional" rows="3" 
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                              placeholder="Mensagem adicional para o consultório..."></textarea>
+                </div>
+                
+                <div class="md:col-span-2 flex justify-end">
+                    <button type="submit" class="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-paper-plane mr-2"></i>Enviar Receita
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tab: Campanhas -->
+    <div id="tabCampanhas" class="tab-content hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Nova Campanha -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Nova Campanha</h3>
+                
+                <form id="formCampanha">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome da Campanha</label>
+                            <input type="text" id="nomeCampanha" required 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Template</label>
+                            <select id="templateCampanha" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                                <option value="">Selecione o template...</option>
+                                {% for template in templates_email %}
+                                <option value="{{ template.id }}">{{ template.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Destinatários</label>
+                            <select id="destinatariosCampanha" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                                <option value="">Selecione os destinatários...</option>
+                                <option value="todos_clientes">Todos os clientes</option>
+                                <option value="clientes_ativos">Clientes ativos</option>
+                                <option value="aniversariantes">Aniversariantes do mês</option>
+                                <option value="personalizado">Lista personalizada</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Agendamento</label>
+                            <div class="flex space-x-2">
+                                <select id="agendamentoCampanha" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                                    <option value="agora">Enviar agora</option>
+                                    <option value="agendar">Agendar envio</option>
+                                </select>
+                                <input type="datetime-local" id="dataAgendamento" 
+                                       class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                                       style="display: none;">
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="w-full bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-rocket mr-2"></i>Criar Campanha
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Campanhas Recentes -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Campanhas Recentes</h3>
+                
+                <div class="space-y-3">
+                    <!-- Campanhas serão carregadas via JavaScript -->
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fas fa-bullhorn text-4xl mb-2 opacity-50"></i>
+                        <p>Nenhuma campanha criada ainda</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Preview Template -->
+<div id="modalPreviewTemplate" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto m-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white">Preview do Template</h2>
+                <button onclick="fecharPreviewTemplate()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="p-6">
+            <div class="border border-gray-300 rounded-lg p-4 bg-white">
+                <div id="previewContent">
+                    <!-- Conteúdo do preview será carregado aqui -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Sistema de Comunicação
+class ComunicacaoSystem {
+    constructor() {
+        this.tabAtiva = 'emails';
+        this.templateAtual = null;
+        
+        this.init();
+    }
+    
+    init() {
+        this.setupEventListeners();
+        this.setupTabs();
+    }
+    
+    setupEventListeners() {
+        // Tabs
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', (e) => {
+                this.trocarTab(e.target.dataset.tab);
+            });
+        });
+        
+        // Templates
+        document.getElementById('formTemplate').addEventListener('submit', this.salvarTemplate.bind(this));
+        document.getElementById('btnPreviewTemplate').addEventListener('click', this.previewTemplate.bind(this));
+        
+        // Receitas
+        document.getElementById('formEnviarReceita').addEventListener('submit', this.enviarReceita.bind(this));
+        
+        // Campanhas
+        document.getElementById('formCampanha').addEventListener('submit', this.criarCampanha.bind(this));
+        document.getElementById('agendamentoCampanha').addEventListener('change', this.toggleAgendamento.bind(this));
+        
+        // Filtros
+        document.getElementById('btnFiltrarEmails').addEventListener('click', this.filtrarEmails.bind(this));
+    }
+    
+    setupTabs() {
+        // Mostrar apenas a tab ativa inicialmente
+        this.atualizarVisibilidadeTabs();
+    }
+    
+    trocarTab(novaTab) {
+        this.tabAtiva = novaTab;
+        
+        // Atualizar botões
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.classList.remove('active');
+        });
+        document.querySelector(`[data-tab="${novaTab}"]`).classList.add('active');
+        
+        // Atualizar conteúdo
+        this.atualizarVisibilidadeTabs();
+    }
+    
+    atualizarVisibilidadeTabs() {
+        const tabs = ['emails', 'templates', 'receitas', 'campanhas'];
+        
+        tabs.forEach(tab => {
+            const elemento = document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`);
+            if (tab === this.tabAtiva) {
+                elemento.classList.remove('hidden');
+            } else {
+                elemento.classList.add('hidden');
+            }
+        });
+    }
+    
+    async salvarTemplate(event) {
+        event.preventDefault();
+        
+        const dados = {
+            id: document.getElementById('templateId').value || null,
+            nome: document.getElementById('nomeTemplate').value,
+            tipo: document.getElementById('tipoTemplate').value,
+            assunto: document.getElementById('assuntoTemplate').value,
+            corpo_html: document.getElementById('corpoTemplate').value,
+            ativo: document.getElementById('templateAtivo').checked
+        };
+        
+        try {
+            const response = await fetch('/comunicacao/templates/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCSRFToken(),
+                },
+                body: JSON.stringify(dados)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showToast('Template salvo com sucesso!', 'success');
+                this.limparFormularioTemplate();
+                this.atualizarListaTemplates();
+            } else {
+                this.showToast('Erro ao salvar template: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('Erro:', error);
+            this.showToast('Erro de comunicação com o servidor', 'error');
+        }
+    }
+    
+    previewTemplate() {
+        const assunto = document.getElementById('assuntoTemplate').value;
+        const corpo = document.getElementById('corpoTemplate').value;
+        
+        if (!corpo) {
+            this.showToast('Digite o conteúdo do template para visualizar', 'warning');
+            return;
+        }
+        
+        // Simular dados para preview
+        const dadosSimulados = {
+            empresa: { nome: 'Farmácia Exemplo' },
+            cliente: { nome: 'João Silva' },
+            venda: { numero: 'VD202400001' },
+            data_atual: new Date().toLocaleDateString('pt-BR')
+        };
+        
+        let conteudoPreview = corpo;
+        
+        // Substituir variáveis pelos dados simulados
+        Object.keys(dadosSimulados).forEach(chave => {
+            if (typeof dadosSimulados[chave] === 'object') {
+                Object.keys(dadosSimulados[chave]).forEach(subChave => {
+                    const regex = new RegExp(`\\{\\{\\s*${chave}\\.${subChave}\\s*\\}\\}`, 'g');
+                    conteudoPreview = conteudoPreview.replace(regex, dadosSimulados[chave][subChave]);
+                });
+            } else {
+                const regex = new RegExp(`\\{\\{\\s*${chave}\\s*\\}\\}`, 'g');
+                conteudoPreview = conteudoPreview.replace(regex, dadosSimulados[chave]);
+            }
+        });
+        
+        document.getElementById('previewContent').innerHTML = `
+            <div class="mb-4 p-3 bg-gray-100 border-l-4 border-blue-500">
+                <strong>Assunto:</strong> ${assunto}
+            </div>
+            <div>${conteudoPreview}</div>
+        `;
+        
+        document.getElementById('modalPreviewTemplate').classList.remove('hidden');
+    }
+    
+    async enviarReceita(event) {
+        event.preventDefault();
+        
+        const dados = {
+            receita_id: document.getElementById('receitaSelect').value,
+            email_consultorio: document.getElementById('emailConsultorio').value,
+            mensagem_adicional: document.getElementById('mensagemAdicional').value
+        };
+        
+        try {
+            const response = await fetch('/comunicacao/enviar-receita-consultorio/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCSRFToken(),
+                },
+                body: JSON.stringify(dados)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showToast('Receita enviada com sucesso!', 'success');
+                document.getElementById('formEnviarReceita').reset();
+            } else {
+                this.showToast(result.message || 'Erro ao enviar receita', 'error');
+            }
+        } catch (error) {
+            console.error('Erro:', error);
+            this.showToast('Erro de comunicação com o servidor', 'error');
+        }
+    }
+    
+    async criarCampanha(event) {
+        event.preventDefault();
+        
+        const dados = {
+            nome: document.getElementById('nomeCampanha').value,
+            template_id: document.getElementById('templateCampanha').value,
+            destinatarios: document.getElementById('destinatariosCampanha').value,
+            agendamento: document.getElementById('agendamentoCampanha').value,
+            data_agendamento: document.getElementById('dataAgendamento').value
+        };
+        
+        try {
+            const response = await fetch('/comunicacao/campanhas/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCSRFToken(),
+                },
+                body: JSON.stringify(dados)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showToast('Campanha criada com sucesso!', 'success');
+                document.getElementById('formCampanha').reset();
+                this.carregarCampanhas();
+            } else {
+                this.showToast('Erro ao criar campanha: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('Erro:', error);
+            this.showToast('Erro de comunicação com o servidor', 'error');
+        }
+    }
+    
+    toggleAgendamento() {
+        const agendamento = document.getElementById('agendamentoCampanha').value;
+        const dataAgendamento = document.getElementById('dataAgendamento');
+        
+        if (agendamento === 'agendar') {
+            dataAgendamento.style.display = 'block';
+            dataAgendamento.required = true;
+        } else {
+            dataAgendamento.style.display = 'none';
+            dataAgendamento.required = false;
+        }
+    }
+    
+    filtrarEmails() {
+        const filtros = {
+            busca: document.getElementById('buscarEmail').value,
+            status: document.getElementById('filtroStatus').value,
+            template: document.getElementById('filtroTemplate').value
+        };
+        
+        // Implementar filtro real via AJAX
+        console.log('Aplicando filtros:', filtros);
+        this.showToast('Filtros aplicados', 'info');
+    }
+    
+    carregarTemplate(templateId) {
+        // Implementar carregamento de template para edição
+        this.showToast('Carregando template...', 'info');
+    }
+    
+    limparFormularioTemplate() {
+        document.getElementById('formTemplate').reset();
+        document.getElementById('templateId').value = '';
+    }
+    
+    atualizarListaTemplates() {
+        // Implementar atualização da lista
+        this.showToast('Lista de templates atualizada', 'info');
+    }
+    
+    carregarCampanhas() {
+        // Implementar carregamento de campanhas
+        this.showToast('Campanhas carregadas', 'info');
+    }
+    
+    // Utilitários
+    getCSRFToken() {
+        return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    }
+    
+    showToast(message, type = 'info') {
+        if (window.dashboard && window.dashboard.showToast) {
+            window.dashboard.showToast(message, type);
+        } else {
+            console.log(`${type.toUpperCase()}: ${message}`);
+        }
+    }
+}
+
+// Funções globais
+function verDetalhesEmail(emailId) {
+    window.comunicacaoSystem.showToast('Carregando detalhes do email...', 'info');
+}
+
+function reenviarEmail(emailId) {
+    if (confirm('Deseja reenviar este email?')) {
+        window.comunicacaoSystem.showToast('Reenviando email...', 'info');
+    }
+}
+
+function carregarTemplate(templateId) {
+    window.comunicacaoSystem.carregarTemplate(templateId);
+}
+
+function editarTemplate(templateId) {
+    window.comunicacaoSystem.carregarTemplate(templateId);
+}
+
+function duplicarTemplate(templateId) {
+    if (confirm('Deseja duplicar este template?')) {
+        window.comunicacaoSystem.showToast('Template duplicado', 'success');
+    }
+}
+
+function excluirTemplate(templateId) {
+    if (confirm('Deseja excluir este template? Esta ação não pode ser desfeita.')) {
+        window.comunicacaoSystem.showToast('Template excluído', 'info');
+    }
+}
+
+function fecharPreviewTemplate() {
+    document.getElementById('modalPreviewTemplate').classList.add('hidden');
+}
+
+// Inicializar sistema
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('centroComunicacao')) {
+        window.comunicacaoSystem = new ComunicacaoSystem();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Gestão de Lotes{% endblock %}
+
+{# Deixamos estes blocos vazios porque recriamos o cabeçalho dentro do content block #}
+{% block page_title %}{% endblock %}
+{% block page_subtitle %}{% endblock %}
+{% block page_actions %}{% endblock %}
+
+{% block content %}
+<div x-data="pageLogic()">
+
+    <div class="md:flex md:items-center md:justify-between mb-6">
+        <div class="min-w-0 flex-1">
+            <h1 class="text-2xl font-bold leading-7 text-gray-900 dark:text-gray-100 sm:truncate sm:text-3xl sm:tracking-tight">
+                Gestão de Lotes de Produtos
+            </h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Consulte, adicione e gira o stock e a validade de todos os lotes.
+            </p>
+        </div>
+        <div class="mt-4 flex md:ml-4 md:mt-0">
+            <div class="flex items-center space-x-2">
+                <a href="{% url 'produtos:lote_list' %}"
+                    class="inline-flex items-center gap-x-2 rounded-md bg-white dark:bg-gray-700 px-3.5 py-2.5 text-sm font-semibold text-gray-900 dark:text-white shadow-sm hover:bg-gray-100 dark:hover:bg-gray-600">
+                    <i class="fas fa-layer-group h-5 w-5"></i>
+                    Gerir Produtos
+                </a>
+                <a href="{% url 'produtos:criar' %}"
+                    class="inline-flex items-center gap-x-2 rounded-md bg-green-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-green-500">
+                    <i class="fas fa-plus -ml-0.5 h-5 w-5"></i>
+                    Novo Produto
+                </a>
+                <a href="{% url 'produtos:lote_create' %}" class="inline-flex items-center gap-x-2 rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
+                    <i class="fas fa-layer-group -ml-0.5 h-5 w-5"></i> Adicionar Novo Lote
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-6 rounded-lg bg-white p-4 shadow-sm dark:bg-gray-800">
+        <form method="get" action=".">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div>
+                    <label for="search" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Pesquisar Lote ou Produto</label>
+                    <div class="relative mt-1">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><i class="fas fa-search text-gray-400"></i></div>
+                        <input type="search" name="search" id="search" value="{{ search_query }}" class="block w-full rounded-md border-gray-300 pl-10 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm" placeholder="Ex: L123 ou Paracetamol">
+                    </div>
+                </div>
+                <div>
+                    <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Status de Validade</label>
+                    <select id="status" name="status" class="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm">
+                        <option value="" {% if not selected_status %}selected{% endif %}>Todos</option>
+                        <option value="vencendo" {% if selected_status == 'vencendo' %}selected{% endif %}>Vencendo em 30 dias</option>
+                        <option value="vencido" {% if selected_status == 'vencido' %}selected{% endif %}>Vencido</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="sort" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Ordenar por</label>
+                    <select id="sort" name="sort" class="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm">
+                        <option value="-data_validade" {% if selected_sort == '-data_validade' %}selected{% endif %}>Validade (Mais Longe)</option>
+                        <option value="data_validade" {% if selected_sort == 'data_validade' %}selected{% endif %}>Validade (Mais Próxima)</option>
+                        <option value="-quantidade_atual" {% if selected_sort == '-quantidade_atual' %}selected{% endif %}>Quantidade (Maior)</option>
+                        <option value="quantidade_atual" {% if selected_sort == 'quantidade_atual' %}selected{% endif %}>Quantidade (Menor)</option>
+                    </select>
+                </div>
+                <div class="self-end">
+                    <button type="submit" class="inline-flex w-full justify-center rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-600 dark:text-white dark:ring-gray-500 dark:hover:bg-gray-500">Filtrar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-700/50">
+                <tr>
+                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-white sm:pl-6">Produto</th>
+                    
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Nº Lote</th>
+                    <th scope="col" class="px-3 py-3.5 text-center text-sm font-semibold text-gray-900 dark:text-white">Qtd. Atual</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Data de Validade</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Status</th>
+                    <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6"><span class="sr-only">Ações</span></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
+                {% for lote in lotes %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    
+                    <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-white sm:pl-6">
+                        <a href="{% url 'produtos:lote_detail' lote.pk %}" class="hover:text-blue-600">
+                            {{ lote.produto.nome_produto }}
+                        </a>
+                    </td>
+
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">{{ lote.numero_lote }}</td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-center text-gray-500 dark:text-gray-400">{{ lote.quantidade_atual|intcomma }}</td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm {% if lote.esta_vencido %}text-red-500 font-bold{% elif lote.esta_vencendo %}text-yellow-500 font-semibold{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+                        {{ lote.data_validade|date:"d/m/Y" }}
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                        {% if lote.esta_vencido %}
+                            <span class="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10 dark:bg-red-900/50 dark:text-red-300">Vencido</span>
+                        {% elif lote.esta_vencendo %}
+                            <span class="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20 dark:bg-yellow-900/50 dark:text-yellow-300">Vencendo</span>
+                        {% else %}
+                            <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20 dark:bg-green-900/50 dark:text-green-300">OK</span>
+                        {% endif %}
+                    </td>
+                    <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                        <div x-data="{ open: false }" class="relative inline-block text-left">
+                            <button @click="open = !open" class="text-gray-400 hover:text-gray-600"><i class="fas fa-ellipsis-v"></i></button>
+                            <div x-show="open" @click.away="open = false" x-cloak x-transition class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5">
+                                <div class="py-1">
+                                    <a href="{% url 'produtos:lote_detail' lote.pk %}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"><i class="fas fa-eye mr-2"></i>Ver Detalhes</a>
+                                    <a href="{% url 'produtos:lote_update' lote.pk %}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"><i class="fas fa-edit mr-2"></i>Editar</a>
+                                    <a href="{% url 'produtos:lote_delete' lote.pk %}" class="block px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700"><i class="fas fa-trash mr-2"></i>Eliminar</a>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center py-12 text-gray-500 dark:text-gray-400">Nenhum lote encontrado.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% if is_paginated %}
+    <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 dark:bg-gray-800 dark:border-gray-700">
+        </div>
+    {% endif %}
+</div>
+
+   
+
+</div> 
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+    function pageLogic() {
+        return {
+            addProductModalOpen: false,
+            errors: {}, // Para guardar os erros de validação do formulário
+
+            submitNewProduct() {
+                const form = document.getElementById('addProductForm');
+                const formData = new FormData(form);
+                const url = "{% url 'produtos:criar' %}";
+
+                fetch(url, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        this.addProductModalOpen = false;
+                        location.reload();
+                    } else {
+                        if (data.errors) { this.errors = data.errors; } 
+                        else { alert(`Erro: ${data.message}`); }
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    alert('Ocorreu um erro de comunicação com o servidor.');
+                });
+            }
+        };
+    }
+</script>
+{% endblock %}

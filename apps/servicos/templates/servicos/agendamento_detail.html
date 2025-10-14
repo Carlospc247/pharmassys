@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_subtitle %}<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Status atual: {{ agendamento.get_status_display }}</p>{% endblock %}
+
+{% block page_actions %}
+<div class="flex items-center space-x-2" x-data="{ openModal: false }">
+    <a href="{% url 'servicos:agendamento_list' %}" class="inline-flex items-center ... rounded-md bg-white ...">&larr; Voltar</a>
+    
+    {% if agendamento.status == 'agendado' %}
+    <form action="{% url 'servicos:servico_iniciar' agendamento.pk %}" method="post">
+        {% csrf_token %}
+        <button type="submit" class="inline-flex items-center ... rounded-md bg-green-600 ...">
+            <i class="fas fa-play-circle ..."></i> Iniciar Serviço
+        </button>
+    </form>
+    {% elif agendamento.status == 'em_andamento' %}
+    <button @click="openModal = true" type="button" class="inline-flex items-center ... rounded-md bg-blue-600 ...">
+        <i class="fas fa-check-circle ..."></i> Finalizar Serviço
+    </button>
+    {% endif %}
+
+    <div x-show="openModal" x-cloak class="fixed inset-0 z-50 ... bg-gray-900/75 backdrop-blur-sm">
+        <div @click.away="openModal = false" x-show="openModal" x-transition class="relative ... max-w-2xl bg-white dark:bg-gray-800 rounded-lg shadow-xl">
+             <div class="flex items-center justify-between p-4 border-b dark:border-gray-700">
+                <h3 class="text-lg font-semibold">Finalizar Serviço</h3>
+                <button @click="openModal = false">&times;</button>
+             </div>
+             <form action="{% url 'servicos:servico_finalizar' agendamento.pk %}" method="post">
+                {% csrf_token %}
+                <div class="p-6 space-y-4">
+                    {% for field in finalizar_form %}
+                        <div>
+                            <label for="{{ field.id_for_label }}" class="block text-sm ...">{{ field.label }}</label>
+                            <div class="mt-1">{{ field }}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="flex justify-end p-4 bg-gray-50 dark:bg-gray-800/50">
+                    <button @click="openModal = false" type="button" class="bg-white ...">Cancelar</button>
+                    <button type="submit" class="ml-3 bg-blue-600 text-white ...">Confirmar Finalização</button>
+                </div>
+             </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

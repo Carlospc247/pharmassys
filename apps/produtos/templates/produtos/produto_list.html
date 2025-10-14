@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Gestão de Produtos{% endblock %}
+
+{% block page_title %}Catálogo de Produtos{% endblock %}
+
+{% block page_subtitle %}
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Consulte, adicione e gira todos os produtos e serviços da sua empresa.
+    </p>
+{% endblock %}
+
+{% block page_actions %}
+<div class="flex items-center space-x-2">
+    <a href="{% url 'produtos:lote_list' %}"
+        class="inline-flex items-center gap-x-2 rounded-md bg-white dark:bg-gray-700 px-3.5 py-2.5 text-sm font-semibold text-gray-900 dark:text-white shadow-sm hover:bg-gray-100 dark:hover:bg-gray-600">
+        <i class="fas fa-layer-group h-5 w-5"></i>
+        Gerir Lotes
+    </a>
+    <a href="{% url 'produtos:criar' %}"
+        class="inline-flex items-center gap-x-2 rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+        <i class="fas fa-plus -ml-0.5 h-5 w-5"></i>
+        Novo Produto
+    </a>
+</div>
+{% endblock %}
+
+
+{% block content %}
+<div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+    <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow-sm sm:p-6">
+        <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">Total de Produtos</dt>
+        <dd class="mt-1 text-3xl font-bold tracking-tight text-orange-500 dark:text-white">{{ produtos_stats.total|intcomma }}</dd>
+    </div>
+    <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow-sm sm:p-6">
+        <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">Produtos Ativos</dt>
+        <dd class="mt-1 text-3xl font-bold tracking-tight text-green-500">{{ produtos_stats.ativos|intcomma }}</dd>
+    </div>
+    <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow-sm sm:p-6">
+        <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">Categorias</dt>
+        <dd class="mt-1 text-3xl font-bold tracking-tight text-indigo-900 dark:text-white">{{ produtos_stats.categorias|intcomma }}</dd>
+    </div>
+    <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow-sm sm:p-6">
+        <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">Serviços</dt>
+        <dd class="mt-1 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{{ produtos_stats.servicos|intcomma }}</dd>
+    </div>
+</div>
+
+<div class="mb-6 rounded-lg bg-white p-4 shadow-sm dark:bg-gray-800">
+    <form method="get" action=".">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+                <label for="search" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Pesquisar Produto</label>
+                <input type="search" name="search" id="search" value="{{ request.GET.search }}"
+                       class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm"
+                       placeholder="Nome ou código de barras...">
+            </div>
+            <div>
+                <label for="categoria" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Categoria</label>
+                <select id="categoria" name="categoria" class="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm">
+                    <option value="">Todas</option>
+                    {% for cat in categorias %}
+                        <option value="{{ cat.id }}" {% if request.GET.categoria|add:"0" == cat.id %}selected{% endif %}>{{ cat.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
+                <select id="status" name="status" class="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm">
+                    <option value="">Todos</option>
+                    <option value="ativo" {% if request.GET.status == 'ativo' %}selected{% endif %}>Ativo</option>
+                    <option value="inativo" {% if request.GET.status == 'inativo' %}selected{% endif %}>Inativo</option>
+                    <option value="estoque_baixo" {% if request.GET.status == 'estoque_baixo' %}selected{% endif %}>Estoque Baixo</option>
+                </select>
+            </div>
+            <div class="self-end">
+                <button type="submit" class="inline-flex w-full justify-center rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-600 dark:text-white dark:ring-gray-500 dark:hover:bg-gray-500">
+                    Aplicar Filtros
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-indigo-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-700/50">
+                <tr>
+                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-white sm:pl-6">Produto</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Categoria</th>
+                    <th scope="col" class="px-3 py-3.5 text-center text-sm font-semibold text-gray-900 dark:text-white">Estoque Atual</th>
+                    <th scope="col" class="px-3 py-3.5 text-center text-sm font-semibold text-gray-900 dark:text-white">IVA</th>
+                    <th scope="col" class="px-3 py-3.5 text-center text-sm font-semibold text-gray-900 dark:text-white">Desconto/Promoção</th>
+                    <th scope="col" class="px-3 py-3.5 text-right text-sm font-semibold text-gray-900 dark:text-white">Preço de Venda</th>
+                    <th scope="col" class="px-3 py-3.5 text-center text-sm font-semibold text-gray-900 dark:text-white">Status</th>
+                    <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6"><span class="sr-only">Ações</span></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-indigo-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
+                {% for produto in produtos %}
+                <tr class="hover:bg-orange-100 hover:text-indigo-700 transition-colors duration-200">
+                    <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
+                        <div class="font-medium text-gray-900 dark:text-white">{{ produto.nome_produto }}</div>
+                        <div class="text-gray-500 dark:text-gray-400">{{ produto.codigo_barras }}</div>
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">{{ produto.categoria.nome|default:"-" }}</td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-center font-semibold {% if produto.estoque_atual <= produto.estoque_minimo %}text-red-500{% else %}text-gray-900 dark:text-white{% endif %}">
+                        <div class="flex items-center justify-center space-x-2">
+                            <span>{{ produto.estoque_atual|default:0|intcomma }}</span>
+                            {% if produto.tipo == 'produto' %}
+                            <button onclick="openAddStockModal('{{ produto.pk }}', '{{ produto.nome_produto }}')"
+                                    class="text-green-500 hover:text-green-700" title="Adicionar Estoque">
+                                <i class="fas fa-plus-circle">Adicionar</i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-center text-gray-500 dark:text-gray-400">
+                        {% if produto.iva_percentual > 0 %}
+                            {{ produto.iva_percentual|floatformat:0 }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-center text-gray-500 dark:text-gray-400">
+                        {% if produto.desconto_percentual > 0 %}
+                            {{ produto.desconto_percentual|floatformat:0 }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-right text-gray-500 dark:text-gray-400">AKZ {{ produto.preco_venda|floatformat:2|intcomma }}</td>
+                    <td class="whitespace-nowrap px-3 py-4 text-center text-sm">
+                        {% if produto.ativo %}
+                            <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20 dark:bg-green-900/50 dark:text-green-300">Ativo</span>
+                        {% else %}
+                            <span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10 dark:bg-gray-700 dark:text-gray-300">Inativo</span>
+                        {% endif %}
+                    </td>
+                    <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                        <a href="{% url 'produtos:editar' produto.pk %}" class="text-blue-600 hover:text-blue-900">Editar</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-12 text-gray-500 dark:text-gray-400">
+                        <i class="fas fa-box-open text-4xl mb-4"></i>
+                        <p>Nenhum produto encontrado. <a href="{% url 'produtos:criar' %}" class="text-blue-500 font-semibold hover:underline">Adicionar o primeiro?</a></p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include 'estoque/modal_adicionar_estoque.html' %}
+
+{% block scripts %}
+<script>
+    function openAddStockModal(productId, productName) {
+        document.getElementById('addStockModal').classList.remove('hidden');
+        document.getElementById('modalProductName').innerText = productName;
+        document.getElementById('addStockForm').action = `/estoque/entrada/${productId}/`;
+        document.getElementById('id_quantidade').focus();
+    }
+
+    function closeAddStockModal() {
+        document.getElementById('addStockModal').classList.add('hidden');
+    }
+</script>
+{% endblock %}
+
+{% endblock %}

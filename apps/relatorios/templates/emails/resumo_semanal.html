@@ -1,0 +1,155 @@
+<!-- templates/emails/resumo_semanal.html -->
+{% extends "emails/base.html" %}
+
+{% block title %}Resumo Semanal - Sistema de Relatórios{% endblock %}
+
+{% block header_subtitle %}Sua atividade da semana de {{ data_inicio|date:"d/m" }} a {{ data_fim|date:"d/m/Y" }}{% endblock %}
+
+{% block content %}
+<h2>Resumo Semanal 📈</h2>
+
+<p>Olá, {{ usuario.get_full_name|default:usuario.username }}!</p>
+
+<p>Aqui está um resumo da sua atividade no Sistema de Relatórios durante a semana passada.</p>
+
+<!-- Estatísticas Principais -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 24px 0;">
+    <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; text-align: center; background-color: #f7fafc;">
+        <div style="font-size: 24px; font-weight: bold; color: #667eea;">{{ stats.relatorios_gerados }}</div>
+        <div style="font-size: 12px; color: #718096; text-transform: uppercase; letter-spacing: 0.025em;">Relatórios Gerados</div>
+    </div>
+    
+    <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; text-align: center; background-color: #f7fafc;">
+        <div style="font-size: 24px; font-weight: bold; color: #48bb78;">{{ stats.templates_criados }}</div>
+        <div style="font-size: 12px; color: #718096; text-transform: uppercase; letter-spacing: 0.025em;">Templates Criados</div>
+    </div>
+</div>
+
+{% if stats.relatorios_gerados > 0 %}
+<h3>Relatórios da Semana</h3>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Relatório</th>
+            <th>Template</th>
+            <th>Status</th>
+            <th>Data</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for relatorio in relatorios_recentes %}
+        <tr>
+            <td>{{ relatorio.nome_relatorio|truncatechars:30 }}</td>
+            <td>{{ relatorio.template.nome|truncatechars:20 }}</td>
+            <td>
+                <span class="badge {% if relatorio.status == 'concluido' %}badge-success{% elif relatorio.status == 'erro' %}badge-danger{% else %}badge-warning{% endif %}">
+                    {{ relatorio.get_status_display }}
+                </span>
+            </td>
+            <td>{{ relatorio.data_solicitacao|date:"d/m H:i" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% if templates_mais_usados %}
+<h3>Templates Mais Utilizados</h3>
+
+<div style="margin: 16px 0;">
+    {% for template in templates_mais_usados %}
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
+        <span style="color: #4a5568;">{{ template.template__nome }}</span>
+        <span style="color: #718096; font-size: 12px;">{{ template.total }} usos</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Performance -->
+<h3>Performance</h3>
+
+<div style="background-color: #f7fafc; border-radius: 8px; padding: 16px; margin: 16px 0;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+            <div style="font-size: 12px; color: #718096; text-transform: uppercase; letter-spacing: 0.025em; margin-bottom: 4px;">Taxa de Sucesso</div>
+            <div style="font-size: 20px; font-weight: bold; color: {% if stats.taxa_sucesso >= 95 %}#48bb78{% elif stats.taxa_sucesso >= 80 %}#ed8936{% else %}#f56565{% endif %};">
+                {{ stats.taxa_sucesso }}%
+            </div>
+        </div>
+        
+        <div>
+            <div style="font-size: 12px; color: #718096; text-transform: uppercase; letter-spacing: 0.025em; margin-bottom: 4px;">Tempo Médio</div>
+            <div style="font-size: 20px; font-weight: bold; color: #667eea;">
+                {{ stats.tempo_medio }}s
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Insights e Recomendações -->
+{% if insights %}
+<h3>Insights da Semana</h3>
+
+{% for insight in insights %}
+<div class="alert alert-{{ insight.tipo }}">
+    <strong>{{ insight.titulo }}</strong><br>
+    {{ insight.descricao }}
+    {% if insight.acao_url %}
+    <br><a href="{{ insight.acao_url }}" style="color: inherit; text-decoration: underline;">{{ insight.acao_texto }}</a>
+    {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- Próximos Agendamentos -->
+{% if proximos_agendamentos %}
+<h3>Próximos Agendamentos</h3>
+
+<p style="color: #4a5568; font-size: 14px;">
+    Você tem {{ proximos_agendamentos|length }} agendamento{{ proximos_agendamentos|length|pluralize:"s" }} programado{{ proximos_agendamentos|length|pluralize:"s" }} para os próximos 7 dias.
+</p>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Agendamento</th>
+            <th>Template</th>
+            <th>Próxima Execução</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for agendamento in proximos_agendamentos %}
+        <tr>
+            <td>{{ agendamento.nome }}</td>
+            <td>{{ agendamento.template.nome }}</td>
+            <td>{{ agendamento.proximo_agendamento|date:"d/m/Y H:i" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<!-- Call to Action -->
+<div style="text-align: center; margin: 32px 0; padding: 24px; background-color: #f7fafc; border-radius: 8px;">
+    <h3 style="margin: 0 0 16px 0; color: #1a202c;">Continue explorando!</h3>
+    <p style="margin: 0 0 24px 0; color: #4a5568;">Veja mais detalhes no seu dashboard</p>
+    
+    <a href="{{ dashboard_url }}" class="btn btn-primary" style="text-decoration: none;">
+        📊 Acessar Dashboard
+    </a>
+</div>
+
+<p style="color: #718096; font-size: 12px; text-align: center;">
+    Você está recebendo este resumo porque habilitou as notificações semanais nas suas configurações. 
+    <a href="{{ configuracoes_url }}" style="color: #667eea;">Alterar preferências</a>
+</p>
+
+<p>
+    Atenciosamente,<br>
+    <strong>Equipe do Sistema de Relatórios</strong>
+</p>
+{% endblock %}
+
+{% block unsubscribe_url %}{{ base_url }}/configuracoes/?tab=notificacoes{% endblock %}

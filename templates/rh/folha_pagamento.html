@@ -1,0 +1,552 @@
+{% extends 'core/dashboard.html' %}
+{% load static %}
+
+{% block title %}Folha de Pagamento - vistoGEST{% endblock %}
+
+{% block extra_css %}
+<style>
+    .folha-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid #3B82F6;
+    }
+    .folha-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .valor-positivo { color: #10B981; }
+    .valor-negativo { color: #EF4444; }
+    .status-pago { background-color: #10B981; }
+    .status-pendente { background-color: #F59E0B; }
+</style>
+{% endblock %}
+
+{% block main_content %}
+<div id="folhaPagamento" class="module active">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Folha de Pagamento</h1>
+            <p class="text-gray-600 dark:text-gray-400">{{ mes_referencia|date:"F Y" }}</p>
+        </div>
+        <div class="flex space-x-3">
+            <button id="btnGerarFolha" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors">
+                <i class="fas fa-calculator mr-2"></i>Gerar Folha
+            </button>
+            <button id="btnImportarDados" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <i class="fas fa-file-import mr-2"></i>Importar
+            </button>
+            <button id="btnExportarFolha" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <i class="fas fa-file-excel mr-2"></i>Exportar
+            </button>
+        </div>
+    </div>
+
+    <!-- Resumo Financeiro -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-gradient-to-r from-green-500 to-green-600 p-6 rounded-xl text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-white/80 text-sm">Total Vencimentos</p>
+                    <p class="text-3xl font-bold">AKZ {{ total_folha.total_vencimentos|floatformat:2|default:"0,00" }}</p>
+                </div>
+                <div class="bg-white/20 p-3 rounded-lg">
+                    <i class="fas fa-arrow-up text-2xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-red-500 to-red-600 p-6 rounded-xl text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-white/80 text-sm">Total Descontos</p>
+                    <p class="text-3xl font-bold">AKZ {{ total_folha.total_descontos|floatformat:2|default:"0,00" }}</p>
+                </div>
+                <div class="bg-white/20 p-3 rounded-lg">
+                    <i class="fas fa-arrow-down text-2xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-6 rounded-xl text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-white/80 text-sm">Líquido Total</p>
+                    <p class="text-3xl font-bold">AKZ {{ total_folha.total_liquido|floatformat:2|default:"0,00" }}</p>
+                </div>
+                <div class="bg-white/20 p-3 rounded-lg">
+                    <i class="fas fa-equals text-2xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controles do Período -->
+    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm mb-6">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Mês/Ano:</label>
+                <input type="month" id="mesReferencia" value="{{ mes_referencia|date:'Y-m' }}"
+                       class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                <button id="btnCarregarPeriodo" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors">
+                    Carregar
+                </button>
+            </div>
+            <div class="text-sm text-gray-600 dark:text-gray-400">
+                Total de funcionários: <span class="font-semibold">{{ folhas.count }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Folhas -->
+    <div class="space-y-4" id="listaFolhas">
+        {% for folha in folhas %}
+        <div class="folha-card bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
+            <div class="flex items-center justify-between">
+                <!-- Info do Funcionário -->
+                <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
+                        <i class="fas fa-user text-gray-600"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 dark:text-white">{{ folha.funcionario.nome_completo }}</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">{{ folha.funcionario.numero_funcionario }} - {{ folha.funcionario.usuario.get_cargo_display }}</p>
+                        <p class="text-xs text-gray-500">{{ folha.funcionario.departamento.nome }}</p>
+                    </div>
+                </div>
+
+                <!-- Valores -->
+                <div class="grid grid-cols-4 gap-6 flex-1 max-w-2xl">
+                    <div class="text-center">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Salário Base</p>
+                        <p class="font-semibold text-gray-900 dark:text-white">AKZ {{ folha.salario_base|floatformat:2 }}</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Vencimentos</p>
+                        <p class="font-semibold valor-positivo">AKZ {{ folha.total_vencimentos|floatformat:2 }}</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Descontos</p>
+                        <p class="font-semibold valor-negativo">AKZ {{ folha.total_descontos|floatformat:2 }}</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Líquido</p>
+                        <p class="font-bold text-lg text-gray-900 dark:text-white">AKZ {{ folha.liquido_a_receber|floatformat:2 }}</p>
+                    </div>
+                </div>
+
+                <!-- Status e Ações -->
+                <div class="flex items-center space-x-3">
+                    <div class="text-center">
+                        {% if folha.pago %}
+                        <span class="status-pago px-2 py-1 rounded-full text-xs text-white">Pago</span>
+                        {% if folha.data_pagamento %}
+                        <p class="text-xs text-gray-500 mt-1">{{ folha.data_pagamento|date:"d/m/Y" }}</p>
+                        {% endif %}
+                        {% else %}
+                        <span class="status-pendente px-2 py-1 rounded-full text-xs text-white">Pendente</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="flex flex-col space-y-1">
+                        <button onclick="editarFolha({{ folha.id }})" 
+                                class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded text-sm transition-colors">
+                            <i class="fas fa-edit mr-1"></i>Editar
+                        </button>
+                        <button onclick="imprimirHolerite({{ folha.id }})" 
+                                class="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded text-sm transition-colors">
+                            <i class="fas fa-print mr-1"></i>Holerite
+                        </button>
+                        {% if not folha.pago %}
+                        <button onclick="pagarFuncionario({{ folha.id }})" 
+                                class="bg-primary hover:bg-primary-dark text-white py-1 px-3 rounded text-sm transition-colors">
+                            <i class="fas fa-check mr-1"></i>Pagar
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detalhes Expandíveis -->
+            <div id="detalhes-{{ folha.id }}" class="hidden mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="grid grid-cols-2 gap-6">
+                    <!-- Vencimentos -->
+                    <div>
+                        <h4 class="font-semibold text-green-600 mb-3">Vencimentos</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span>Salário Base:</span>
+                                <span class="valor-positivo">AKZ {{ folha.salario_base|floatformat:2 }}</span>
+                            </div>
+                            {% if folha.horas_extras > 0 %}
+                            <div class="flex justify-between">
+                                <span>Horas Extras:</span>
+                                <span class="valor-positivo">AKZ {{ folha.horas_extras|floatformat:2 }}</span>
+                            </div>
+                            {% endif %}
+                            {% if folha.bonus > 0 %}
+                            <div class="flex justify-between">
+                                <span>Bônus:</span>
+                                <span class="valor-positivo">AKZ {{ folha.bonus|floatformat:2 }}</span>
+                            </div>
+                            {% endif %}
+                            {% if folha.comissoes > 0 %}
+                            <div class="flex justify-between">
+                                <span>Comissões:</span>
+                                <span class="valor-positivo">AKZ {{ folha.comissoes|floatformat:2 }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Descontos -->
+                    <div>
+                        <h4 class="font-semibold text-red-600 mb-3">Descontos</h4>
+                        <div class="space-y-2 text-sm">
+                            {% if folha.inss > 0 %}
+                            <div class="flex justify-between">
+                                <span>INSS:</span>
+                                <span class="valor-negativo">AKZ {{ folha.inss|floatformat:2 }}</span>
+                            </div>
+                            {% endif %}
+                            {% if folha.irrf > 0 %}
+                            <div class="flex justify-between">
+                                <span>IRRF:</span>
+                                <span class="valor-negativo">AKZ {{ folha.irrf|floatformat:2 }}</span>
+                            </div>
+                            {% endif %}
+                            {% if folha.vale_transporte > 0 %}
+                            <div class="flex justify-between">
+                                <span>Vale Transporte:</span>
+                                <span class="valor-negativo">AKZ {{ folha.vale_transporte|floatformat:2 }}</span>
+                            </div>
+                            {% endif %}
+                            {% if folha.plano_saude > 0 %}
+                            <div class="flex justify-between">
+                                <span>Plano de Saúde:</span>
+                                <span class="valor-negativo">AKZ {{ folha.plano_saude|floatformat:2 }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                    <button onclick="toggleDetalhes({{ folha.id }})" class="text-gray-500 hover:text-gray-700 text-sm">
+                        <i class="fas fa-chevron-up mr-1"></i>Ocultar detalhes
+                    </button>
+                    <div class="text-right">
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Total Líquido a Receber</p>
+                        <p class="text-xl font-bold text-gray-900 dark:text-white">AKZ {{ folha.liquido_a_receber|floatformat:2 }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botão para expandir detalhes -->
+            <div class="mt-4 text-center">
+                <button onclick="toggleDetalhes({{ folha.id }})" class="text-primary hover:text-primary-dark text-sm">
+                    <i class="fas fa-chevron-down mr-1"></i>Ver detalhes
+                </button>
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-12">
+            <i class="fas fa-file-invoice-dollar text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-xl font-semibold text-gray-600 mb-2">Nenhuma folha encontrada</h3>
+            <p class="text-gray-500 mb-4">Gere a folha de pagamento para este período</p>
+            <button onclick="gerarFolhaMes()" class="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-lg transition-colors">
+                <i class="fas fa-calculator mr-2"></i>Gerar Folha do Mês
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal Editar Folha -->
+<div id="modalEditarFolha" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white">Editar Folha de Pagamento</h2>
+                <button onclick="fecharModalFolha()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <form id="formEditarFolha" class="p-6">
+            <input type="hidden" id="folhaId">
+            
+            <div class="mb-6">
+                <h3 id="nomeFuncionario" class="text-lg font-semibold text-gray-900 dark:text-white mb-4"></h3>
+                
+                <!-- Vencimentos -->
+                <div class="mb-6">
+                    <h4 class="font-semibold text-green-600 mb-3">Vencimentos</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Salário Base</label>
+                            <input type="number" id="salarioBase" step="0.01" readonly
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Horas Extras</label>
+                            <input type="number" id="horasExtras" step="0.01" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bônus</label>
+                            <input type="number" id="bonus" step="0.01" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Comissões</label>
+                            <input type="number" id="comissoes" step="0.01" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Descontos -->
+                <div class="mb-6">
+                    <h4 class="font-semibold text-red-600 mb-3">Descontos</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">INSS</label>
+                            <input type="number" id="inss" step="0.01" readonly
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">IRRF</label>
+                            <input type="number" id="irrf" step="0.01" readonly
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vale Transporte</label>
+                            <input type="number" id="valeTransporte" step="0.01" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Plano de Saúde</label>
+                            <input type="number" id="planoSaude" step="0.01" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resumo -->
+                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <div class="flex justify-between items-center text-lg font-semibold">
+                        <span>Líquido a Receber:</span>
+                        <span id="liquidoCalculado" class="text-primary">AKZ 0,00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botões -->
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button type="button" onclick="fecharModalFolha()" 
+                        class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors">
+                    Cancelar
+                </button>
+                <button type="submit" 
+                        class="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors">
+                    <i class="fas fa-save mr-2"></i>Salvar Alterações
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initFolhaPagamento();
+});
+
+function initFolhaPagamento() {
+    // Event listeners
+    document.getElementById('btnGerarFolha').addEventListener('click', gerarFolhaMes);
+    document.getElementById('btnCarregarPeriodo').addEventListener('click', carregarPeriodo);
+    document.getElementById('formEditarFolha').addEventListener('submit', salvarEdicaoFolha);
+    
+    // Listeners para cálculo automático
+    const camposCalculo = ['horasExtras', 'bonus', 'comissoes', 'valeTransporte', 'planoSaude'];
+    camposCalculo.forEach(campo => {
+        const elemento = document.getElementById(campo);
+        if (elemento) {
+            elemento.addEventListener('input', calcularLiquido);
+        }
+    });
+}
+
+function toggleDetalhes(folhaId) {
+    const detalhes = document.getElementById(`detalhes-${folhaId}`);
+    const isHidden = detalhes.classList.contains('hidden');
+    
+    if (isHidden) {
+        detalhes.classList.remove('hidden');
+    } else {
+        detalhes.classList.add('hidden');
+    }
+}
+
+async function gerarFolhaMes() {
+    const mesReferencia = document.getElementById('mesReferencia').value;
+    
+    if (!mesReferencia) {
+        showToast('Selecione o mês de referência', 'warning');
+        return;
+    }
+    
+    if (confirm('Deseja gerar a folha de pagamento para todos os funcionários ativos?')) {
+        try {
+            const response = await fetch('/rh/folha-pagamento/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken(),
+                },
+                body: JSON.stringify({
+                    action: 'gerar_folha',
+                    mes_referencia: mesReferencia + '-01'
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast(`${result.folhas_criadas} folhas geradas com sucesso!`, 'success');
+                location.reload();
+            } else {
+                showToast('Erro ao gerar folhas: ' + result.error, 'error');
+            }
+        } catch (error) {
+            showToast('Erro de comunicação com o servidor', 'error');
+            console.error('Erro:', error);
+        }
+    }
+}
+
+function editarFolha(folhaId) {
+    // Carregar dados da folha
+    // Em produção, fazer requisição AJAX para buscar dados
+    document.getElementById('folhaId').value = folhaId;
+    document.getElementById('modalEditarFolha').classList.remove('hidden');
+}
+
+function fecharModalFolha() {
+    document.getElementById('modalEditarFolha').classList.add('hidden');
+}
+
+function calcularLiquido() {
+    const salarioBase = parseFloat(document.getElementById('salarioBase').value) || 0;
+    const horasExtras = parseFloat(document.getElementById('horasExtras').value) || 0;
+    const bonus = parseFloat(document.getElementById('bonus').value) || 0;
+    const comissoes = parseFloat(document.getElementById('comissoes').value) || 0;
+    
+    const inss = parseFloat(document.getElementById('inss').value) || 0;
+    const irrf = parseFloat(document.getElementById('irrf').value) || 0;
+    const valeTransporte = parseFloat(document.getElementById('valeTransporte').value) || 0;
+    const planoSaude = parseFloat(document.getElementById('planoSaude').value) || 0;
+    
+    const totalVencimentos = salarioBase + horasExtras + bonus + comissoes;
+    const totalDescontos = inss + irrf + valeTransporte + planoSaude;
+    const liquido = totalVencimentos - totalDescontos;
+    
+    document.getElementById('liquidoCalculado').textContent = `AKZ ${liquido.toFixed(2)}`;
+}
+
+async function salvarEdicaoFolha(event) {
+    event.preventDefault();
+    
+    const folhaId = document.getElementById('folhaId').value;
+    const dados = {
+        action: 'editar_folha',
+        folha_id: folhaId,
+        horas_extras: document.getElementById('horasExtras').value,
+        bonus: document.getElementById('bonus').value,
+        comissoes: document.getElementById('comissoes').value,
+        vale_transporte: document.getElementById('valeTransporte').value,
+        plano_saude: document.getElementById('planoSaude').value,
+    };
+    
+    try {
+        const response = await fetch('/rh/folha-pagamento/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken(),
+            },
+            body: JSON.stringify(dados)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('Folha atualizada com sucesso!', 'success');
+            fecharModalFolha();
+            location.reload();
+        } else {
+            showToast('Erro ao atualizar folha: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showToast('Erro de comunicação com o servidor', 'error');
+        console.error('Erro:', error);
+    }
+}
+
+async function pagarFuncionario(folhaId) {
+    if (confirm('Confirma o pagamento deste funcionário?')) {
+        try {
+            const response = await fetch('/rh/folha-pagamento/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken(),
+                },
+                body: JSON.stringify({
+                    action: 'pagar_funcionario',
+                    folha_id: folhaId
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast('Pagamento registrado com sucesso!', 'success');
+                location.reload();
+            } else {
+                showToast('Erro ao registrar pagamento: ' + result.error, 'error');
+            }
+        } catch (error) {
+            showToast('Erro de comunicação com o servidor', 'error');
+            console.error('Erro:', error);
+        }
+    }
+}
+
+function imprimirHolerite(folhaId) {
+    window.open(`/rh/holerite/${folhaId}/`, '_blank');
+}
+
+function carregarPeriodo() {
+    const mesReferencia = document.getElementById('mesReferencia').value;
+    if (mesReferencia) {
+        window.location.href = `?mes=${mesReferencia}`;
+    }
+}
+
+function getCSRFToken() {
+    return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+}
+
+function showToast(message, type = 'info') {
+    if (window.dashboard && window.dashboard.showToast) {
+        window.dashboard.showToast(message, type);
+    } else {
+        alert(message);
+    }
+}
+</script>
+{% endblock %}

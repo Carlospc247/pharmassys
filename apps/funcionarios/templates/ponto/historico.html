@@ -1,0 +1,80 @@
+<!-- funcionarios/ponto/historico.html -->
+{% extends "base.html" %}
+
+{% block title %}Histórico de Ponto{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4">Histórico de Ponto</h1>
+    
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Entrada</th>
+                            <th>Saída Almoço</th>
+                            <th>Volta Almoço</th>
+                            <th>Saída</th>
+                            <th>Horas Trabalhadas</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ponto in pontos %}
+                        <tr>
+                            <td>{{ ponto.data|date:"d/m/Y" }}</td>
+                            <td>{{ ponto.entrada_manha|default:"—" }}</td>
+                            <td>{{ ponto.saida_almoco|default:"—" }}</td>
+                            <td>{{ ponto.entrada_tarde|default:"—" }}</td>
+                            <td>{{ ponto.saida|default:"—" }}</td>
+                            <td>
+                                {% if ponto.horas_trabalhadas_dia %}
+                                    {{ ponto.horas_trabalhadas_dia|floatformat:2 }}h
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge badge-{% if ponto.status == 'presente' %}success{% elif ponto.status == 'falta' %}danger{% else %}warning{% endif %}">
+                                    {{ ponto.get_status_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center">Nenhum registro encontrado</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Paginação -->
+            {% if is_paginated %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+                    </li>
+                    {% endif %}
+                    
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                    </li>
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Próximo</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

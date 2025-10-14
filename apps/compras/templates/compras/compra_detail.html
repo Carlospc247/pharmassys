@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% load compras_extras %}
+
+{% block content %}
+<div class="container mx-auto py-6">
+    <h1 class="text-2xl font-bold mb-4">Detalhes da Compra #{{ compra.id }}</h1>
+
+    <!-- Informações gerais da compra -->
+    <div class="bg-white shadow rounded p-6 mb-6 space-y-2">
+        <div><strong>Fornecedor:</strong> {{ compra.fornecedor.nome if compra.fornecedor else '-' }}</div>
+        <div><strong>Data da Compra:</strong> {{ compra.data|date:"d/m/Y H:i" }}</div>
+        <div><strong>ID da Compra:</strong> {{ compra.id }}</div>
+    </div>
+
+    <!-- Itens da compra -->
+    <h2 class="text-xl font-semibold mb-2">Itens da Compra</h2>
+    <div class="overflow-x-auto mb-6">
+        <table class="min-w-full bg-white border border-gray-200">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="px-4 py-2 border-b">Produto</th>
+                    <th class="px-4 py-2 border-b">Quantidade</th>
+                    <th class="px-4 py-2 border-b">Preço Unitário</th>
+                    <th class="px-4 py-2 border-b">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in compra.itens.all %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-2 border-b">{{ item.produto.nome_comercial }}</td>
+                    <td class="px-4 py-2 border-b">{{ item.quantidade }}</td>
+                    <td class="px-4 py-2 border-b">{{ item.preco_unitario|floatformat:2 }}</td>
+                    <td class="px-4 py-2 border-b">{{ item.subtotal|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="px-4 py-2 text-center text-gray-500">Nenhum item cadastrado.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Total da compra -->
+    <div class="bg-gray-50 p-4 rounded mb-6 flex justify-end">
+        <span class="font-bold text-lg">
+            Total: 
+            {{ compra.itens.all|sum:"subtotal"|floatformat:2 }}
+        </span>
+    </div>
+
+    <!-- Documentos -->
+    <h2 class="text-xl font-semibold mb-2">Documentos</h2>
+    <div class="bg-white shadow rounded p-4 mb-6 space-y-2">
+        <div><strong>Nota Fiscal:</strong> {{ compra.nota_fiscal if compra.nota_fiscal else '-' }}</div>
+        <div><strong>Outros Documentos:</strong> {{ compra.outros_documentos if compra.outros_documentos else '-' }}</div>
+    </div>
+
+    <!-- Botão voltar -->
+    <div class="mt-4">
+        <a href="{% url 'compras:lista_compras' %}" class="text-blue-600 hover:underline">← Voltar à lista de compras</a>
+    </div>
+</div>
+{% endblock %}

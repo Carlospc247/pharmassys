@@ -1,0 +1,334 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}
+{{ title }}
+{% endblock %}
+
+{% block page_title %}
+{{ title }}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
+        <form method="post" id="venda-form" class="p-6">
+            {% csrf_token %}
+
+            <div class="border-b border-gray-900/10 dark:border-gray-700 pb-12">
+                <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-white">Detalhes da Venda</h2>
+                <p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400">Preencha as informações básicas para criar uma nova venda.</p>
+                <div class="mt-6 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
+                    <div class="sm:col-span-3">
+                        <label for="{{ form.cliente.id_for_label }}" class="block text-sm font-medium leading-6 text-gray-900 dark:text-white">Cliente</label>
+                        <div class="mt-2">
+                            {{ form.cliente }}
+                        </div>
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label for="{{ form.data_venda.id_for_label }}" class="block text-sm font-medium leading-6 text-gray-900 dark:text-white">Data da Venda</label>
+                        <div class="mt-2">
+                            {{ form.data_venda }}
+                        </div>
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label for="{{ form.forma_pagamento.id_for_label }}" class="block text-sm font-medium leading-6 text-gray-900 dark:text-white">Forma de Pagamento</label>
+                        <div class="mt-2">
+                            {{ form.forma_pagamento }}
+                        </div>
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label for="{{ form.observacoes.id_for_label }}" class="block text-sm font-medium leading-6 text-gray-900 dark:text-white">Observações</label>
+                        <div class="mt-2">
+                            {{ form.observacoes }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-10 border-b border-gray-900/10 dark:border-gray-700 pb-12">
+                <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-white">Itens da Venda</h2>
+                <div class="mt-4">
+                    <table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
+                        <thead>
+                            <tr class="bg-gray-50 dark:bg-gray-700">
+                                <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Produto</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Preço Unitário</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Quantidade</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Subtotal</th>
+                                <th class="relative py-3.5 pl-3 pr-4 sm:pr-0">
+                                    <span class="sr-only">Ações</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="venda-itens" class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                            </tbody>
+                    </table>
+                    <div class="pagination">
+                {% for page in paginator.page_range %}
+                    {% if page == paginator.number %}
+                        <strong>{{ page }}</strong>
+                    {% else %}
+                        <a href="?page={{ page }}">{{ page }}</a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <button type="button" id="adicionar-item" class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
+                        Adicionar Item
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-10">
+                <div class="flex justify-end">
+                    <div class="w-full max-w-sm">
+                        <div class="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                            <span class="text-sm text-gray-600 dark:text-gray-400">Subtotal</span>
+                            <span id="subtotal-valor" class="text-sm font-medium text-gray-900 dark:text-white">AKZ 0,00</span>
+                        </div>
+                        <div class="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                            <span class="text-sm text-gray-600 dark:text-gray-400">Desconto</span>
+                            <span id="desconto-valor" class="text-sm font-medium text-gray-900 dark:text-white">AKZ 0,00</span>
+                        </div>
+                        <div class="flex justify-between py-2 font-bold text-lg text-gray-900 dark:text-white">
+                            <span>Total</span>
+                            <span id="total-valor">AKZ 0,00</span>
+                        </div>
+                        <div id="resultado-fiscal" style="margin-top: 2rem; border-top: 1px solid #ddd; padding-top: 1rem; display: none;">
+                            <h3 class="text-xl font-semibold leading-7 text-green-600 dark:text-green-400">✅ Documento Assinado e Emitido!</h3>
+                            <p class="mt-2 text-sm leading-6 text-gray-700 dark:text-gray-300">Este documento cumpre as normas fiscais Angolanas
+                                (AGT).</p>
+                        
+                            <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                <p>Nº Documento: <strong id="display-numero" class="text-indigo-600 dark:text-indigo-400"></strong></p>
+                                <p>ATCUD: <strong id="display-atcud" class="text-indigo-600 dark:text-indigo-400"></strong></p>
+                                <p>HASH (Assinatura Fiscal): <code id="display-hash"
+                                        class="text-red-600 dark:text-red-400 font-mono text-xs break-all"></code></p>
+                                <p class="mt-2 text-xs font-semibold text-red-700 dark:text-red-500">AVISO: O HASH garante a inviolabilidade dos
+                                    dados fiscais.</p>
+                            </div>
+                        </div>
+                        
+                        <div id="feedback-erro"
+                            class="mt-4 p-3 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 rounded-md"
+                            style="display: none;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex items-center justify-end gap-x-6">
+                <button type="button" class="text-sm font-semibold leading-6 text-gray-900 dark:text-white">Cancelar</button>
+                <button type="submit" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Salvar Venda</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Dados passados pela view para o JavaScript
+    const clientes = JSON.parse('{{ clientes|safe }}');
+    const produtos = JSON.parse('{{ produtos|safe }}');
+    const formasPagamento = JSON.parse('{{ formas_pagamento|safe }}');
+
+    let vendaItens = [];
+    let itemIdCounter = 0;
+    
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('venda-form');
+        const vendaItensTable = document.getElementById('venda-itens');
+        const adicionarItemBtn = document.getElementById('adicionar-item');
+
+        const API_URL = '/api/v1/vendas/'; // Verifique sua rota de API real
+        const CSRF_TOKEN = document.querySelector('[name=csrfmiddlewaretoken]').value; 
+
+        // Renderiza o seletor de produtos e a linha de item
+        function renderItemRow(item) {
+            const row = document.createElement('tr');
+            row.id = `item-row-${item.id}`;
+            row.className = "hover:bg-gray-50 dark:hover:bg-gray-700";
+            row.innerHTML = `
+                <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-white">
+                    <select name="produto-${item.id}" class="block w-full rounded-md border-0 py-1.5 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 dark:bg-gray-900">
+                        <option value="">Selecione um produto</option>
+                        {% for produto in produtos %}
+                            <option value="{{ produto.id }}" data-preco="{{ produto.preco_venda }}">{{ produto.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                    <span id="preco-unitario-${item.id}">AKZ 0,00</span>
+                </td>
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                    <input type="number" name="quantidade-${item.id}" value="1" min="1" class="block w-24 rounded-md border-0 py-1.5 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 dark:bg-gray-900">
+                </td>
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                    <span id="subtotal-item-${item.id}">AKZ 0,00</span>
+                </td>
+                <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
+                    <button type="button" class="text-red-600 hover:text-red-900" data-item-id="${item.id}">Remover</button>
+                </td>
+            `;
+            vendaItensTable.appendChild(row);
+
+            // Adiciona listeners para atualizar valores dinamicamente
+            const selectProduto = row.querySelector(`select[name="produto-${item.id}"]`);
+            const inputQuantidade = row.querySelector(`input[name="quantidade-${item.id}"]`);
+            const precoSpan = row.querySelector(`#preco-unitario-${item.id}`);
+            const subtotalSpan = row.querySelector(`#subtotal-item-${item.id}`);
+            const removerBtn = row.querySelector(`button[data-item-id="${item.id}"]`);
+
+            selectProduto.addEventListener('change', function() {
+                const preco = parseFloat(this.options[this.selectedIndex].dataset.preco) || 0;
+                item.preco = preco;
+                precoSpan.textContent = `AKZ ${preco.toFixed(2).replace('.', ',')}`;
+                updateItemSubtotal(item);
+            });
+
+            inputQuantidade.addEventListener('input', function() {
+                item.quantidade = parseInt(this.value) || 1;
+                updateItemSubtotal(item);
+            });
+
+            removerBtn.addEventListener('click', function() {
+                vendaItens = vendaItens.filter(i => i.id !== item.id);
+                row.remove();
+                updateTotals();
+            });
+        }
+
+        function updateItemSubtotal(item) {
+            item.subtotal = item.preco * item.quantidade;
+            const subtotalSpan = document.getElementById(`subtotal-item-${item.id}`);
+            subtotalSpan.textContent = `AKZ ${item.subtotal.toFixed(2).replace('.', ',')}`;
+            updateTotals();
+        }
+
+        function updateTotals() {
+            let totalSubtotal = 0;
+            vendaItens.forEach(item => {
+                totalSubtotal += item.subtotal;
+            });
+            
+            // Lógica de desconto, se houver
+            const totalComDesconto = totalSubtotal;
+
+            document.getElementById('subtotal-valor').textContent = `AKZ ${totalSubtotal.toFixed(2).replace('.', ',')}`;
+            document.getElementById('total-valor').textContent = `AKZ ${totalComDesconto.toFixed(2).replace('.', ',')}`;
+        }
+
+        adicionarItemBtn.addEventListener('click', function() {
+            const newItem = {
+                id: itemIdCounter++,
+                produto: null,
+                preco: 0,
+                quantidade: 1,
+                subtotal: 0
+            };
+            vendaItens.push(newItem);
+            renderItemRow(newItem);
+        });
+
+        // Continuação do seu script dentro do DOMContentLoaded
+
+async function submeterVenda(event) {
+    event.preventDefault(); // Impede a submissão tradicional do Django Form
+    
+    const submitButton = form.querySelector('button[type="submit"]');
+    const feedbackErroDiv = document.getElementById('feedback-erro');
+    
+    // Limpar feedback e desativar botão
+    feedbackErroDiv.style.display = 'none';
+    document.getElementById('resultado-fiscal').style.display = 'none';
+    submitButton.disabled = true;
+    submitButton.textContent = 'A processar e assinar...';
+
+    // 1. Coletar Dados para a API
+    const itensAPI = [];
+    vendaItens.forEach(item => {
+        // Garantir que o produto_id, quantidade, preco_unitario e desconto sejam coletados
+        const row = document.getElementById(`item-row-${item.id}`);
+        const selectProduto = row.querySelector('select');
+        const inputQuantidade = row.querySelector('input[name^="quantidade-"]');
+
+        const precoElement = document.getElementById(`preco-unitario-${item.id}`);
+        // Remove 'AKZ ' e substitui vírgula por ponto
+        const precoUnitario = parseFloat(precoElement.textContent.replace('AKZ ', '').replace(',', '.')) || 0; 
+        
+        // **Nota:** Seu template não tinha campo de Desconto na linha. Assumimos '0' por enquanto.
+        const desconto_item = 0; 
+        
+        itensAPI.push({
+            produto_id: parseInt(selectProduto.value),
+            quantidade: parseFloat(inputQuantidade.value),
+            preco_unitario: precoUnitario,
+            desconto_item: desconto_item 
+        });
+    });
+
+    const vendaData = {
+        // Campos do cabeçalho
+        empresa: 1, // HARDCODE: Deve vir de um input ou contexto do usuário
+        loja: 1,    // HARDCODE: Deve vir de um input ou contexto do usuário
+        cliente: document.getElementById('id_cliente').value, // Adapte para o ID do seu campo de cliente
+        forma_pagamento: document.getElementById('id_forma_pagamento').value, // Adapte para o ID
+        tipo_venda: 'FR', // Fatura Recibo AGT
+        observacoes: document.getElementById('id_observacoes').value, // Adapte para o ID
+        itens: itensAPI
+    };
+
+    // 2. Chamar a API (Fetch Assíncrono)
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN // Segurança Django
+            },
+            body: JSON.stringify(vendaData)
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // SUCESSO: Apresentar os dados CRÍTICOS
+            document.getElementById('display-numero').textContent = data.documento.numero_venda;
+            document.getElementById('display-atcud').textContent = data.documento.atcud;
+            document.getElementById('display-hash').textContent = data.documento.hash_documento;
+            
+            document.getElementById('resultado-fiscal').style.display = 'block';
+            
+            // Limpar/Resetar o formulário ou redirecionar
+            form.reset(); 
+            vendaItensTable.innerHTML = '';
+            vendaItens = [];
+            document.getElementById('adicionar-item').click(); // Adiciona nova linha
+
+        } else {
+            // ERRO: Erro de validação ou erro fiscal do backend
+            const errorMessage = data.message || JSON.stringify(data);
+            feedbackErroDiv.textContent = `Falha CRÍTICA na Emissão: ${errorMessage}`;
+            feedbackErroDiv.style.display = 'block';
+        }
+
+        } catch (error) {
+            feedbackErroDiv.textContent = `Erro de Conexão de Rede: O servidor não está acessível. ${error.message}`;
+            feedbackErroDiv.style.display = 'block';
+        } finally {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Salvar Venda';
+        }
+    }
+
+
+        form.addEventListener('submit', submeterVenda);
+        
+        // Exibe a primeira linha de item no carregamento
+        adicionarItemBtn.click();
+    });
+</script>
+{% endblock %}

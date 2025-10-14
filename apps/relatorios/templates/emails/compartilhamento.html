@@ -1,0 +1,96 @@
+<!-- templates/emails/compartilhamento.html -->
+{% extends "emails/base.html" %}
+
+{% block title %}{% if template %}Template{% else %}Relatório{% endif %} Compartilhado - {{ item_nome }}{% endblock %}
+
+{% block header_subtitle %}{% if template %}Um template foi compartilhado com você{% else %}Um relatório foi compartilhado com você{% endif %}{% endblock %}
+
+{% block content %}
+<h2>{% if template %}Template{% else %}Relatório{% endif %} Compartilhado 📤</h2>
+
+<p>Olá!</p>
+
+<p>{{ compartilhamento.compartilhado_por.get_full_name|default:compartilhamento.compartilhado_por.username }} compartilhou {% if template %}um template{% else %}um relatório{% endif %} com você.</p>
+
+<div style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 24px; margin: 24px 0; background-color: #f7fafc;">
+    <div style="display: flex; align-items: center; margin-bottom: 16px;">
+        <div style="width: 48px; height: 48px; background: {% if template %}#667eea{% else %}#48bb78{% endif %}; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 16px;">
+            <span style="color: white; font-size: 20px;">
+                {% if template %}📄{% else %}📊{% endif %}
+            </span>
+        </div>
+        <div>
+            <h3 style="margin: 0; color: #1a202c;">{{ item_nome }}</h3>
+            <p style="margin: 4px 0 0 0; color: #718096; font-size: 14px;">
+                {% if template %}Template • {{ template.categoria|capfirst }}{% else %}Relatório • {{ relatorio.formato|upper }}{% endif %}
+            </p>
+        </div>
+    </div>
+    
+    {% if compartilhamento.descricao %}
+    <p style="color: #4a5568; margin: 16px 0;">{{ compartilhamento.descricao }}</p>
+    {% endif %}
+    
+    <div style="text-align: center; margin-top: 24px;">
+        <a href="{{ link_acesso }}" class="btn btn-primary" style="text-decoration: none;">
+            👁️ Visualizar {% if template %}Template{% else %}Relatório{% endif %}
+        </a>
+    </div>
+</div>
+
+<h3>Permissões Concedidas</h3>
+
+<ul style="color: #4a5568;">
+    <li>✅ Visualizar conteúdo</li>
+    {% if compartilhamento.permitir_download %}
+    <li>✅ Fazer download</li>
+    {% endif %}
+    {% if template and compartilhamento.permitir_copia %}
+    <li>✅ Copiar template</li>
+    {% endif %}
+    {% if template and compartilhamento.permitir_execucao %}
+    <li>✅ Executar template</li>
+    {% endif %}
+</ul>
+
+<h3>Informações Adicionais</h3>
+
+<table class="table">
+    <tr>
+        <td><strong>Compartilhado por:</strong></td>
+        <td>{{ compartilhamento.compartilhado_por.get_full_name|default:compartilhamento.compartilhado_por.username }}</td>
+    </tr>
+    <tr>
+        <td><strong>Data do compartilhamento:</strong></td>
+        <td>{{ compartilhamento.created_at|date:"d/m/Y H:i" }}</td>
+    </tr>
+    {% if compartilhamento.data_expiracao %}
+    <tr>
+        <td><strong>Válido até:</strong></td>
+        <td>{{ compartilhamento.data_expiracao|date:"d/m/Y H:i" }}</td>
+    </tr>
+    {% endif %}
+    {% if compartilhamento.max_visualizacoes %}
+    <tr>
+        <td><strong>Limite de visualizações:</strong></td>
+        <td>{{ compartilhamento.max_visualizacoes }}</td>
+    </tr>
+    {% endif %}
+</table>
+
+{% if compartilhamento.data_expiracao %}
+<div class="alert alert-warning">
+    <strong>Atenção:</strong> Este link tem validade limitada até {{ compartilhamento.data_expiracao|date:"d/m/Y H:i" }}. 
+    Acesse o quanto antes para não perder o acesso.
+</div>
+{% endif %}
+
+<p>Se você tiver dúvidas sobre este conteúdo, entre em contato diretamente com quem compartilhou.</p>
+
+<p>
+    Atenciosamente,<br>
+    <strong>Sistema de Relatórios</strong>
+</p>
+{% endblock %}
+
+{% block unsubscribe_url %}{{ base_url }}/configuracoes/?tab=notificacoes{% endblock %}

@@ -1,0 +1,25 @@
+<!-- templates/financeiro/banco/detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Detalhes da Conta Bancária{% endblock %}
+{% block page_title %}Detalhes da Conta Bancária{% endblock %}
+
+{% block content %}
+<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+        Detalhes da Conta Bancária: {{ conta.nome }}
+    </h1>
+
+    <p><strong>Banco:</strong> {{ conta.banco }}</p>
+    <p><strong>Agência:</strong> {{ conta.agencia }}</p>
+    <p><strong>Conta:</strong> {{ conta.conta }}</p>
+    <p><strong>Saldo Atual:</strong> {{ conta.saldo_atual|floatformat:2 }} Kz</p>
+
+    <div class="mt-6">
+        <a href="{% url 'financeiro:banco_update' conta.id %}" class="bg-yellow-500 text-white px-4 py-2 rounded-lg">Editar</a>
+        <a href="{% url 'financeiro:extrato_bancario' conta.id %}" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Ver Extrato</a>
+        <a href="{% url 'financeiro:conciliacao_bancaria' conta.id %}" class="bg-green-500 text-white px-4 py-2 rounded-lg">Conciliar</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Relatório de Performance e Qualidade{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Relatório de Performance de Entrega e Qualidade</h2>
+    <p class="lead">Análise da performance operacional dos fornecedores.</p>
+    <hr>
+    
+    {# Assumindo que a view injeta 'performance_data' #}
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm p-3">
+                <h4>Distribuição da Nota Média por Fornecedor</h4>
+                <canvas id="scoreChart" height="150"></canvas>
+                <p class="text-muted small">Gráfico de barras mostrando `performance_data.media_por_fornecedor`.</p>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm p-3">
+                <h4>Métrica Chave: Taxa de Atraso na Entrega</h4>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr class="table-danger"><th>Fornecedor</th><th>Pedidos Totais</th><th>Atrasos (%)</th></tr>
+                    </thead>
+                    <tbody>
+                        {# Itere sobre performance_data.atrasos #}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <h4>Alertas de Baixa Performance</h4>
+    <div class="alert alert-danger">
+        Liste aqui fornecedores com pontuação abaixo de 7.0 nos últimos 6 meses.
+    </div>
+</div>
+{% endblock %}

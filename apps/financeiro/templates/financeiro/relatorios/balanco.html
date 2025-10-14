@@ -1,0 +1,15 @@
+<!-- templates/financeiro/relatorios/balanco.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Relatório de Balanço{% endblock %}
+{% block page_title %}Balanço Patrimonial{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-4">
+    <h1 class="text-2xl font-bold mb-4">Balanço Patrimonial</h1>
+    <p>Aqui você pode visualizar o balanço patrimonial.</p>
+    <!-- Adicione gráficos ou tabelas conforme necessário -->
+    <a href="{% url 'financeiro:relatorios' %}" class="btn btn-secondary">Voltar</a>
+</div>
+{% endblock %}

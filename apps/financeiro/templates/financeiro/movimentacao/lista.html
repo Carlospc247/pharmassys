@@ -1,0 +1,60 @@
+<!-- templates/financeiro/movimentacao/lista.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Movimentações Financeiras{% endblock %}
+{% block page_title %}Lista de Movimentações Financeiras{% endblock %}
+
+{% block content %}
+<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+        Movimentações Financeiras
+    </h1>
+
+    <form method="GET" class="flex space-x-4 mb-4">
+        <select name="tipo" class="border p-2 rounded">
+            <option value="">Todos os Tipos</option>
+            <option value="entrada">Entradas</option>
+            <option value="saida">Saídas</option>
+        </select>
+        <input type="date" name="data_inicio" class="border p-2 rounded" />
+        <input type="date" name="data_fim" class="border p-2 rounded" />
+        <input type="submit" value="Filtrar" class="bg-blue-500 text-white px-4 py-2 rounded" />
+    </form>
+
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                    <th class="px-6 py-3 text-left">Data</th>
+                    <th class="px-6 py-3 text-left">Descrição</th>
+                    <th class="px-6 py-3 text-left">Tipo</th>
+                    <th class="px-6 py-3 text-left">Valor</th>
+                    <th class="px-6 py-3 text-left">Ações</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {% for movimentacao in movimentacoes %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td class="px-6 py-4">{{ movimentacao.data_movimentacao|date:"d/m/Y" }}</td>
+                    <td class="px-6 py-4">{{ movimentacao.descricao }}</td>
+                    <td class="px-6 py-4">{{ movimentacao.tipo_movimentacao }}</td>
+                    <td class="px-6 py-4">{{ movimentacao.valor|floatformat:2 }} Kz</td>
+                    <td class="px-6 py-4">
+                        <a href="{% url 'financeiro:movimentacao_update' movimentacao.id %}" class="text-yellow-600 hover:text-yellow-900">Editar</a>
+                        <form method="POST" action="{% url 'financeiro:confirmar_movimentacao' movimentacao.id %}" class="inline">
+                            {% csrf_token %}
+                            <button type="submit" class="text-green-600 hover:text-green-900">Confirmar</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Nenhuma movimentação encontrada.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

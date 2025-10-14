@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Detalhes do Cliente{% endblock %}
+{% block page_title %}Detalhes do Cliente: {{ cliente.nome_completo|default:cliente.razao_social }}{% endblock %}
+
+{% block content %}
+<p><strong>Código:</strong> {{ cliente.codigo_cliente }}</p>
+<p><strong>Tipo:</strong> {{ cliente.get_tipo_cliente_display }}</p>
+<p><strong>Email:</strong> {{ cliente.email }}</p>
+<p><strong>Telefone:</strong> {{ cliente.telefone }}</p>
+<p><strong>Crédito Disponível:</strong> {{ cliente.credito_disponivel|intcomma }}</p>
+
+<a href="{% url 'clientes:lista' %}">Voltar para a lista</a>
+<a href="{% url 'clientes:editar' cliente.pk %}">Editar Cliente</a>
+<a href="{% url 'clientes:excluir' cliente.pk %}">Excluir Cliente</a>
+{% endblock %}

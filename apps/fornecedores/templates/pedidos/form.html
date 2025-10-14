@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}
+    {% if object %}Editar Pedido #{{ object.numero_pedido }}{% else %}Novo Pedido de Compra{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>{% if object %}Editar Pedido #{{ object.numero_pedido }}{% else %}Novo Pedido de Compra{% endif %}</h2>
+    <hr>
+    
+    {# Nota: O formulário precisa da lógica de Itens (Inline Formsets) para ser completo. Aqui tratamos apenas do cabeçalho. #}
+    
+    <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+        
+        <div class="card shadow-sm p-4 mb-4">
+            <h5 class="mb-3">Informações de Cabeçalho</h5>
+            <div class="row">
+                <div class="col-md-6">{{ form.fornecedor|as_crispy_field }}</div>
+                <div class="col-md-3">{{ form.data_pedido|as_crispy_field }}</div>
+                <div class="col-md-3">{{ form.urgencia|as_crispy_field }}</div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">{{ form.condicao_pagamento|as_crispy_field }}</div>
+                <div class="col-md-6">{{ form.forma_pagamento|as_crispy_field }}</div>
+            </div>
+            <div class="row">
+                <div class="col-md-12">{{ form.endereco_entrega|as_crispy_field }}</div>
+            </div>
+        </div>
+        
+        {# Seção de ITENS deve ser adicionada aqui usando Formsets (CRÍTICO para Pedidos de Compra) #}
+        <div class="alert alert-warning">
+            <strong>AVISO:</strong> Para funcionalidade completa, adicione a lógica de **Formsets** (Inline Formsets)
+            nesta seção para permitir a gestão dos itens do pedido.
+        </div>
+        
+        <div class="card shadow-sm p-4 mb-4">
+            <h5 class="mb-3">Custos e Descontos</h5>
+            <div class="row">
+                <div class="col-md-3">{{ form.desconto_percentual|as_crispy_field }}</div>
+                <div class="col-md-3">{{ form.valor_frete|as_crispy_field }}</div>
+                <div class="col-md-3">{{ form.valor_seguro|as_crispy_field }}</div>
+                <div class="col-md-3">{{ form.outras_despesas|as_crispy_field }}</div>
+            </div>
+        </div>
+        
+        <div class="d-flex justify-content-end mt-4">
+            <a href="{% url 'fornecedores:pedido_lista' %}" class="btn btn-secondary me-2">Cancelar</a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> 
+                {% if object %}Atualizar Pedido{% else %}Criar Rascunho{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h2>Orçamento {{ orcamento.numero_orcamento }}</h2>
+  <p>Status: <strong>{{ orcamento.get_status_display }}</strong></p>
+  <p>Cliente: {{ orcamento.cliente }}</p>
+  <p>Vendedor: {{ orcamento.vendedor }}</p>
+  <p>Validade: {{ orcamento.data_validade }}</p>
+  <p>Subtotal: {{ orcamento.valor_subtotal }}</p>
+  <p>Desconto: {{ orcamento.valor_desconto }}</p>
+  <p>Total: <strong>{{ orcamento.total }}</strong></p>
+  <p>Observações: {{ orcamento.observacoes|linebreaks }}</p>
+
+  <h3>Itens</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Produto</th>
+        <th>Quantidade</th>
+        <th>Valor Unitário</th>
+        <th>Valor Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in itens %}
+        <tr>
+          <td>{{ item.produto.nome }}</td>
+          <td>{{ item.quantidade }}</td>
+          <td>{{ item.valor_unitario }}</td>
+          <td>{{ item.total }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="pagination">
+                {% for page in paginator.page_range %}
+                    {% if page == paginator.number %}
+                        <strong>{{ page }}</strong>
+                    {% else %}
+                        <a href="?page={{ page }}">{{ page }}</a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+  {% if pode_converter %}
+    <form method="post" action="{% url 'orcamentos:converter_orcamento' orcamento.pk %}">
+      {% csrf_token %}
+      <button type="submit">Converter em Venda</button>
+    </form>
+  {% endif %}
+{% endblock %}

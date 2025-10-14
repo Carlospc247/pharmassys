@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Ranking de Fornecedores por Performance{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Ranking de Fornecedores</h2>
+    <p class="lead">Os fornecedores mais bem avaliados e os que precisam de atenção.</p>
+    <hr>
+    
+    {# Assumindo que a view injeta uma lista ordenada 'top_ranking' #}
+    {% with top_ranking=ranking_data.top_fornecedores %}
+    
+    {% if top_ranking %}
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-success text-white">
+                    <i class="fas fa-medal"></i> Top 5: Excelência em Fornecimento
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for item in top_ranking|slice:":5" %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="{% url 'fornecedores:detalhe_fornecedor' pk=item.fornecedor.pk %}">
+                            **#{{ forloop.counter }}** - {{ item.fornecedor.nome_exibicao }}
+                        </a>
+                        <span class="badge bg-success rounded-pill fs-6">{{ item.nota_media|floatformat:2 }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        
+        <div class="col-lg-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-danger text-white">
+                    <i class="fas fa-exclamation-triangle"></i> Últimos 5: Risco Elevado
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for item in ranking_data.bottom_fornecedores|slice:":5" %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="{% url 'fornecedores:detalhe_fornecedor' pk=item.fornecedor.pk %}">
+                            **#{{ forloop.counter }}** - {{ item.fornecedor.nome_exibicao }}
+                        </a>
+                        <span class="badge bg-danger rounded-pill fs-6">{{ item.nota_media|floatformat:2 }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <a href="{% url 'fornecedores:avaliacao_lista' %}" class="btn btn-secondary">
+            <i class="fas fa-list"></i> Ver Todas as Avaliações
+        </a>
+    </div>
+
+    {% else %}
+    <div class="alert alert-info" role="alert">
+        Dados insuficientes para gerar o ranking. Registre mais avaliações.
+    </div>
+    {% endif %}
+    {% endwith %}
+</div>
+{% endblock %}

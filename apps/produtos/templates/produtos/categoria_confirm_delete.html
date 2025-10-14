@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}Eliminar Categoria{% endblock %}
+
+{% block page_title %}Eliminar Categoria{% endblock %}
+
+{% block content %}
+<div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-sm">
+    <form method="post">
+        {% csrf_token %}
+        <div class="p-6 text-center">
+            <i class="fas fa-exclamation-triangle text-5xl text-red-400 mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white">Tem a certeza?</h3>
+            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                Você está prestes a eliminar permanentemente a categoria <strong class="font-semibold">"{{ object.nome }}"</strong>. Esta ação não pode ser desfeita.
+            </p>
+        </div>
+        <div class="flex items-center justify-center gap-x-4 border-t border-gray-200 dark:border-gray-700 px-6 py-4 bg-gray-50 dark:bg-gray-800/50">
+            <a href="{% url 'produtos:categoria_lista' %}" class="rounded-md bg-white dark:bg-gray-700 px-4 py-2 text-sm font-semibold text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50">Cancelar</a>
+            <button type="submit" class="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500">
+                Sim, Eliminar
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,1808 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Gestão de Produtos - vistoGEST{% endblock %}
+
+{% block content %}
+<div class="p-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Gestão de Produtos</h1>
+            <p class="text-gray-600 mt-2">Catálogo completo de medicamentos, produtos e serviços</p>
+        </div>
+        <div class="flex space-x-3">
+            <a href="{% url 'core:estoque' %}" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg">
+                <i class="fas fa-boxes mr-2"></i>Estoque
+            </a>
+            
+            <!-- Dropdown Novo -->
+            <div class="relative group">
+                <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center">
+                    <i class="fas fa-plus mr-2"></i>Novo
+                    <i class="fas fa-chevron-down ml-2"></i>
+                </button>
+                <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 hidden group-hover:block">
+                    <div class="py-1">
+                        <button onclick="novoProduto()" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="fas fa-pills mr-2 text-green-600"></i>Produto
+                        </button>
+                        <button onclick="novaCategoria()" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="fas fa-tags mr-2 text-blue-600"></i>Categoria
+                        </button>
+                        <button onclick="novoServico()" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="fas fa-hand-holding-medical mr-2 text-purple-600"></i>Serviço
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <button onclick="importarProdutos()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                <i class="fas fa-upload mr-2"></i>Importar
+            </button>
+            
+            <!-- Dropdown Gerenciar -->
+            <div class="relative group">
+                <button class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center">
+                    <i class="fas fa-cogs mr-2"></i>Gerenciar
+                    <i class="fas fa-chevron-down ml-2"></i>
+                </button>
+                <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 hidden group-hover:block">
+                    <div class="py-1">
+                        <button onclick="gerenciarCategorias()" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="fas fa-tags mr-2 text-blue-600"></i>Categorias
+                        </button>
+                        <button onclick="gerenciarServicos()" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="fas fa-hand-holding-medical mr-2 text-purple-600"></i>Serviços
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-blue-100 rounded-lg">
+                    <i class="fas fa-pills text-blue-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Total Produtos</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ produtos_stats.total }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-green-100 rounded-lg">
+                    <i class="fas fa-check-circle text-green-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Ativos</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ produtos_stats.ativos }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-red-100 rounded-lg">
+                    <i class="fas fa-shield-alt text-red-600"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-yellow-100 rounded-lg">
+                    <i class="fas fa-tags text-yellow-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Categorias</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ produtos_stats.categorias }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-2 bg-purple-100 rounded-lg">
+                    <i class="fas fa-hand-holding-medical text-purple-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Serviços</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ produtos_stats.servicos }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="bg-white rounded-lg shadow mb-6">
+        <div class="border-b border-gray-200">
+            <nav class="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+                <button onclick="switchMainTab('produtos')" id="tab-produtos" 
+                        class="main-tab active py-2 px-1 border-b-2 border-blue-500 font-medium text-sm text-blue-600">
+                    <i class="fas fa-pills mr-2"></i>Produtos
+                </button>
+                <button onclick="switchMainTab('categorias')" id="tab-categorias" 
+                        class="main-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-tags mr-2"></i>Categorias
+                </button>
+                <button onclick="switchMainTab('servicos')" id="tab-servicos" 
+                        class="main-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-hand-holding-medical mr-2"></i>Serviços
+                </button>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Tab Content Produtos -->
+    <div id="content-produtos" class="main-tab-content">
+        <!-- Filtros -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <form method="GET" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Buscar</label>
+                    <input type="text" name="search" value="{{ request.GET.search }}" 
+                           placeholder="Nome, código, princípio ativo..." 
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 text-base">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Categoria</label>
+                    <select name="categoria" class="w-full border border-gray-300 rounded-md px-3 py-2">
+                        <option value="">Todas</option>
+                        {% for categoria in categorias %}
+                        <option value="{{ categoria.id }}" {% if request.GET.categoria == categoria.id|stringformat:"s" %}selected{% endif %}>
+                            {{ categoria.nome }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <select name="status" class="w-full border border-gray-300 rounded-md px-3 py-2">
+                        <option value="">Todos</option>
+                        <option value="ativo" {% if request.GET.status == 'ativo' %}selected{% endif %}>Ativo</option>
+                        <option value="inativo" {% if request.GET.status == 'inativo' %}selected{% endif %}>Inativo</option>
+                        <option value="estoque_baixo" {% if request.GET.status == 'estoque_baixo' %}selected{% endif %}>Estoque Baixo</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Controlado</label>
+                    <select name="controlado" class="w-full border border-gray-300 rounded-md px-3 py-2">
+                        <option value="">Todos</option>
+                        <option value="1" {% if request.GET.controlado == '1' %}selected{% endif %}>Sim</option>
+                        <option value="0" {% if request.GET.controlado == '0' %}selected{% endif %}>Não</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+                        <i class="fas fa-search mr-2"></i>Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tabela de Produtos -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Lista de Produtos</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produto</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estoque</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preço</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for produto in produtos %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-10 w-10">
+                                        <div class="h-10 w-10 rounded-lg bg-gray-200 flex items-center justify-center">
+                                            <i class="fas fa-pills text-gray-500"></i>
+                                        </div>
+                                    </div>
+                                    <div class="ml-4">
+                                        <div class="text-sm font-medium text-gray-900">{{ produto.nome_comercial }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ produto.codigo_barras|default:produto.id }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ produto.categoria.nome|default:"Sem categoria" }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="text-sm font-medium {% if produto.estoque_atual <= produto.estoque_minimo %}text-red-600{% else %}text-gray-900{% endif %}">
+                                    {{ produto.estoque_atual|default:0 }}
+                                </span>
+                                <span class="text-xs text-gray-500">/ {{ produto.estoque_minimo|default:0 }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                AKZ {{ produto.preco_venda|floatformat:2|default:"0,00" }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex flex-col space-y-1">
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full {% if produto.ativo %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                        {% if produto.ativo %}Ativo{% else %}Inativo{% endif %}
+                                    </span>
+                                    {% if produto.controlado %}
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Controlado</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <button onclick="editarProduto({{ produto.id }})" class="text-blue-600 hover:text-blue-900 mr-3">Editar</button>
+                                <a href="{% url 'core:estoque' %}?produto={{ produto.id }}" class="text-green-600 hover:text-green-900 mr-3">Estoque</a>
+                                <button onclick="toggleProduto({{ produto.id }})" class="text-gray-600 hover:text-gray-900 mr-3">
+                                    {% if produto.ativo %}Desativar{% else %}Ativar{% endif %}
+                                </button>
+                                <button onclick="deletarProduto({{ produto.id }})" class="text-red-600 hover:text-red-900">Remover</button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                                <div class="py-8">
+                                    <i class="fas fa-pills text-4xl mb-4 opacity-50"></i>
+                                    <p>Nenhum produto encontrado</p>
+                                    <button onclick="novoProduto()" class="mt-4 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
+                                        <i class="fas fa-plus mr-2"></i>Cadastrar Primeiro Produto
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Content Categorias -->
+    <div id="content-categorias" class="main-tab-content hidden">
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-medium text-gray-900">Categorias de Produtos</h3>
+                <button onclick="novaCategoria()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                    <i class="fas fa-plus mr-2"></i>Nova Categoria
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoria</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produtos</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for categoria in todas_categorias %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <div class="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center mr-3">
+                                        <i class="fas fa-tags text-blue-600"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-900">{{ categoria.nome }}</div>
+                                        <div class="text-sm text-gray-500">{{ categoria.descricao|truncatechars:50|default:"Sem descrição" }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ categoria.codigo|default:"--" }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {% with produtos_count=categoria.produtos.count %}
+                                    {{ produtos_count|default:0 }}
+                                {% endwith %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full {% if categoria.ativa %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                    {% if categoria.ativa %}Ativa{% else %}Inativa{% endif %}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <button onclick="editarCategoria({{ categoria.id }})" class="text-blue-600 hover:text-blue-900 mr-3">Editar</button>
+                                <button onclick="toggleCategoria({{ categoria.id }})" class="text-gray-600 hover:text-gray-900 mr-3">
+                                    {% if categoria.ativa %}Desativar{% else %}Ativar{% endif %}
+                                </button>
+                                <button onclick="deletarCategoria({{ categoria.id }})" class="text-red-600 hover:text-red-900">Remover</button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="px-6 py-4 text-center text-gray-500">
+                                <div class="py-8">
+                                    <i class="fas fa-tags text-4xl mb-4 opacity-50"></i>
+                                    <p>Nenhuma categoria cadastrada</p>
+                                    <button onclick="novaCategoria()" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                                        <i class="fas fa-plus mr-2"></i>Criar Primeira Categoria
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Content Serviços -->
+    <div id="content-servicos" class="main-tab-content hidden">
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-medium text-gray-900">Serviços Farmacêuticos</h3>
+                <button onclick="novoServico()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
+                    <i class="fas fa-plus mr-2"></i>Novo Serviço
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Serviço</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoria</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duração</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Preço</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for servico in servicos %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <div class="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center mr-3">
+                                        <i class="fas fa-hand-holding-medical text-purple-600"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-900">{{ servico.nome }}</div>
+                                        <div class="text-sm text-gray-500">{{ servico.descricao|truncatechars:50 }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ servico.codigo }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                    {{ servico.get_categoria_display }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ servico.duracao_padrao_minutos }} min
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                AKZ {{ servico.preco_padrao|floatformat:2 }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex flex-col space-y-1">
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full {% if servico.ativo %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                        {% if servico.ativo %}Ativo{% else %}Inativo{% endif %}
+                                    </span>
+                                    {% if servico.requer_farmaceutico %}
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Farmacêutico</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <button onclick="editarServico({{ servico.id }})" class="text-blue-600 hover:text-blue-900 mr-3">Editar</button>
+                                <button onclick="toggleServico({{ servico.id }})" class="text-gray-600 hover:text-gray-900 mr-3">
+                                    {% if servico.ativo %}Desativar{% else %}Ativar{% endif %}
+                                </button>
+                                <button onclick="deletarServico({{ servico.id }})" class="text-red-600 hover:text-red-900">Remover</button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                                <div class="py-8">
+                                    <i class="fas fa-hand-holding-medical text-4xl mb-4 opacity-50"></i>
+                                    <p>Nenhum serviço cadastrado</p>
+                                    <button onclick="novoServico()" class="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
+                                        <i class="fas fa-plus mr-2"></i>Criar Primeiro Serviço
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Novo Produto -->
+<div id="novoProdutoModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Cadastrar Novo Produto</h3>
+                <button onclick="fecharNovoProdutoModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="novoProdutoForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Coluna 1 -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nome Comercial *</label>
+                            <input type="text" name="nome_comercial" required 
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                   placeholder="Ex: Paracetamol 500mg">
+                        </div>
+                        
+                        
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Código de Barras</label>
+                            <input type="text" name="codigo_barras" 
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                   placeholder="7891234567890">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Categoria *</label>
+                            <div class="flex space-x-2">
+                                <select name="categoria" required class="flex-1 border border-gray-300 rounded-md px-3 py-2">
+                                    <option value="">Selecione uma categoria</option>
+                                    {% for categoria in categorias %}
+                                    <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" onclick="abrirNovaCategoriaInline()" 
+                                        class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Laboratório</label>
+                            <input type="text" name="laboratorio" 
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                   placeholder="Ex: EMS">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Concentração</label>
+                            <input type="text" name="concentracao" 
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                   placeholder="Ex: 500mg">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Forma Farmacêutica</label>
+                            <select name="forma_farmaceutica" class="w-full border border-gray-300 rounded-md px-3 py-2">
+                                <option value="">Selecione</option>
+                                <option value="comprimido">Comprimido</option>
+                                <option value="capsula">Cápsula</option>
+                                <option value="xarope">Xarope</option>
+                                <option value="pomada">Pomada</option>
+                                <option value="creme">Creme</option>
+                                <option value="solucao">Solução</option>
+                                <option value="ampola">Ampola</option>
+                                <option value="frasco">Frasco</option>
+                                <option value="spray">Spray</option>
+                                <option value="gotas">Gotas</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Coluna 2 -->
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Preço de Compra</label>
+                                <input type="number" name="preco_compra" step="0.01" min="0" 
+                                       class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                       placeholder="0,00">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Preço de Venda *</label>
+                                <input type="number" name="preco_venda" step="0.01" min="0" required 
+                                       class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                       placeholder="0,00">
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Estoque Inicial</label>
+                                <input type="number" name="estoque_inicial" min="0" 
+                                       class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                       placeholder="0">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Estoque Mínimo</label>
+                                <input type="number" name="estoque_minimo" min="0" 
+                                       class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                       placeholder="10">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Data de Validade</label>
+                            <input type="date" name="data_validade" 
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-base">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Lote</label>
+                            <input type="text" name="lote" 
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                   placeholder="Ex: L123456">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Observações</label>
+                            <textarea name="observacoes" rows="3" 
+                                      class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                      placeholder="Informações adicionais sobre o produto..."></textarea>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <label class="flex items-center">
+                                <input type="checkbox" name="controlado" class="mr-2">
+                                <span class="text-sm text-gray-700">Medicamento Controlado</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="generico" class="mr-2">
+                                <span class="text-sm text-gray-700">Medicamento Genérico</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="ativo" checked class="mr-2">
+                                <span class="text-sm text-gray-700">Produto Ativo</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                    <button type="button" onclick="fecharNovoProdutoModal()" 
+                            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        <i class="fas fa-save mr-2"></i>Salvar Produto
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nova Categoria -->
+<div id="novaCategoriaModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-lg shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Nova Categoria</h3>
+                <button onclick="fecharNovaCategoriaModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="novaCategoriaForm">
+                {% csrf_token %}
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nome da Categoria *</label>
+                        <input type="text" name="nome" required 
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                               placeholder="Ex: Analgésicos">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Código</label>
+                        <input type="text" name="codigo" 
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                               placeholder="Ex: ANA001">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
+                        <textarea name="descricao" rows="3" 
+                                  class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                  placeholder="Descrição da categoria..."></textarea>
+                    </div>
+                    
+                    <div>
+                        <label class="flex items-center">
+                            <input type="checkbox" name="ativa" checked class="mr-2">
+                            <span class="text-sm text-gray-700">Categoria Ativa</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                    <button type="button" onclick="fecharNovaCategoriaModal()" 
+                            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        <i class="fas fa-save mr-2"></i>Salvar Categoria
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Categoria -->
+<div id="editarCategoriaModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-lg shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Editar Categoria</h3>
+                <button onclick="fecharEditarCategoriaModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="editarCategoriaForm">
+                {% csrf_token %}
+                <input type="hidden" name="categoria_id" id="edit_categoria_id">
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nome da Categoria *</label>
+                        <input type="text" name="nome" id="edit_categoria_nome" required 
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 text-base">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Código</label>
+                        <input type="text" name="codigo" id="edit_categoria_codigo" 
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 text-base">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
+                        <textarea name="descricao" id="edit_categoria_descricao" rows="3" 
+                                  class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"></textarea>
+                    </div>
+                    
+                    <div>
+                        <label class="flex items-center">
+                            <input type="checkbox" name="ativa" id="edit_categoria_ativa" class="mr-2">
+                            <span class="text-sm text-gray-700">Categoria Ativa</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                    <button type="button" onclick="fecharEditarCategoriaModal()" 
+                            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        <i class="fas fa-save mr-2"></i>Atualizar Categoria
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Novo Serviço -->
+<div id="novoServicoModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-3xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Novo Serviço Farmacêutico</h3>
+                <button onclick="fecharNovoServicoModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="novoServicoForm">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Coluna 1 -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nome do Serviço *</label>
+                            <input type="text" name="nome" required 
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                   placeholder="Ex: Aferição de Pressão Arterial">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Categoria *</label>
+                            <select name="categoria" required class="w-full border border-gray-300 rounded-md px-3 py-2">
+                                <option value="">Selecione uma categoria</option>
+                                <option value="clinico">Serviço Clínico</option>
+                                <option value="administrativo">Serviço Administrativo</option>
+                                <option value="educacional">Educação em Saúde</option>
+                                <option value="dispensacao">Dispensação</option>
+                                <option value="orientacao">Orientação Farmacêutica</option>
+                                <option value="rastreamento">Rastreamento em Saúde</option>
+                                <option value="vacina">Aplicação de Vacina</option>
+                                <option value="teste">Teste Rápido</option>
+                                <option value="afericao">Aferição de Parâmetros</option>
+                                <option value="consultoria">Consultoria Farmacêutica</option>
+                            </select>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Duração (min) *</label>
+                                <input type="number" name="duracao_padrao_minutos" min="5" max="480" required 
+                                       class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                       placeholder="30">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Preço Padrão *</label>
+                                <input type="number" name="preco_padrao" step="0.01" min="0" required 
+                                       class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                       placeholder="0,00">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
+                            <textarea name="descricao" rows="3" 
+                                      class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                      placeholder="Descrição detalhada do serviço..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Coluna 2 -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Materiais Necessários</label>
+                            <textarea name="materiais_necessarios" rows="2" 
+                                      class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                      placeholder="Lista de materiais necessários..."></textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Equipamentos Necessários</label>
+                            <textarea name="equipamentos_necessarios" rows="2" 
+                                      class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                                      placeholder="Lista de equipamentos necessários..."></textarea>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <label class="flex items-center">
+                                <input type="checkbox" name="requer_farmaceutico" checked class="mr-2">
+                                <span class="text-sm text-gray-700">Requer Farmacêutico</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="requer_agendamento" checked class="mr-2">
+                                <span class="text-sm text-gray-700">Requer Agendamento</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="requer_jejum" class="mr-2">
+                                <span class="text-sm text-gray-700">Requer Jejum</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="disponivel_online" class="mr-2">
+                                <span class="text-sm text-gray-700">Disponível para Agendamento Online</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="ativo" checked class="mr-2">
+                                <span class="text-sm text-gray-700">Serviço Ativo</span>
+                            </label>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Ordem de Exibição</label>
+                            <input type="number" name="ordem_exibicao" min="0" value="0" 
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-base">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                    <button type="button" onclick="fecharNovoServicoModal()" 
+                            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
+                        <i class="fas fa-save mr-2"></i>Salvar Serviço
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Serviço -->
+<div id="editarServicoModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-3xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Editar Serviço</h3>
+                <button onclick="fecharEditarServicoModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="editarServicoForm">
+                {% csrf_token %}
+                <input type="hidden" name="servico_id" id="edit_servico_id">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Coluna 1 -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Código</label>
+                            <input type="text" name="codigo" id="edit_servico_codigo" readonly
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-base bg-gray-100">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nome do Serviço *</label>
+                            <input type="text" name="nome" id="edit_servico_nome" required 
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-base">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Categoria *</label>
+                            <select name="categoria" id="edit_servico_categoria" required class="w-full border border-gray-300 rounded-md px-3 py-2">
+                                <option value="">Selecione uma categoria</option>
+                                <option value="clinico">Serviço Clínico</option>
+                                <option value="administrativo">Serviço Administrativo</option>
+                                <option value="educacional">Educação em Saúde</option>
+                                <option value="dispensacao">Dispensação</option>
+                                <option value="orientacao">Orientação Farmacêutica</option>
+                                <option value="rastreamento">Rastreamento em Saúde</option>
+                                <option value="vacina">Aplicação de Vacina</option>
+                                <option value="teste">Teste Rápido</option>
+                                <option value="afericao">Aferição de Parâmetros</option>
+                                <option value="consultoria">Consultoria Farmacêutica</option>
+                            </select>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Duração (min) *</label>
+                                <input type="number" name="duracao_padrao_minutos" id="edit_servico_duracao" min="5" max="480" required 
+                                       class="w-full border border-gray-300 rounded-md px-3 py-2 text-base">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Preço Padrão *</label>
+                                <input type="number" name="preco_padrao" id="edit_servico_preco" step="0.01" min="0" required 
+                                       class="w-full border border-gray-300 rounded-md px-3 py-2 text-base">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
+                            <textarea name="descricao" id="edit_servico_descricao" rows="3" 
+                                      class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Coluna 2 -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Materiais Necessários</label>
+                            <textarea name="materiais_necessarios" id="edit_servico_materiais" rows="2" 
+                                      class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"></textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Equipamentos Necessários</label>
+                            <textarea name="equipamentos_necessarios" id="edit_servico_equipamentos" rows="2" 
+                                      class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"></textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Ordem de Exibição</label>
+                            <input type="number" name="ordem_exibicao" id="edit_servico_ordem" min="0" value="0" 
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-base">
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <label class="flex items-center">
+                                <input type="checkbox" name="requer_farmaceutico" id="edit_servico_farmaceutico" class="mr-2">
+                                <span class="text-sm text-gray-700">Requer Farmacêutico</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="requer_agendamento" id="edit_servico_agendamento" class="mr-2">
+                                <span class="text-sm text-gray-700">Requer Agendamento</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="requer_jejum" id="edit_servico_jejum" class="mr-2">
+                                <span class="text-sm text-gray-700">Requer Jejum</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="disponivel_online" id="edit_servico_online" class="mr-2">
+                                <span class="text-sm text-gray-700">Disponível para Agendamento Online</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="ativo" id="edit_servico_ativo" class="mr-2">
+                                <span class="text-sm text-gray-700">Serviço Ativo</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                    <button type="button" onclick="fecharEditarServicoModal()" 
+                            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
+                        <i class="fas fa-save mr-2"></i>Atualizar Serviço
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Importar Produtos -->
+<div id="importarProdutosModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Importar Produtos</h3>
+                <button onclick="fecharImportarModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <!-- Tabs -->
+            <div class="border-b border-gray-200 mb-4">
+                <nav class="-mb-px flex space-x-8">
+                    <button onclick="switchImportTab('upload')" id="tab-upload" 
+                            class="import-tab active py-2 px-1 border-b-2 border-blue-500 font-medium text-sm text-blue-600">
+                        Upload de Arquivo
+                    </button>
+                    <button onclick="switchImportTab('template')" id="tab-template" 
+                            class="import-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700">
+                        Baixar Template
+                    </button>
+                </nav>
+            </div>
+            
+            <!-- Tab Upload -->
+            <div id="content-upload" class="tab-content">
+                <form id="importarForm" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Arquivo de Produtos (CSV ou Excel)
+                            </label>
+                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                                <div class="text-center">
+                                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                                    <div class="text-sm text-gray-600 mb-2">
+                                        Clique para selecionar ou arraste o arquivo aqui
+                                    </div>
+                                    <input type="file" name="arquivo" id="arquivo" accept=".csv,.xlsx,.xls" 
+                                           class="hidden" onchange="exibirArquivoSelecionado(this)">
+                                    <button type="button" onclick="document.getElementById('arquivo').click()" 
+                                            class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                                        Selecionar Arquivo
+                                    </button>
+                                    <div id="arquivoSelecionado" class="mt-2 text-sm text-green-600 hidden"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <h4 class="font-medium text-blue-900 mb-2">Formato do Arquivo:</h4>
+                            <ul class="text-sm text-blue-800 space-y-1">
+                                <li>• Aceita arquivos CSV ou Excel (.xlsx, .xls)</li>
+                                <li>• Primeira linha deve conter os cabeçalhos</li>
+                                <li>• Campos obrigatórios: nome_comercial, preco_venda, categoria</li>
+                                <li>• Use o template para garantir o formato correto</li>
+                            </ul>
+                        </div>
+                        
+                        <div>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="atualizar_existentes" class="mr-2">
+                                <span class="text-sm text-gray-700">Atualizar produtos existentes (baseado no código de barras)</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                        <button type="button" onclick="fecharImportarModal()" 
+                                class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                            Cancelar
+                        </button>
+                        <button type="submit" 
+                                class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                            <i class="fas fa-upload mr-2"></i>Importar Produtos
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Tab Template -->
+            <div id="content-template" class="tab-content hidden">
+                <div class="text-center space-y-4">
+                    <i class="fas fa-file-excel text-6xl text-green-600"></i>
+                    <h4 class="text-lg font-medium text-gray-900">Template de Importação</h4>
+                    <p class="text-gray-600">
+                        Baixe o template Excel com o formato correto para importação de produtos.
+                    </p>
+                    
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h5 class="font-medium text-gray-900 mb-2">Colunas do Template:</h5>
+                        <div class="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                            <div>• nome_comercial *</div>
+                            <div>• codigo_barras</div>
+                            <div>• categoria *</div>
+                            <div>• laboratorio</div>
+                            <div>• concentracao</div>
+                            <div>• forma_farmaceutica</div>
+                            <div>• preco_compra</div>
+                            <div>• preco_venda *</div>
+                            <div>• estoque_inicial</div>
+                            <div>• estoque_minimo</div>
+                            <div>• data_validade</div>
+                            <div>• lote</div>
+                            <div>• controlado (0/1)</div>
+                            <div>• generico (0/1)</div>
+                            <div>• ativo (0/1)</div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">* Campos obrigatórios</p>
+                    </div>
+                    
+                    <button onclick="baixarTemplate()" 
+                            class="bg-green-600 text-white px-6 py-3 rounded-md hover:bg-green-700">
+                        <i class="fas fa-download mr-2"></i>Baixar Template Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Modal -->
+<div id="progressModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-1/2 transform -translate-y-1/2 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="text-center">
+            <i class="fas fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 mb-2" id="progressTitle">Processando...</h3>
+            <p class="text-gray-600 mb-4" id="progressMessage">Aguarde enquanto processamos sua solicitação.</p>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" id="progressBar" style="width: 0%"></div>
+            </div>
+            <p class="text-sm text-gray-500 mt-2" id="progressPercent">0%</p>
+        </div>
+    </div>
+</div>
+
+
+<script>
+// Variáveis globais
+let uploadProgress = 0;
+
+// Tabs principais
+function switchMainTab(tabName) {
+    document.querySelectorAll('.main-tab-content').forEach(tab => {
+        tab.classList.add('hidden');
+    });
+    
+    document.querySelectorAll('.main-tab').forEach(btn => {
+        btn.classList.remove('border-blue-500', 'text-blue-600');
+        btn.classList.add('border-transparent', 'text-gray-500');
+    });
+    
+    document.getElementById(`content-${tabName}`).classList.remove('hidden');
+    
+    const activeBtn = document.getElementById(`tab-${tabName}`);
+    activeBtn.classList.add('border-blue-500', 'text-blue-600');
+    activeBtn.classList.remove('border-transparent', 'text-gray-500');
+}
+
+// Modais
+function novoProduto() {
+    document.getElementById('novoProdutoModal').classList.remove('hidden');
+}
+
+function fecharNovoProdutoModal() {
+    document.getElementById('novoProdutoModal').classList.add('hidden');
+    document.getElementById('novoProdutoForm').reset();
+    resetFormOnClose();
+}
+
+function novaCategoria() {
+    document.getElementById('novaCategoriaModal').classList.remove('hidden');
+}
+
+function fecharNovaCategoriaModal() {
+    document.getElementById('novaCategoriaModal').classList.add('hidden');
+    document.getElementById('novaCategoriaForm').reset();
+}
+
+function abrirNovaCategoriaInline() {
+    novaCategoria();
+}
+
+function fecharEditarCategoriaModal() {
+    document.getElementById('editarCategoriaModal').classList.add('hidden');
+    document.getElementById('editarCategoriaForm').reset();
+}
+
+function novoServico() {
+    document.getElementById('novoServicoModal').classList.remove('hidden');
+}
+
+function fecharNovoServicoModal() {
+    document.getElementById('novoServicoModal').classList.add('hidden');
+    document.getElementById('novoServicoForm').reset();
+}
+
+function fecharEditarServicoModal() {
+    document.getElementById('editarServicoModal').classList.add('hidden');
+    document.getElementById('editarServicoForm').reset();
+}
+
+function importarProdutos() {
+    document.getElementById('importarProdutosModal').classList.remove('hidden');
+}
+
+function fecharImportarModal() {
+    document.getElementById('importarProdutosModal').classList.add('hidden');
+    document.getElementById('importarForm').reset();
+    document.getElementById('arquivoSelecionado').classList.add('hidden');
+}
+
+// Gerenciar - FUNCIONAL
+function gerenciarCategorias() {
+    switchMainTab('categorias');
+}
+
+function gerenciarServicos() {
+    switchMainTab('servicos');
+}
+
+// Progress
+function mostrarProgress(title, message) {
+    document.getElementById('progressTitle').textContent = title;
+    document.getElementById('progressMessage').textContent = message;
+    document.getElementById('progressModal').classList.remove('hidden');
+    uploadProgress = 0;
+    updateProgress();
+}
+
+function esconderProgress() {
+    document.getElementById('progressModal').classList.add('hidden');
+}
+
+function updateProgress() {
+    const progressBar = document.getElementById('progressBar');
+    const progressPercent = document.getElementById('progressPercent');
+    
+    if (uploadProgress < 100) {
+        uploadProgress += Math.random() * 15;
+        uploadProgress = Math.min(uploadProgress, 100);
+        
+        progressBar.style.width = uploadProgress + '%';
+        progressPercent.textContent = Math.round(uploadProgress) + '%';
+        
+        setTimeout(updateProgress, 200);
+    }
+}
+
+// CRUD PRODUTOS - FUNCIONAL
+async function editarProduto(id) {
+    try {
+        const response = await fetch(`/dashboard/produtos/editar/${id}/`);
+        const result = await response.json();
+        
+        if (result.success) {
+            const produto = result.produto;
+            
+            // Preencher modal com dados
+            document.querySelector('input[name="nome_comercial"]').value = produto.nome_comercial;
+            document.querySelector('input[name="codigo_barras"]').value = produto.codigo_barras;
+            document.querySelector('select[name="categoria"]').value = produto.categoria;
+            document.querySelector('input[name="laboratorio"]').value = produto.laboratorio;
+            document.querySelector('input[name="concentracao"]').value = produto.concentracao;
+            document.querySelector('select[name="forma_farmaceutica"]').value = produto.forma_farmaceutica;
+            document.querySelector('input[name="preco_compra"]').value = produto.preco_compra;
+            document.querySelector('input[name="preco_venda"]').value = produto.preco_venda;
+            document.querySelector('input[name="estoque_minimo"]').value = produto.estoque_minimo;
+            document.querySelector('input[name="lote"]').value = produto.lote;
+            document.querySelector('textarea[name="observacoes"]').value = produto.observacoes;
+            document.querySelector('input[name="ativo"]').checked = produto.ativo;
+            document.querySelector('input[name="data_validade"]').value = lote.data_validade;
+            
+            // Alterar form para edição
+            const form = document.getElementById('novoProdutoForm');
+            form.setAttribute('data-produto-id', id);
+            form.setAttribute('data-mode', 'edit');
+            
+            document.querySelector('#novoProdutoModal h3').textContent = 'Editar Produto';
+            document.querySelector('#novoProdutoForm button[type="submit"]').innerHTML = '<i class="fas fa-save mr-2"></i>Atualizar Produto';
+            
+            novoProduto();
+        }
+    } catch (error) {
+        showToast('Erro ao carregar produto: ' + error.message, 'error');
+    }
+}
+
+async function deletarProduto(id) {
+    if (!confirm('Tem certeza que deseja remover este produto?')) return;
+    
+    try {
+        const response = await fetch(`/dashboard/produtos/deletar/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast('Erro: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showToast('Erro: ' + error.message, 'error');
+    }
+}
+
+async function toggleProduto(id) {
+    try {
+        const response = await fetch(`/dashboard/produtos/toggle/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast('Erro: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showToast('Erro: ' + error.message, 'error');
+    }
+}
+
+// CRUD CATEGORIAS - FUNCIONAL COMPLETO
+async function editarCategoria(id) {
+    try {
+        const response = await fetch(`/dashboard/categorias/editar/${id}/`);
+        const result = await response.json();
+        
+        if (result.success) {
+            const categoria = result.categoria;
+            
+            // Preencher modal com dados
+            document.getElementById('edit_categoria_id').value = categoria.id;
+            document.getElementById('edit_categoria_nome').value = categoria.nome;
+            document.getElementById('edit_categoria_codigo').value = categoria.codigo;
+            document.getElementById('edit_categoria_descricao').value = categoria.descricao;
+            document.getElementById('edit_categoria_ativa').checked = categoria.ativa;
+            
+            // Mostrar modal
+            document.getElementById('editarCategoriaModal').classList.remove('hidden');
+        } else {
+            showToast('Erro ao carregar categoria: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showToast('Erro ao carregar categoria: ' + error.message, 'error');
+    }
+}
+
+async function deletarCategoria(id) {
+    if (!confirm('Tem certeza que deseja remover esta categoria? Esta ação não pode ser desfeita.')) return;
+    
+    try {
+        const response = await fetch(`/dashboard/categorias/deletar/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast('Erro: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showToast('Erro: ' + error.message, 'error');
+    }
+}
+
+async function toggleCategoria(id) {
+    try {
+        const response = await fetch(`/dashboard/categorias/toggle/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast('Erro: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showToast('Erro: ' + error.message, 'error');
+    }
+}
+
+// CRUD SERVIÇOS - FUNCIONAL COMPLETO
+async function editarServico(id) {
+    try {
+        const response = await fetch(`/dashboard/servicos/editar/${id}/`);
+        const result = await response.json();
+        
+        if (result.success) {
+            const servico = result.servico;
+            
+            // Preencher modal com dados
+            document.getElementById('edit_servico_id').value = servico.id;
+            document.getElementById('edit_servico_codigo').value = servico.codigo;
+            document.getElementById('edit_servico_nome').value = servico.nome;
+            document.getElementById('edit_servico_categoria').value = servico.categoria;
+            document.getElementById('edit_servico_descricao').value = servico.descricao;
+            document.getElementById('edit_servico_duracao').value = servico.duracao_padrao_minutos;
+            document.getElementById('edit_servico_preco').value = servico.preco_padrao;
+            document.getElementById('edit_servico_materiais').value = servico.materiais_necessarios;
+            document.getElementById('edit_servico_equipamentos').value = servico.equipamentos_necessarios;
+            document.getElementById('edit_servico_ordem').value = servico.ordem_exibicao;
+            document.getElementById('edit_servico_farmaceutico').checked = servico.requer_farmaceutico;
+            document.getElementById('edit_servico_agendamento').checked = servico.requer_agendamento;
+            document.getElementById('edit_servico_jejum').checked = servico.requer_jejum;
+            document.getElementById('edit_servico_online').checked = servico.disponivel_online;
+            document.getElementById('edit_servico_ativo').checked = servico.ativo;
+            
+            // Mostrar modal
+            document.getElementById('editarServicoModal').classList.remove('hidden');
+        } else {
+            showToast('Erro ao carregar serviço: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showToast('Erro ao carregar serviço: ' + error.message, 'error');
+    }
+}
+
+async function deletarServico(id) {
+    if (!confirm('Tem certeza que deseja remover este serviço? Esta ação não pode ser desfeita.')) return;
+    
+    try {
+        const response = await fetch(`/dashboard/servicos/deletar/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast('Erro: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showToast('Erro: ' + error.message, 'error');
+    }
+}
+
+async function toggleServico(id) {
+    try {
+        const response = await fetch(`/dashboard/servicos/toggle/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast('Erro: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showToast('Erro: ' + error.message, 'error');
+    }
+}
+
+// Submits dos formulários - FUNCIONAIS
+document.getElementById('novoProdutoForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const mode = this.getAttribute('data-mode') || 'create';
+    const produtoId = this.getAttribute('data-produto-id');
+    
+    const nome = document.querySelector('input[name="nome_comercial"]').value.trim();
+    const preco = document.querySelector('input[name="preco_venda"]').value;
+    const categoria = document.querySelector('select[name="categoria"]').value;
+    
+    if (!nome) {
+        showToast('Nome comercial é obrigatório', 'error');
+        return;
+    }
+    
+    if (!preco || parseFloat(preco) <= 0) {
+        showToast('Preço de venda deve ser maior que zero', 'error');
+        return;
+    }
+    
+    if (!categoria) {
+        showToast('Categoria é obrigatória', 'error');
+        return;
+    }
+    
+    mostrarProgress(mode === 'edit' ? 'Atualizando Produto' : 'Cadastrando Produto', 'Salvando informações...');
+    
+    const formData = new FormData(this);
+    const url = mode === 'edit' ? `/dashboard/produtos/editar/${produtoId}/` : '{% url "core:criar_produto" %}';
+    
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            esconderProgress();
+            fecharNovoProdutoModal();
+            showToast(result.message, 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            esconderProgress();
+            showToast('Erro: ' + result.message, 'error');
+        }
+    } catch (error) {
+        esconderProgress();
+        showToast('Erro de conexão: ' + error.message, 'error');
+    }
+});
+
+document.getElementById('novaCategoriaForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    mostrarProgress('Criando Categoria', 'Salvando informações...');
+    
+    try {
+        const response = await fetch('{% url "core:criar_categoria" %}', {
+            method: 'POST',
+            body: new FormData(this),
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            esconderProgress();
+            fecharNovaCategoriaModal();
+            
+            // Atualizar select de categorias no modal de produto
+            const selectCategoria = document.querySelector('select[name="categoria"]');
+            if (selectCategoria) {
+                const option = document.createElement('option');
+                option.value = result.categoria_id;
+                option.textContent = result.categoria_nome;
+                option.selected = true;
+                selectCategoria.appendChild(option);
+            }
+            
+            showToast('Categoria criada com sucesso!', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            esconderProgress();
+            showToast('Erro: ' + result.message, 'error');
+        }
+    } catch (error) {
+        esconderProgress();
+        showToast('Erro: ' + error.message, 'error');
+    }
+});
+
+document.getElementById('editarCategoriaForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const categoriaId = document.getElementById('edit_categoria_id').value;
+    
+    mostrarProgress('Atualizando Categoria', 'Salvando alterações...');
+    
+    try {
+        const response = await fetch(`/dashboard/categorias/editar/${categoriaId}/`, {
+            method: 'POST',
+            body: new FormData(this),
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            esconderProgress();
+            fecharEditarCategoriaModal();
+            showToast('Categoria atualizada com sucesso!', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            esconderProgress();
+            showToast('Erro: ' + result.message, 'error');
+        }
+    } catch (error) {
+        esconderProgress();
+        showToast('Erro: ' + error.message, 'error');
+    }
+});
+
+document.getElementById('novoServicoForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    mostrarProgress('Criando Serviço', 'Salvando informações...');
+    
+    try {
+        const response = await fetch('{% url "core:criar_servico" %}', {
+            method: 'POST',
+            body: new FormData(this),
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            esconderProgress();
+            fecharNovoServicoModal();
+            showToast('Serviço criado com sucesso!', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            esconderProgress();
+            showToast('Erro: ' + result.message, 'error');
+        }
+    } catch (error) {
+        esconderProgress();
+        showToast('Erro: ' + error.message, 'error');
+    }
+});
+
+document.getElementById('editarServicoForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const servicoId = document.getElementById('edit_servico_id').value;
+    
+    mostrarProgress('Atualizando Serviço', 'Salvando alterações...');
+    
+    try {
+        const response = await fetch(`/dashboard/servicos/editar/${servicoId}/`, {
+            method: 'POST',
+            body: new FormData(this),
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            esconderProgress();
+            fecharEditarServicoModal();
+            showToast('Serviço atualizado com sucesso!', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            esconderProgress();
+            showToast('Erro: ' + result.message, 'error');
+        }
+    } catch (error) {
+        esconderProgress();
+        showToast('Erro: ' + error.message, 'error');
+    }
+});
+
+document.getElementById('importarForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const arquivo = document.getElementById('arquivo').files[0];
+    if (!arquivo) {
+        showToast('Selecione um arquivo para importar', 'error');
+        return;
+    }
+    
+    mostrarProgress('Importando Produtos', 'Processando arquivo...');
+    
+    try {
+        const response = await fetch('{% url "core:importar_produtos" %}', {
+            method: 'POST',
+            body: new FormData(this),
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            esconderProgress();
+            fecharImportarModal();
+            
+            let message = `Importação concluída!\n`;
+            message += `• ${result.importados} produtos importados\n`;
+            if (result.atualizados > 0) {
+                message += `• ${result.atualizados} produtos atualizados\n`;
+            }
+            if (result.erros.length > 0) {
+                message += `• ${result.erros.length} erros encontrados`;
+            }
+            
+            showToast(message, 'success');
+            setTimeout(() => window.location.reload(), 2000);
+        } else {
+            esconderProgress();
+            showToast('Erro: ' + result.message, 'error');
+        }
+    } catch (error) {
+        esconderProgress();
+        showToast('Erro: ' + error.message, 'error');
+    }
+});
+
+// Download template
+async function baixarTemplate() {
+    try {
+        const response = await fetch('{% url "core:template_produtos" %}');
+        const blob = await response.blob();
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'template_produtos.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        showToast('Template baixado com sucesso!', 'success');
+    } catch (error) {
+        showToast('Erro ao baixar template: ' + error.message, 'error');
+    }
+}
+
+// Toast notifications
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-sm ${
+        type === 'success' ? 'bg-green-500 text-white' : 
+        type === 'error' ? 'bg-red-500 text-white' : 
+        'bg-blue-500 text-white'
+    }`;
+    
+    toast.innerHTML = `
+        <div class="flex items-center">
+            <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-2"></i>
+            <span class="whitespace-pre-line">${message}</span>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 5000);
+}
+
+// Imports
+function switchImportTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.add('hidden');
+    });
+    
+    document.querySelectorAll('.import-tab').forEach(btn => {
+        btn.classList.remove('border-blue-500', 'text-blue-600');
+        btn.classList.add('border-transparent', 'text-gray-500');
+    });
+    
+    document.getElementById(`content-${tabName}`).classList.remove('hidden');
+    
+    const activeBtn = document.getElementById(`tab-${tabName}`);
+    activeBtn.classList.add('border-blue-500', 'text-blue-600');
+    activeBtn.classList.remove('border-transparent', 'text-gray-500');
+}
+
+function exibirArquivoSelecionado(input) {
+    const file = input.files[0];
+    const display = document.getElementById('arquivoSelecionado');
+    
+    if (file) {
+        display.innerHTML = `
+            <i class="fas fa-file-excel mr-2"></i>
+            <span class="font-medium">${file.name}</span>
+            <span class="text-gray-500 ml-2">(${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+        `;
+        display.classList.remove('hidden');
+    } else {
+        display.classList.add('hidden');
+    }
+}
+
+// Event listeners
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        fecharNovoProdutoModal();
+        fecharNovaCategoriaModal();
+        fecharNovoServicoModal();
+        fecharImportarModal();
+        fecharEditarCategoriaModal();
+        fecharEditarServicoModal();
+        esconderProgress();
+    }
+});
+
+document.addEventListener('click', function(e) {
+    const modals = ['novoProdutoModal', 'novaCategoriaModal', 'novoServicoModal', 'importarProdutosModal', 'editarCategoriaModal', 'editarServicoModal'];
+    modals.forEach(modalId => {
+        if (e.target.id === modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+    });
+});
+
+// Reset form quando fechar modal
+function resetFormOnClose() {
+    const form = document.getElementById('novoProdutoForm');
+    form.removeAttribute('data-produto-id');
+    form.removeAttribute('data-mode');
+    
+    document.querySelector('#novoProdutoModal h3').textContent = 'Cadastrar Novo Produto';
+    document.querySelector('#novoProdutoForm button[type="submit"]').innerHTML = '<i class="fas fa-save mr-2"></i>Salvar Produto';
+}
+</script>
+{% endblock %}

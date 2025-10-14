@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Comparação de Propostas - {{ cotacao.referencia }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Comparação de Propostas para Cotação #{{ cotacao.referencia|default:cotacao.pk }}</h2>
+    <p class="lead">Analise os custos e condições de cada fornecedor antes de emitir o Pedido de Compra.</p>
+    <hr>
+    
+    {% if cotacao.respostas.all %}
+    
+    <div class="table-responsive">
+        {# Assumindo que 'cotacao.respostas.all' retorna as propostas enviadas pelos fornecedores #}
+        {# A View deve garantir que apenas as propostas finais são comparadas #}
+        <table class="table table-bordered table-striped table-sm text-center">
+            <thead class="bg-primary text-white">
+                <tr>
+                    <th style="width: 20%;">Critério</th>
+                    {% for proposta in cotacao.respostas.all %}
+                        <th style="width: 20%;">
+                            {{ proposta.fornecedor.nome_exibicao|truncatechars:20 }}
+                        </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {# Linha de Preço Total #}
+                <tr class="table-info">
+                    <td class="text-start fw-bold">Preço TOTAL (Kz)</td>
+                    {% for proposta in cotacao.respostas.all %}
+                        <td class="fw-bold">
+                            Kz {{ proposta.total_proposta|floatformat:2 }}
+                            {# Adicionar ícone se for o menor preço #}
+                            {% if proposta.is_menor_preco %}<i class="fas fa-crown text-warning ms-1"></i>{% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+                
+                {# Linha de Prazo de Entrega #}
+                <tr>
+                    <td class="text-start">Prazo de Entrega (dias)</td>
+                    {% for proposta in cotacao.respostas.all %}
+                        <td>{{ proposta.prazo_entrega_dias }}</td>
+                    {% endfor %}
+                </tr>
+                
+                {# Linha de Condição de Pagamento #}
+                <tr>
+                    <td class="text-start">Condição de Pagamento</td>
+                    {% for proposta in cotacao.respostas.all %}
+                        <td>{{ proposta.condicao_pagamento.nome|default:"A Vista" }}</td>
+                    {% endfor %}
+                </tr>
+
+                {# Linha de Validade da Oferta #}
+                <tr>
+                    <td class="text-start">Validade da Oferta</td>
+                    {% for proposta in cotacao.respostas.all %}
+                        <td>{{ proposta.data_validade|date:"d/m/Y" }}</td>
+                    {% endfor %}
+                </tr>
+                
+                {# Ações de Seleção #}
+                <tr class="bg-light">
+                    <td class="text-start">Ação de Compra</td>
+                    {% for proposta in cotacao.respostas.all %}
+                        <td>
+                            {# Este botão deve acionar a criação de um Pedido de Compra pré-preenchido #}
+                            <button class="btn btn-sm btn-success" disabled>
+                                <i class="fas fa-shopping-cart"></i> Selecionar
+                            </button>
+                        </td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    {% else %}
+    <div class="alert alert-warning" role="alert">
+        Ainda não há propostas suficientes para realizar a comparação.
+    </div>
+    {% endif %}
+    
+    <div class="mt-4">
+        <a href="{% url 'fornecedores:cotacao_detail' pk=cotacao.pk %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Voltar aos Detalhes
+        </a>
+    </div>
+</div>
+{% endblock %}

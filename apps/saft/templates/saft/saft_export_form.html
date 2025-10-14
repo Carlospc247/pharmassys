@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Exportação Fiscal SAF-T (AO){% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Exportação SAF-T (Angola)</h2>
+    <p class="lead">Gere o ficheiro XML de Auditoria Fiscal (SAF-T) para submissão à AGT.</p>
+    
+    {% if error %}
+        <div class="alert alert-danger" role="alert">
+            <strong>Erro Fiscal:</strong> {{ error }}
+        </div>
+    {% endif %}
+
+    <div class="card shadow-sm p-4">
+        <form method="post" action="{% url 'saft_export' %}">
+            {% csrf_token %}
+            
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="data_inicio" class="form-label">Data de Início (AA-MM-DD)</label>
+                    <input type="date" class="form-control" id="data_inicio" name="data_inicio" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="data_fim" class="form-label">Data de Fim (AA-MM-DD)</label>
+                    <input type="date" class="form-control" id="data_fim" name="data_fim" required>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="fas fa-file-export"></i> Gerar e Descarregar SAF-T
+                </button>
+                <p class="text-muted mt-2"><small>A geração pode demorar alguns segundos, dependendo do volume de dados.</small></p>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

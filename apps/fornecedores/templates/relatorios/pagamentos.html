@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Relatório de Pagamentos a Fornecedores{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Relatório de Fluxo e Condições de Pagamento</h2>
+    <p class="lead">Monitoramento do prazo médio de pagamento e compromissos financeiros.</p>
+    <hr>
+    
+    {# Assumindo que a view injeta 'pagamentos_data' #}
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-info mb-3">
+                <div class="card-header">Prazo Médio de Pagamento (DMP)</div>
+                <div class="card-body"><h1 class="card-title">{{ pagamentos_data.dmp_medio|default:0 }} Dias</h1></div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card shadow-sm p-3">
+                <h4>Vencimentos Previstos (Próximos 30 dias)</h4>
+                <canvas id="vencimentoChart" height="100"></canvas>
+                <p class="text-muted small">Gráfico de barras mostrando `pagamentos_data.vencimentos_30_dias`.</p>
+            </div>
+        </div>
+    </div>
+    
+    <h4>Resumo de Condições de Pagamento Utilizadas</h4>
+    <table class="table table-bordered">
+        <thead>
+            <tr class="table-primary"><th>Condição</th><th>Volume (Kz)</th><th>% Total de Compras</th></tr>
+        </thead>
+        <tbody>
+            {# Itere sobre pagamentos_data.condicoes #}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

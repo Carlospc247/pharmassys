@@ -1,0 +1,71 @@
+<!-- templates/emails/relatorio_concluido.html -->
+{% extends "emails/base.html" %}
+
+{% block title %}Relatório Concluído - {{ relatorio.nome_relatorio }}{% endblock %}
+
+{% block header_subtitle %}Seu relatório está pronto para download{% endblock %}
+
+{% block content %}
+<h2>Relatório Concluído com Sucesso! 🎉</h2>
+
+<p>Olá, {{ relatorio.usuario.get_full_name|default:relatorio.usuario.username }}!</p>
+
+<p>Seu relatório "<strong>{{ relatorio.nome_relatorio }}</strong>" foi gerado com sucesso e está pronto para download.</p>
+
+<div class="alert alert-success">
+    <strong>Status:</strong> Concluído<br>
+    <strong>Tempo de processamento:</strong> {{ relatorio.tempo_processamento.total_seconds|floatformat:0 }} segundos<br>
+    <strong>Formato:</strong> {{ relatorio.formato|upper }}<br>
+    <strong>Tamanho:</strong> {{ relatorio.tamanho_arquivo_formatado }}
+</div>
+
+<!-- Botão de Download -->
+<div style="text-align: center; margin: 24px 0;">
+    <a href="{{ download_url }}" class="btn btn-primary" style="text-decoration: none;">
+        📥 Baixar Relatório
+    </a>
+</div>
+
+<h3>Detalhes do Relatório</h3>
+
+<table class="table">
+    <tr>
+        <td><strong>Template:</strong></td>
+        <td>{{ relatorio.template.nome }}</td>
+    </tr>
+    <tr>
+        <td><strong>Data de solicitação:</strong></td>
+        <td>{{ relatorio.data_solicitacao|date:"d/m/Y H:i" }}</td>
+    </tr>
+    <tr>
+        <td><strong>Data de conclusão:</strong></td>
+        <td>{{ relatorio.data_execucao|date:"d/m/Y H:i" }}</td>
+    </tr>
+    {% if relatorio.filtros_aplicados %}
+    <tr>
+        <td><strong>Filtros aplicados:</strong></td>
+        <td>{{ relatorio.filtros_aplicados }}</td>
+    </tr>
+    {% endif %}
+    {% if relatorio.periodo_dados %}
+    <tr>
+        <td><strong>Período dos dados:</strong></td>
+        <td>{{ relatorio.periodo_dados }}</td>
+    </tr>
+    {% endif %}
+</table>
+
+<div class="alert alert-info">
+    <strong>Importante:</strong> Este arquivo estará disponível para download por {{ dias_disponibilidade }} dias. 
+    Faça o download o quanto antes para não perder o acesso.
+</div>
+
+<p>Se você tiver alguma dúvida ou precisar de suporte, não hesite em entrar em contato conosco.</p>
+
+<p>
+    Atenciosamente,<br>
+    <strong>Equipe do Sistema de Relatórios</strong>
+</p>
+{% endblock %}
+
+{% block unsubscribe_url %}{{ base_url }}/configuracoes/?tab=notificacoes{% endblock %}

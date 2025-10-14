@@ -1,0 +1,21 @@
+<!-- templates/financeiro/caixa/fechar.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Fechar Caixa{% endblock %}
+{% block page_title %}Fechamento do Caixa{% endblock %}
+
+{% block content %}
+<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Fechar Caixa</h1>
+
+    <form method="POST">
+        {% csrf_token %}
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700">Valor Informado:</label>
+            <input type="number" name="valor_informado" class="border p-2 rounded" required />
+        </div>
+        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Fechar Caixa</button>
+    </form>
+</div>
+{% endblock %}

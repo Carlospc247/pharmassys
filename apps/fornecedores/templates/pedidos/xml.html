@@ -1,0 +1,37 @@
+{% load custom_filters %}
+<?xml version="1.0" encoding="UTF-8"?>
+<PedidoCompra xmlns="http://pharmassys.com/schemas/pedido" versao="1.0">
+    <Cabecalho>
+        <NumeroPedido>{{ pedido.numero_pedido }}</NumeroPedido>
+        <DataEmissao>{{ pedido.data_pedido|date:"Y-m-d" }}</DataEmissao>
+        <Status>{{ pedido.get_status_display }}</Status>
+        <Urgencia>{{ pedido.get_urgencia_display }}</Urgencia>
+    </Cabecalho>
+    
+    <Fornecedor>
+        <NIF>{{ pedido.fornecedor.nif_bi }}</NIF>
+        <RazaoSocial>{{ pedido.fornecedor.razao_social }}</RazaoSocial>
+        <Email>{{ pedido.fornecedor.email_principal }}</Email>
+    </Fornecedor>
+    
+    <Valores>
+        <SubTotal>{{ pedido.subtotal|floatformat:2 }}</SubTotal>
+        <DescontoValor>{{ pedido.desconto_valor|floatformat:2 }}</DescontoValor>
+        <Frete>{{ pedido.valor_frete|floatformat:2 }}</Frete>
+        <TotalPagar>{{ pedido.total|floatformat:2 }}</TotalPagar>
+    </Valores>
+    
+    <Itens>
+    {% for item in pedido.itens.all %}
+        <Item>
+            <CodigoProduto>{{ item.produto.codigo }}</CodigoProduto>
+            <Descricao>{{ item.produto.nome }}</Descricao>
+            <Quantidade>{{ item.quantidade }}</Quantidade>
+            <PrecoUnitario>{{ item.preco_unitario|floatformat:2 }}</PrecoUnitario>
+            <TotalItem>{{ item.total|floatformat:2 }}</TotalItem>
+        </Item>
+    {% endfor %}
+    </Itens>
+    
+    <Observacoes>{{ pedido.observacoes }}</Observacoes>
+</PedidoCompra>

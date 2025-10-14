@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}{{ title|default:"Formulário de Agendamento" }}{% endblock %}
+{% block content %}
+<div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-sm">
+    <form method="post">
+        {% csrf_token %}
+        <div class="p-6 space-y-6">
+            <h2 class="text-lg font-semibold">{{ title }}</h2>
+            {{ form.as_p }}
+        </div>
+        <div class="flex items-center justify-end gap-x-4 px-6 py-4 bg-gray-50 dark:bg-gray-800/50">
+            <a href="{% url 'servicos:agendamento_list' %}" class="text-sm font-semibold">Cancelar</a>
+            <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Salvar Agendamento</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

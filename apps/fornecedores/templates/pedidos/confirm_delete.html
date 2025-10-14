@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Confirmação de Exclusão de Pedido{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card border-danger mb-3">
+        <div class="card-header bg-danger text-white">
+            Confirmação de Exclusão (Ação Crítica)
+        </div>
+        <div class="card-body">
+            <h4 class="card-title text-danger">Atenção! Eliminação Permanente</h4>
+            <p class="card-text">
+                Deseja eliminar permanentemente o **Rascunho** do pedido **#{{ pedido.numero_pedido }}**? 
+                Esta ação é **irreversível** e remove o registro do sistema.
+            </p>
+            
+            {% if pedido.status != 'rascunho' %}
+            <div class="alert alert-warning">
+                **Recomendação Empresarial:** Pedidos que não estão em rascunho (Status: **{{ pedido.get_status_display }}**) devem ser **Cancelados**, e não deletados, para manter o histórico de transações.
+                
+                <a href="{% url 'fornecedores:pedido_cancelar' pk=pedido.pk %}" class="btn btn-sm btn-outline-danger mt-2">
+                    <i class="fas fa-ban"></i> Cancelar Pedido (Recomendado)
+                </a>
+            </div>
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="d-flex justify-content-start mt-4">
+                    {% if pedido.status == 'rascunho' %}
+                    <button type="submit" class="btn btn-danger me-2">Sim, Deletar Rascunho</button>
+                    {% endif %}
+                    <a href="{% url 'fornecedores:pedido_detail' pk=pedido.pk %}" class="btn btn-secondary">Voltar ao Pedido</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

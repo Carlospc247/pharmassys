@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'configuracoes:dashboard' %}">Configurações</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'configuracoes:backup_config' %}">Backups</a></li>
+    <li class="breadcrumb-item active">Histórico</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card shadow-sm mb-4">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="card-title mb-0">Backup Manual</h5>
+                <p class="card-text text-muted mb-0">Inicie uma cópia de segurança de toda a base de dados imediatamente.</p>
+            </div>
+            <form method="post" action="{% url 'configuracoes:backup_manual' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-play-circle me-2"></i>Fazer Backup Agora
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Ficheiros de Backup Gerados</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>Data de Criação</th>
+                            <th>Tipo</th>
+                            <th class="text-center">Status</th>
+                            <th>Tamanho</th>
+                            <th>Solicitado Por</th>
+                            <th class="text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for backup in backups %}
+                        <tr>
+                            <td class="align-middle"><strong>{{ backup.data_criacao|date:"d/m/Y H:i:s" }}</strong></td>
+                            <td class="align-middle">
+                                {% if backup.tipo == 'manual' %}
+                                    <span class="badge bg-primary">Manual</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Automático</span>
+                                {% endif %}
+                            </td>
+                            <td class="align-middle text-center">
+                                {% if backup.status == 'sucesso' %}
+                                    <span class="badge bg-success">Sucesso</span>
+                                {% elif backup.status == 'erro' %}
+                                    <span class="badge bg-danger" title="{{ backup.detalhes_erro }}">Erro</span>
+                                {% else %}
+                                    <span class="badge bg-info">{{ backup.status|capfirst }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="align-middle">{{ backup.tamanho_ficheiro|filesizeformat }}</td>
+                            <td class="align-middle">{{ backup.solicitado_por.username|default:"Sistema" }}</td>
+                            <td class="align-middle text-center">
+                                {% if backup.status == 'sucesso' and backup.ficheiro_backup %}
+                                <a href="{% url 'configuracoes:backup_download' backup.pk %}" class="btn btn-sm btn-outline-secondary" title="Descarregar Ficheiro">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                                <form method="post" action="{% url 'configuracoes:backup_restore' backup.pk %}" class="d-inline" onsubmit="return confirm('ATENÇÃO: A restauração de um backup irá sobrepor TODOS os dados atuais. Esta ação é irreversível. Deseja continuar?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Restaurar este Backup">
+                                        <i class="fas fa-undo"></i>
+                                    </button>
+                                </form>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">Nenhum backup encontrado.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        </div>
+</div>
+{% endblock %}

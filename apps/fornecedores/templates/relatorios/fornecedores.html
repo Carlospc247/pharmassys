@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard de Fornecedores{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Relatório Geral de Cadastro e Status de Fornecedores</h2>
+    <p class="lead">Visão panorâmica da base de fornecedores.</p>
+    <hr>
+    
+    {# Assumindo que a view injeta 'stats' #}
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-header">Total Ativo</div>
+                <div class="card-body"><h1 class="card-title">{{ stats.total_ativos|default:0 }}</h1></div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-danger mb-3">
+                <div class="card-header">Bloqueados/Inativos</div>
+                <div class="card-body"><h1 class="card-title">{{ stats.total_bloqueados|default:0 }}</h1></div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm p-3">
+                <h4>Distribuição por Categoria</h4>
+                <canvas id="categoryChart" height="150"></canvas>
+                <p class="text-muted small">Use dados de `stats.categorias` para este gráfico.</p>
+            </div>
+        </div>
+    </div>
+    
+    <h4>Fornecedores com Documentação Crítica Pendente</h4>
+    <div class="alert alert-warning">
+        Liste aqui fornecedores com contratos expirados, licenças pendentes ou documentos vencidos.
+    </div>
+</div>
+{% endblock %}

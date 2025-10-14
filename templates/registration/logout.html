@@ -1,0 +1,70 @@
+{% extends 'base_auth.html' %}
+
+{% block title %}Logout - PharmasSys{% endblock %}
+
+{% block content %}
+<div class="text-center space-y-6">
+    <!-- Ícone de Logout -->
+    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+        <i class="fas fa-sign-out-alt text-blue-600 text-2xl"></i>
+    </div>
+    
+    <!-- Mensagem -->
+    <div>
+        <h2 class="text-xl font-semibold text-gray-800 mb-2">Logout Realizado com Sucesso!</h2>
+        <p class="text-gray-600">Você foi desconectado do sistema com segurança.</p>
+    </div>
+
+    <!-- Botões de Ação -->
+    <div class="space-y-3">
+        <a href="{% url 'login' %}" class="btn-primary block w-full py-3 px-4 text-white font-medium rounded-lg text-center">
+            <i class="fas fa-sign-in-alt mr-2"></i>Fazer Login Novamente
+        </a>
+        
+        <a href="{% url 'admin:index' %}" class="block w-full py-3 px-4 bg-gray-500 text-white font-medium rounded-lg text-center hover:bg-gray-600">
+            <i class="fas fa-cog mr-2"></i>Painel Administrativo
+        </a>
+    </div>
+
+    <!-- Informações de Segurança -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
+        <div class="flex items-start">
+            <i class="fas fa-info-circle text-blue-500 mt-1 mr-2"></i>
+            <div class="text-sm">
+                <p class="font-medium text-blue-800 mb-1">Dicas de Segurança:</p>
+                <ul class="text-blue-700 space-y-1 text-xs">
+                    <li>• Sempre faça logout em computadores compartilhados</li>
+                    <li>• Não compartilhe suas credenciais de acesso</li>
+                    <li>• Mantenha sua senha segura e atualizada</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-redirect após 10 segundos
+setTimeout(function() {
+    window.location.href = "{% url 'login' %}";
+}, 10000);
+
+// Countdown timer
+let countdown = 10;
+const countdownElement = document.createElement('p');
+countdownElement.className = 'text-sm text-gray-500 mt-4';
+countdownElement.innerHTML = `Redirecionando em <span id="countdown">${countdown}</span> segundos...`;
+document.querySelector('.space-y-6').appendChild(countdownElement);
+
+const timer = setInterval(function() {
+    countdown--;
+    document.getElementById('countdown').textContent = countdown;
+    
+    if (countdown <= 0) {
+        clearInterval(timer);
+        window.location.href = "{% url 'login' %}";
+    }
+}, 1000);
+</script>
+{% endblock %}

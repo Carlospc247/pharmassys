@@ -1,0 +1,519 @@
+<!-- templates/relatorios/dashboard.html -->
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <!-- Header -->
+    <div class="bg-white dark:bg-gray-800 shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-6">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
+                        <i class="fas fa-chart-bar text-indigo-600 mr-3"></i>
+                        Dashboard de Relatórios
+                    </h1>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Visão geral dos relatórios e análises do sistema
+                    </p>
+                </div>
+                <div class="flex space-x-3">
+                    <a href="{% url 'relatorios:novo_relatorio' %}" 
+                       class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>
+                        Novo Relatório
+                    </a>
+                    <a href="{% url 'relatorios:central' %}" 
+                       class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-th-large mr-2"></i>
+                        Central de Relatórios
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Estatísticas Principais -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                                <i class="fas fa-file-alt text-white text-sm"></i>
+                            </div>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                                    Total de Relatórios
+                                </dt>
+                                <dd class="text-lg font-medium text-gray-900 dark:text-white">
+                                    {{ stats.total_relatorios|default:0 }}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+                                <i class="fas fa-calendar-day text-white text-sm"></i>
+                            </div>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                                    Relatórios Hoje
+                                </dt>
+                                <dd class="text-lg font-medium text-gray-900 dark:text-white">
+                                    {{ stats.relatorios_hoje|default:0 }}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
+                                <i class="fas fa-file-invoice text-white text-sm"></i>
+                            </div>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                                    Templates Ativos
+                                </dt>
+                                <dd class="text-lg font-medium text-gray-900 dark:text-white">
+                                    {{ stats.templates_ativos|default:0 }}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
+                                <i class="fas fa-clock text-white text-sm"></i>
+                            </div>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                                    Agendamentos
+                                </dt>
+                                <dd class="text-lg font-medium text-gray-900 dark:text-white">
+                                    {{ stats.agendamentos_ativos|default:0 }}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-red-500 rounded-md flex items-center justify-center">
+                                <i class="fas fa-exclamation-triangle text-white text-sm"></i>
+                            </div>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                                    Com Erro
+                                </dt>
+                                <dd class="text-lg font-medium text-gray-900 dark:text-white">
+                                    {{ stats.relatorios_erro|default:0 }}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPIs em Destaque -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-shopping-cart text-green-600 dark:text-green-400"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Vendas Hoje</h3>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-white">
+                            AKZ {{ kpis_destaque.vendas_hoje.total|floatformat:2|default:"0,00" }}
+                        </p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                            {{ kpis_destaque.vendas_hoje.quantidade|default:0 }} vendas
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-boxes text-yellow-600 dark:text-yellow-400"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Estoque Baixo</h3>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-white">
+                            {{ kpis_destaque.produtos_estoque_baixo|default:0 }}
+                        </p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">produtos</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rounded-lg shadow p-6 
+    {% if kpis_destaque.contas_vencidas_qtd > 0 %}
+        bg-red-50 dark:bg-red-900
+    {% else %}
+        bg-green-50 dark:bg-green-900
+    {% endif %}
+">
+    <div class="flex items-center">
+        <div class="flex-shrink-0">
+            <div class="w-10 h-10 
+                {% if kpis_destaque.contas_vencidas_qtd > 0 %}
+                    bg-red-100 dark:bg-red-800
+                {% else %}
+                    bg-green-100 dark:bg-green-800
+                {% endif %}
+                rounded-lg flex items-center justify-center">
+                <i class="fas fa-exclamation-circle 
+                    {% if kpis_destaque.contas_vencidas_qtd > 0 %}
+                        text-red-600 dark:text-red-300
+                    {% else %}
+                        text-green-600 dark:text-green-300
+                    {% endif %}
+                "></i>
+            </div>
+        </div>
+        <div class="ml-4">
+            <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Contas Vencidas
+            </h3>
+            <p class="text-2xl font-semibold 
+                {% if kpis_destaque.contas_vencidas_qtd > 0 %}
+                    text-red-700 dark:text-red-200
+                {% else %}
+                    text-green-700 dark:text-green-200
+                {% endif %}
+            ">
+                AKZ {{ kpis_destaque.contas_vencidas_total|floatformat:2|default:"0,00" }}
+            </p>
+            <p class="text-sm 
+                {% if kpis_destaque.contas_vencidas_qtd > 0 %}
+                    text-red-600 dark:text-red-300
+                {% else %}
+                    text-green-600 dark:text-green-300
+                {% endif %}
+            ">
+                {{ kpis_destaque.contas_vencidas_qtd }} 
+                {% if kpis_destaque.contas_vencidas_qtd == 1 %}
+                    conta em atraso
+                {% else %}
+                    contas em atraso
+                {% endif %}
+            </p>
+        </div>
+    </div>
+</div>
+
+
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-user-plus text-blue-600 dark:text-blue-400"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Novos Clientes</h3>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-white">
+                            {{ kpis_destaque.novos_clientes|default:0 }}
+                        </p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">este mês</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Relatórios Populares -->
+            <div class="lg:col-span-2">
+                <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+                                Relatórios Mais Executados
+                            </h3>
+                            <a href="{% url 'relatorios:central' %}" 
+                               class="text-sm text-indigo-600 hover:text-indigo-500">
+                                Ver todos
+                            </a>
+                        </div>
+
+                        <div class="space-y-4">
+                            {% for relatorio in relatorios_populares %}
+                            <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                <div class="flex items-center space-x-3">
+                                    <div class="flex-shrink-0">
+                                        <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-chart-pie text-indigo-600 dark:text-indigo-400"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                            {{ relatorio.tipo_relatorio__nome }}
+                                        </p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                                            {{ relatorio.tipo_relatorio__categoria|capfirst }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
+                                        {{ relatorio.total_execucoes }} execuções
+                                    </span>
+                                    <a href="{% url 'relatorios:novo_relatorio' %}?tipo={{ relatorio.tipo_relatorio__id }}" 
+                                       class="text-indigo-600 hover:text-indigo-500">
+                                        <i class="fas fa-play"></i>
+                                    </a>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="text-center py-8">
+                                <i class="fas fa-chart-bar text-gray-400 text-4xl mb-4"></i>
+                                <p class="text-gray-500 dark:text-gray-400">Nenhum relatório executado ainda</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar com informações -->
+            <div class="space-y-6">
+                <!-- Relatórios Recentes -->
+                <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
+                            Meus Relatórios Recentes
+                        </h3>
+                        
+                        <div class="space-y-3">
+                            {% for relatorio in relatorios_recentes %}
+                            <div class="flex items-center space-x-3">
+                                <div class="flex-shrink-0">
+                                    {% if relatorio.status == 'concluido' %}
+                                        <i class="fas fa-check-circle text-green-500"></i>
+                                    {% elif relatorio.status == 'processando' %}
+                                        <i class="fas fa-spinner fa-spin text-yellow-500"></i>
+                                    {% elif relatorio.status == 'erro' %}
+                                        <i class="fas fa-exclamation-circle text-red-500"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                        {{ relatorio.tipo_relatorio.nome }}
+                                    </p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        {{ relatorio.data_solicitacao|date:"d/m/Y H:i" }}
+                                    </p>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <p class="text-sm text-gray-500 dark:text-gray-400 text-center">
+                                Nenhum relatório recente
+                            </p>
+                            {% endfor %}
+                        </div>
+
+                        {% if relatorios_recentes %}
+                        <div class="mt-4">
+                            <a href="{% url 'relatorios:recentes' %}" 
+                               class="text-sm text-indigo-600 hover:text-indigo-500">
+                                Ver todos →
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Alertas Ativos -->
+                {% if alertas_ativos %}
+                <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
+                            Alertas Ativos
+                        </h3>
+                        
+                        <div class="space-y-3">
+                            {% for alerta in alertas_ativos %}
+                            <div class="flex items-start space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+                                <div class="flex-shrink-0">
+                                    <div class="w-2 h-2 mt-2 rounded-full
+                                        {% if alerta.prioridade == 'critica' %}bg-red-500
+                                        {% elif alerta.prioridade == 'alta' %}bg-orange-500
+                                        {% elif alerta.prioridade == 'media' %}bg-yellow-500
+                                        {% else %}bg-blue-500{% endif %}">
+                                    </div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                        {{ alerta.titulo }}
+                                    </p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        {{ alerta.data_vencimento|date:"d/m/Y" }}
+                                    </p>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Agendamentos de Hoje -->
+                {% if agendamentos_hoje %}
+                <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
+                            Agendamentos de Hoje
+                        </h3>
+                        
+                        <div class="space-y-3">
+                            {% for agendamento in agendamentos_hoje %}
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                        {{ agendamento.nome }}
+                                    </p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        {{ agendamento.proxima_execucao|time:"H:i" }}
+                                    </p>
+                                </div>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100">
+                                    {{ agendamento.periodicidade|capfirst }}
+                                </span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Gráfico de Relatórios por Categoria -->
+        {% if relatorios_por_categoria %}
+        <div class="mt-8">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-6">
+                    Relatórios por Categoria (Últimos 30 dias)
+                </h3>
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {% for categoria in relatorios_por_categoria %}
+                    <div class="text-center">
+                        <div class="w-16 h-16 mx-auto bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center mb-2">
+                            <span class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                                {{ categoria.total }}
+                            </span>
+                        </div>
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">
+                            {{ categoria.tipo_relatorio__categoria|capfirst }}
+                        </p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Acesso Rápido -->
+        <div class="mt-8">
+            <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Acesso Rápido</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <a href="{% url 'relatorios:vendas' %}" 
+                   class="relative group bg-white dark:bg-gray-800 p-6 rounded-lg shadow hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-center w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg mb-3">
+                        <i class="fas fa-shopping-cart text-blue-600 dark:text-blue-400"></i>
+                    </div>
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-white">Vendas</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Relatórios de vendas</p>
+                </a>
+
+                <a href="{% url 'relatorios:construtor' %}" 
+                   class="relative group bg-white dark:bg-gray-800 p-6 rounded-lg shadow hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-center w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg mb-3">
+                        <i class="fas fa-tools text-green-600 dark:text-green-400"></i>
+                    </div>
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-white">Construtor</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Criar relatórios</p>
+                </a>
+
+                <a href="{% url 'relatorios:template_lista' %}" 
+                   class="relative group bg-white dark:bg-gray-800 p-6 rounded-lg shadow hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-center w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-lg mb-3">
+                        <i class="fas fa-file-invoice text-purple-600 dark:text-purple-400"></i>
+                    </div>
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-white">Templates</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Gerenciar templates</p>
+                </a>
+
+                <a href="{% url 'relatorios:agendamento_lista' %}" 
+                   class="relative group bg-white dark:bg-gray-800 p-6 rounded-lg shadow hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-center w-10 h-10 bg-yellow-100 dark:bg-yellow-900 rounded-lg mb-3">
+                        <i class="fas fa-clock text-yellow-600 dark:text-yellow-400"></i>
+                    </div>
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-white">Agendamentos</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Gerenciar agendamentos</p>
+                </a>
+
+                <a href="{% url 'relatorios:historico' %}" 
+                   class="relative group bg-white dark:bg-gray-800 p-6 rounded-lg shadow hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-center w-10 h-10 bg-indigo-100 dark:bg-indigo-900 rounded-lg mb-3">
+                        <i class="fas fa-history text-indigo-600 dark:text-indigo-400"></i>
+                    </div>
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-white">Histórico</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Logs e auditoria</p>
+                </a>
+
+                <a href="{% url 'relatorios:favoritos' %}" 
+                   class="relative group bg-white dark:bg-gray-800 p-6 rounded-lg shadow hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-center w-10 h-10 bg-red-100 dark:bg-red-900 rounded-lg mb-3">
+                        <i class="fas fa-heart text-red-600 dark:text-red-400"></i>
+                    </div>
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-white">Favoritos</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Meus favoritos</p>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

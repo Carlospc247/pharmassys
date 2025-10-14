@@ -1,0 +1,59 @@
+#pharmassys/urls.py
+from django.contrib import admin
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+from django.contrib.auth import views as auth_views
+from django.shortcuts import redirect
+
+# Função para redirecionar /accounts/profile/ para dashboard
+def redirect_to_dashboard(request):
+    return redirect('dashboard')
+
+urlpatterns = [
+    # Admin
+    path('admin/', admin.site.urls),
+    #path('accounts/', include('django.contrib.auth.urls')),
+    
+    
+    # Autenticação
+    path('accounts/login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
+    path('accounts/logout/', auth_views.LogoutView.as_view(next_page='/accounts/login/'), name='logout'),
+    path('accounts/password_change/', auth_views.PasswordChangeView.as_view(template_name='registration/password_change.html'), name='password_change'),
+    path('accounts/password_change/done/', auth_views.PasswordChangeDoneView.as_view(template_name='registration/password_change_done.html'), name='password_change_done'),
+    
+    # *** SOLUÇÃO PARA O ERRO 404 DE ACCOUNTS/PROFILE/ ***
+    path('accounts/profile/', redirect_to_dashboard, name='profile'),
+    
+    # Apps
+    path('', include('apps.core.urls')),
+    path('produtos/', include('apps.produtos.urls')),
+    path('clientes/', include('apps.clientes.urls', namespace='clientes')), #Tenho que usar namespace='clientes' para possibilitar chamar qualquer url da app clientes no javascript. Ex: {% url 'clientes:api_buscar_clientes' %}
+    path('vendas/', include('apps.vendas.urls')),
+    path('', include('apps.vendas.urls_documentos')),
+    path('api/v1/', include('apps.vendas.urls')),
+    path('estoque/', include('apps.estoque.urls')),
+    path('fornecedores/', include('apps.fornecedores.urls')),
+    path('funcionarios/', include('apps.funcionarios.urls')),
+    path('financeiro/', include('apps.financeiro.urls')),
+    path('servicos/', include('apps.servicos.urls')),
+    path('comandas/', include('apps.comandas.urls')),
+    path('configuracoes/', include('apps.configuracoes.urls')),
+    path('analytics/', include('apps.analytics.urls')),
+    path('relatorios/', include('apps.relatorios.urls')),
+    path('fiscal/', include('apps.fiscal.urls')),
+    path('saft/', include('apps.saft.urls')),
+    path('compras/', include('apps.compras.urls')),
+]
+
+# Debug toolbar (apenas em desenvolvimento)
+if settings.DEBUG:
+    import debug_toolbar
+    urlpatterns = [
+        path('__debug__/', include(debug_toolbar.urls)),
+    ] + urlpatterns
+    
+    # Servir arquivos estáticos e media em desenvolvimento
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+

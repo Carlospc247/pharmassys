@@ -1,0 +1,81 @@
+<!-- templates/emails/relatorio_erro.html -->
+{% extends "emails/base.html" %}
+
+{% block title %}Erro na Geração de Relatório - {{ relatorio.nome_relatorio }}{% endblock %}
+
+{% block header_subtitle %}Ocorreu um erro durante o processamento{% endblock %}
+
+{% block content %}
+<h2>Erro na Geração do Relatório ⚠️</h2>
+
+<p>Olá, {{ relatorio.usuario.get_full_name|default:relatorio.usuario.username }}!</p>
+
+<p>Infelizmente, ocorreu um erro durante a geração do relatório "<strong>{{ relatorio.nome_relatorio }}</strong>".</p>
+
+<div class="alert alert-danger">
+    <strong>Status:</strong> Erro<br>
+    <strong>Data/Hora:</strong> {{ relatorio.data_execucao|date:"d/m/Y H:i" }}<br>
+    <strong>ID do erro:</strong> {{ relatorio.id }}
+</div>
+
+<h3>O que aconteceu?</h3>
+
+<p>{{ relatorio.mensagem_erro|default:"Erro não especificado. Nossa equipe técnica foi notificada automaticamente." }}</p>
+
+<h3>O que você pode fazer?</h3>
+
+<div style="margin: 16px 0;">
+    <p><strong>1. Tentar novamente:</strong> Muitas vezes o erro é temporário.</p>
+    <div style="text-align: center; margin: 16px 0;">
+        <a href="{{ retry_url }}" class="btn btn-primary" style="text-decoration: none;">
+            🔄 Tentar Novamente
+        </a>
+    </div>
+    
+    <p><strong>2. Verificar os filtros:</strong> Certifique-se de que os filtros aplicados são válidos.</p>
+    
+    <p><strong>3. Contatar o suporte:</strong> Se o problema persistir, nossa equipe pode ajudar.</p>
+    <div style="text-align: center; margin: 16px 0;">
+        <a href="{{ support_url }}" class="btn btn-secondary" style="text-decoration: none;">
+            💬 Contatar Suporte
+        </a>
+    </div>
+</div>
+
+<h3>Detalhes do Relatório</h3>
+
+<table class="table">
+    <tr>
+        <td><strong>Template:</strong></td>
+        <td>{{ relatorio.template.nome }}</td>
+    </tr>
+    <tr>
+        <td><strong>Data de solicitação:</strong></td>
+        <td>{{ relatorio.data_solicitacao|date:"d/m/Y H:i" }}</td>
+    </tr>
+    <tr>
+        <td><strong>Formato solicitado:</strong></td>
+        <td>{{ relatorio.formato|upper }}</td>
+    </tr>
+    {% if relatorio.filtros_aplicados %}
+    <tr>
+        <td><strong>Filtros aplicados:</strong></td>
+        <td>{{ relatorio.filtros_aplicados }}</td>
+    </tr>
+    {% endif %}
+</table>
+
+<div class="alert alert-info">
+    <strong>Nossa equipe foi notificada:</strong> Os desenvolvedores já estão cientes do problema e trabalham para corrigi-lo. 
+    Você será notificado quando uma correção estiver disponível.
+</div>
+
+<p>Pedimos desculpas pelo inconveniente e agradecemos sua compreensão.</p>
+
+<p>
+    Atenciosamente,<br>
+    <strong>Equipe do Sistema de Relatórios</strong>
+</p>
+{% endblock %}
+
+{% block unsubscribe_url %}{{ base_url }}/configuracoes/?tab=notificacoes{% endblock %}

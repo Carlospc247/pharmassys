@@ -1,0 +1,413 @@
+{% extends 'core/dashboard.html' %}
+{% load static %}
+
+{% block title %}DRE - Demonstração do Resultado - vistoGEST{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dre-section {
+        transition: all 0.3s ease;
+    }
+    .dre-section:hover {
+        transform: translateX(4px);
+    }
+    .valor-receita { color: #10B981; font-weight: 600; }
+    .valor-despesa { color: #EF4444; font-weight: 600; }
+    .valor-resultado { color: #3B82F6; font-weight: 700; }
+    .linha-total { border-top: 2px solid #374151; border-bottom: 3px double #374151; }
+    .margem-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .margem-positiva { background-color: #D1FAE5; color: #065F46; }
+    .margem-negativa { background-color: #FEE2E2; color: #991B1B; }
+    .chart-container { height: 300px; }
+</style>
+{% endblock %}
+
+{% block main_content %}
+<div id="dre" class="module active">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">DRE - Demonstração do Resultado</h1>
+            <p class="text-gray-600 dark:text-gray-400">
+                Período: {{ periodo_inicio|date:"d/m/Y" }} a {{ periodo_fim|date:"d/m/Y" }}
+            </p>
+        </div>
+        <div class="flex space-x-3">
+            <div class="flex items-center space-x-2">
+                <input type="date" id="dataInicio" value="{{ periodo_inicio|date:'Y-m-d' }}"
+                       class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                <span class="text-gray-500">até</span>
+                <input type="date" id="dataFim" value="{{ periodo_fim|date:'Y-m-d' }}"
+                       class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                <button id="btnAtualizarPeriodo" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors">
+                    Atualizar
+                </button>
+            </div>
+            <button id="btnExportarDRE" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <i class="fas fa-file-excel mr-2"></i>Exportar
+            </button>
+            <button id="btnImprimirDRE" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <i class="fas fa-print mr-2"></i>Imprimir
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- DRE Principal -->
+        <div class="lg:col-span-2">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6">Demonstração do Resultado do Exercício</h2>
+                
+                <div class="space-y-4">
+                    <!-- RECEITAS -->
+                    <div class="dre-section">
+                        <div class="flex justify-between items-center py-3">
+                            <span class="text-lg font-semibold text-gray-900 dark:text-white">RECEITA BRUTA</span>
+                            <span class="valor-receita text-xl">AKZ {{ dre.receita_bruta|floatformat:2 }}</span>
+                        </div>
+                    </div>
+
+                    <div class="dre-section pl-4">
+                        <div class="flex justify-between items-center py-2 text-sm">
+                            <span class="text-gray-600 dark:text-gray-400">(-) Deduções da Receita Bruta</span>
+                            <span class="valor-despesa">AKZ 0,00</span>
+                        </div>
+                    </div>
+
+                    <div class="dre-section linha-total">
+                        <div class="flex justify-between items-center py-3">
+                            <span class="text-lg font-semibold text-gray-900 dark:text-white">RECEITA LÍQUIDA</span>
+                            <span class="valor-receita text-xl">AKZ {{ dre.receita_liquida|floatformat:2 }}</span>
+                        </div>
+                    </div>
+
+                    <!-- CUSTOS -->
+                    <div class="dre-section pl-4">
+                        <div class="flex justify-between items-center py-2">
+                            <span class="text-gray-600 dark:text-gray-400">(-) Custo dos Produtos Vendidos</span>
+                            <span class="valor-despesa">AKZ {{ dre.cpv|floatformat:2 }}</span>
+                        </div>
+                    </div>
+
+                    <div class="dre-section linha-total">
+                        <div class="flex justify-between items-center py-3">
+                            <span class="text-lg font-semibold text-gray-900 dark:text-white">LUCRO BRUTO</span>
+                            <span class="valor-resultado text-xl">AKZ {{ dre.lucro_bruto|floatformat:2 }}</span>
+                        </div>
+                        <div class="text-right mt-1">
+                            <span class="margem-badge {% if dre.margem_bruta >= 0 %}margem-positiva{% else %}margem-negativa{% endif %}">
+                                {{ dre.margem_bruta|floatformat:1 }}%
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- DESPESAS OPERACIONAIS -->
+                    <div class="dre-section">
+                        <div class="py-2">
+                            <span class="text-lg font-semibold text-gray-900 dark:text-white">DESPESAS OPERACIONAIS</span>
+                        </div>
+                    </div>
+
+                    <div class="dre-section pl-4">
+                        <div class="flex justify-between items-center py-2">
+                            <span class="text-gray-600 dark:text-gray-400">(-) Folha de Pagamento</span>
+                            <span class="valor-despesa">AKZ {{ dre.folha_pagamento|floatformat:2 }}</span>
+                        </div>
+                    </div>
+
+                    <div class="dre-section pl-4">
+                        <div class="flex justify-between items-center py-2">
+                            <span class="text-gray-600 dark:text-gray-400">(-) Despesas Administrativas</span>
+                            <span class="valor-despesa">AKZ {{ dre.despesas_operacionais|floatformat:2 }}</span>
+                        </div>
+                    </div>
+
+                    <div class="dre-section pl-4">
+                        <div class="flex justify-between items-center py-2 font-semibold">
+                            <span class="text-gray-700 dark:text-gray-300">Total Despesas Operacionais</span>
+                            <span class="valor-despesa">AKZ {{ dre.despesas_totais|floatformat:2 }}</span>
+                        </div>
+                    </div>
+
+                    <div class="dre-section linha-total">
+                        <div class="flex justify-between items-center py-3">
+                            <span class="text-lg font-semibold text-gray-900 dark:text-white">LUCRO OPERACIONAL</span>
+                            <span class="valor-resultado text-xl">AKZ {{ dre.lucro_operacional|floatformat:2 }}</span>
+                        </div>
+                        <div class="text-right mt-1">
+                            <span class="margem-badge {% if dre.margem_operacional >= 0 %}margem-positiva{% else %}margem-negativa{% endif %}">
+                                {{ dre.margem_operacional|floatformat:1 }}%
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- RESULTADO NÃO OPERACIONAL -->
+                    <div class="dre-section pl-4">
+                        <div class="flex justify-between items-center py-2">
+                            <span class="text-gray-600 dark:text-gray-400">(+/-) Resultado Não Operacional</span>
+                            <span class="valor-resultado">AKZ 0,00</span>
+                        </div>
+                    </div>
+
+                    <!-- LUCRO ANTES DOS IMPOSTOS -->
+                    <div class="dre-section linha-total">
+                        <div class="flex justify-between items-center py-3">
+                            <span class="text-lg font-semibold text-gray-900 dark:text-white">LUCRO ANTES DOS IMPOSTOS</span>
+                            <span class="valor-resultado text-xl">AKZ {{ dre.lucro_operacional|floatformat:2 }}</span>
+                        </div>
+                    </div>
+
+                    <!-- PROVISÕES -->
+                    <div class="dre-section pl-4">
+                        <div class="flex justify-between items-center py-2">
+                            <span class="text-gray-600 dark:text-gray-400">(-) Provisão para IR e CSLL</span>
+                            <span class="valor-despesa">AKZ 0,00</span>
+                        </div>
+                    </div>
+
+                    <!-- LUCRO LÍQUIDO -->
+                    <div class="dre-section linha-total bg-gray-50 dark:bg-gray-700 px-4 py-4 rounded-lg">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xl font-bold text-gray-900 dark:text-white">LUCRO LÍQUIDO DO EXERCÍCIO</span>
+                            <span class="valor-resultado text-2xl font-bold">AKZ {{ dre.lucro_liquido|floatformat:2 }}</span>
+                        </div>
+                        <div class="text-right mt-2">
+                            <span class="margem-badge {% if dre.margem_liquida >= 0 %}margem-positiva{% else %}margem-negativa{% endif %} text-sm">
+                                Margem Líquida: {{ dre.margem_liquida|floatformat:1 }}%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Análises e Gráficos -->
+        <div class="space-y-6">
+            <!-- Indicadores -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Indicadores de Performance</h3>
+                
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">Margem Bruta</span>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-24 bg-gray-200 rounded-full h-2">
+                                <div class="bg-green-500 h-2 rounded-full" style="width: {{ dre.margem_bruta|floatformat:0 }}%"></div>
+                            </div>
+                            <span class="text-sm font-semibold">{{ dre.margem_bruta|floatformat:1 }}%</span>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">Margem Operacional</span>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-24 bg-gray-200 rounded-full h-2">
+                                <div class="bg-blue-500 h-2 rounded-full" style="width: {{ dre.margem_operacional|floatformat:0 }}%"></div>
+                            </div>
+                            <span class="text-sm font-semibold">{{ dre.margem_operacional|floatformat:1 }}%</span>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">Margem Líquida</span>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-24 bg-gray-200 rounded-full h-2">
+                                <div class="bg-purple-500 h-2 rounded-full" style="width: {{ dre.margem_liquida|floatformat:0 }}%"></div>
+                            </div>
+                            <span class="text-sm font-semibold">{{ dre.margem_liquida|floatformat:1 }}%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gráfico de Composição -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Composição do Resultado</h3>
+                <div class="chart-container">
+                    <canvas id="chartComposicao"></canvas>
+                </div>
+            </div>
+
+            <!-- Evolução Mensal -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Evolução das Margens</h3>
+                <div class="chart-container">
+                    <canvas id="chartEvolucao"></canvas>
+                </div>
+            </div>
+
+            <!-- Análise Rápida -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Análise Rápida</h3>
+                
+                <div class="space-y-3 text-sm">
+                    {% if dre.lucro_liquido > 0 %}
+                    <div class="flex items-start space-x-2">
+                        <i class="fas fa-check-circle text-green-500 mt-0.5"></i>
+                        <span>Empresa apresentou lucro no período</span>
+                    </div>
+                    {% else %}
+                    <div class="flex items-start space-x-2">
+                        <i class="fas fa-exclamation-triangle text-red-500 mt-0.5"></i>
+                        <span>Empresa apresentou prejuízo no período</span>
+                    </div>
+                    {% endif %}
+
+                    {% if dre.margem_bruta > 30 %}
+                    <div class="flex items-start space-x-2">
+                        <i class="fas fa-thumbs-up text-green-500 mt-0.5"></i>
+                        <span>Margem bruta satisfatória (>30%)</span>
+                    </div>
+                    {% else %}
+                    <div class="flex items-start space-x-2">
+                        <i class="fas fa-info-circle text-orange-500 mt-0.5"></i>
+                        <span>Margem bruta pode ser melhorada</span>
+                    </div>
+                    {% endif %}
+
+                    <div class="flex items-start space-x-2">
+                        <i class="fas fa-chart-line text-blue-500 mt-0.5"></i>
+                        <span>Receita líquida de AKZ {{ dre.receita_liquida|floatformat:2 }}</span>
+                    </div>
+
+                    <div class="flex items-start space-x-2">
+                        <i class="fas fa-calculator text-purple-500 mt-0.5"></i>
+                        <span>Custos representam {{ dre.cpv|mul:100|div:dre.receita_liquida|floatformat:1 }}% da receita</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initDRE();
+});
+
+function initDRE() {
+    // Event listeners
+    document.getElementById('btnAtualizarPeriodo').addEventListener('click', atualizarPeriodo);
+    document.getElementById('btnExportarDRE').addEventListener('click', exportarDRE);
+    document.getElementById('btnImprimirDRE').addEventListener('click', imprimirDRE);
+    
+    // Inicializar gráficos
+    initCharts();
+}
+
+function initCharts() {
+    // Gráfico de Composição
+    const ctxComposicao = document.getElementById('chartComposicao').getContext('2d');
+    new Chart(ctxComposicao, {
+        type: 'doughnut',
+        data: {
+            labels: ['Lucro Líquido', 'Custos', 'Despesas Operacionais'],
+            datasets: [{
+                data: [
+                    {{ dre.lucro_liquido|default:0 }},
+                    {{ dre.cpv|default:0 }},
+                    {{ dre.despesas_totais|default:0 }}
+                ],
+                backgroundColor: [
+                    '#10B981',
+                    '#EF4444',
+                    '#F59E0B'
+                ],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return `${context.label}: ${percentage}%`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Gráfico de Evolução (dados mockados - implementar com dados reais)
+    const ctxEvolucao = document.getElementById('chartEvolucao').getContext('2d');
+    new Chart(ctxEvolucao, {
+        type: 'line',
+        data: {
+            labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+            datasets: [{
+                label: 'Margem Bruta (%)',
+                data: [25, 28, 30, 32, 29, {{ dre.margem_bruta|floatformat:1 }}],
+                borderColor: '#10B981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Margem Líquida (%)',
+                data: [12, 15, 18, 20, 17, {{ dre.margem_liquida|floatformat:1 }}],
+                borderColor: '#3B82F6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function atualizarPeriodo() {
+    const dataInicio = document.getElementById('dataInicio').value;
+    const dataFim = document.getElementById('dataFim').value;
+    
+    if (dataInicio && dataFim) {
+        const url = new URL(window.location);
+        url.searchParams.set('inicio', dataInicio);
+        url.searchParams.set('fim', dataFim);
+        window.location.href = url.toString();
+    }
+}
+
+function exportarDRE() {
+    const dataInicio = document.getElementById('dataInicio').value;
+    const dataFim = document.getElementById('dataFim').value;
+    
+    const url = `/contabilidade/dre/exportar/?inicio=${dataInicio}&fim=${dataFim}&formato=excel`;
+    window.open(url, '_blank');
+}
+
+function imprimirDRE() {
+    window.print();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,14 @@
+[Unit]
+Description=Gunicorn instance to serve pharmassys
+After=network.target
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=/var/www/pharmassys
+Environment="PATH=/var/www/venv/bin"
+ExecStart=/var/www/venv/bin/gunicorn --workers 3 --bind unix:/var/www/pharmassys/pharmassys.sock pharmassys.wsgi:application
+
+[Install]
+WantedBy=multi-user.target
+

@@ -1,0 +1,22 @@
+<!-- templates/financeiro/conta_receber/parcelar.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Parcelar Conta a Receber{% endblock %}
+{% block page_title %}Parcelar Conta a Receber{% endblock %}
+
+{% block content %}
+<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+        Parcelar Conta a Receber: {{ conta.numero }}
+    </h1>
+
+    <form method="POST">
+        {% csrf_token %}
+        <label for="numero_parcelas" class="block text-sm font-medium text-gray-700">Número de Parcelas:</label>
+        <input type="number" name="numero_parcelas" id="numero_parcelas" min="1" required class="border p-2 rounded mb-4" />
+
+        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Parcelar</button>
+    </form>
+</div>
+{% endblock %}

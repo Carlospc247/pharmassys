@@ -1,0 +1,31 @@
+<!-- templates/financeiro/balanco.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Balanço Patrimonial{% endblock %}
+{% block page_title %}Balanço Patrimonial{% endblock %}
+
+{% block content %}
+<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+        Balanço Patrimonial
+    </h1>
+
+    <div>
+        <h3 class="text-lg font-bold">Ativo Circulante</h3>
+        <p>{{ ativo_circulante|floatformat:2 }} Kz</p>
+        
+        <h3 class="text-lg font-bold">Ativo Não Circulante</h3>
+        <p>{{ ativo_nao_circulante|floatformat:2 }} Kz</p>
+
+        <h3 class="text-lg font-bold">Passivo Circulante</h3>
+        <p>{{ passivo_circulante|floatformat:2 }} Kz</p>
+
+        <h3 class="text-lg font-bold">Passivo Não Circulante</h3>
+        <p>{{ passivo_nao_circulante|floatformat:2 }} Kz</p>
+
+        <h3 class="text-lg font-bold">Patrimônio Líquido</h3>
+        <p>{{ patrimonio_liquido|floatformat:2 }} Kz</p>
+    </div>
+</div>
+{% endblock %}

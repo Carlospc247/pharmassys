@@ -1,0 +1,52 @@
+<!-- templates/vendas/relatorio_notas_credito.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mt-4">Relatório de Notas de Crédito</h1>
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Totais</h5>
+        </div>
+        <div class="card-body">
+            <p>Total de Notas: {{ totais.quantidade }}</p>
+            <p>Valor Total: {{ totais.total_creditos }}</p>
+            <p>Crédito Médio: {{ totais.credito_medio }}</p>
+        </div>
+    </div>
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Notas de Crédito por Cliente</h5>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Total</th>
+                        <th>Quantidade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in por_cliente %}
+                    <tr>
+                        <td>{{ item.cliente__nome_completo }}</td>
+                        <td>{{ item.total }}</td>
+                        <td>{{ item.quantidade }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="pagination">
+                {% for page in paginator.page_range %}
+                    {% if page == paginator.number %}
+                        <strong>{{ page }}</strong>
+                    {% else %}
+                        <a href="?page={{ page }}">{{ page }}</a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

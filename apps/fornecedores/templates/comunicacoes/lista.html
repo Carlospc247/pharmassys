@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Histórico e Gestão de Comunicação{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Painel de Comunicações com Fornecedores</h2>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalComunicacaoMassa">
+            <i class="fas fa-envelope-open-text me-2"></i> Enviar Comunicação em Massa
+        </button>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <i class="fas fa-history me-2"></i> Últimas Interações Registradas
+                </div>
+                <div class="card-body">
+                    {# **Implementação futura:** Substituir pela iteração sobre o modelo HistoricoComunicacao #}
+                    <div class="alert alert-warning">
+                        **Nota:** Esta seção será populada pelo histórico de envios (E-mails, WhatsApps, etc.) após a criação do modelo `HistoricoComunicacao`.
+                    </div>
+                    
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Fornecedor</th>
+                                <th>Tipo</th>
+                                <th>Assunto/Mensagem</th>
+                                <th>Data/Hora</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fornecedor in fornecedores|slice:":5" %}
+                            {# Simulação de histórico de comunicação para demonstração #}
+                            <tr>
+                                <td><a href="{% url 'fornecedores:detail' pk=fornecedor.pk %}">{{ fornecedor.nome_exibicao }}</a></td>
+                                <td><span class="badge bg-primary">Email</span></td>
+                                <td>Alerta de Vencimento de Licença</td>
+                                <td>{{ fornecedor.created_at|date:"d/m/Y H:i" }}</td>
+                                <td><span class="badge bg-success">Enviado</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Modal para Comunicação em Massa (Exemplo Básico) #}
+<div class="modal fade" id="modalComunicacaoMassa" tabindex="-1" aria-labelledby="modalComunicacaoMassaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalComunicacaoMassaLabel">Enviar E-mail/WhatsApp em Massa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="#" method="post"> {# URL de envio em massa (futura) #}
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>Funcionalidade crítica para notificar múltiplos fornecedores sobre alterações de termos ou pedidos pendentes.</p>
+                    <div class="mb-3">
+                        <label class="form-label">Filtrar Destinatários (Ex: Por Categoria, Ativos):</label>
+                        <select class="form-select">
+                            <option>Todos os Ativos</option>
+                            <option>Apenas Laboratórios</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="corpo_massa" class="form-label">Corpo da Mensagem:</label>
+                        <textarea class="form-control" id="corpo_massa" rows="4" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Enviar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

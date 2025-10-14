@@ -1,0 +1,50 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Imprimir Pedido de Compra #{{ pedido.numero_pedido }}</title>
+    
+    <link rel="stylesheet" href="{% static 'css/print.css' %}">
+    <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}"> 
+</head>
+<body onload="window.print();">
+
+    <div class="container my-5 printable-area">
+        <header class="text-center border-bottom pb-3 mb-4">
+            <h1>PEDIDO DE COMPRA</h1>
+            <h2 class="text-primary">#{{ pedido.numero_pedido }}</h2>
+        </header>
+
+        <section class="info-section row mb-4">
+            <div class="col-6">
+                <strong>Empresa Compradora:</strong><br>
+                {{ pedido.empresa.razao_social }} ({{ pedido.empresa.nif }})<br>
+                {{ pedido.empresa.endereco_completo }}
+            </div>
+            <div class="col-6 text-end">
+                <strong>Fornecedor:</strong><br>
+                {{ pedido.fornecedor.razao_social }} ({{ pedido.fornecedor.nif_bi }})<br>
+                {{ pedido.fornecedor.endereco_completo }}
+            </div>
+        </section>
+
+        {% include 'pedidos/_tabela_itens_imprimir.html' %} 
+        
+        <section class="footer-section row mt-4">
+            <div class="col-8">
+                <strong>Observações:</strong><br>
+                <small>{{ pedido.observacoes|default:"N/A" }}</small>
+            </div>
+            <div class="col-4 text-end">
+                <p class="h5">TOTAL GERAL:</p>
+                <p class="h3 text-danger">Kz {{ pedido.total|floatformat:2 }}</p>
+            </div>
+        </section>
+
+        <footer class="text-center mt-5 pt-3 border-top">
+            <small>Documento emitido em {{ now|date:"d/m/Y H:i" }} | Solicitante: {{ pedido.solicitante.get_full_name }}</small>
+        </footer>
+    </div>
+</body>
+</html>

@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}Categorias de Produtos{% endblock %}
+
+{% block page_title %}Categorias de Produtos{% endblock %}
+
+{% block page_actions %}
+    <a href="{% url 'produtos:categoria_create' %}" class="inline-flex items-center gap-x-2 rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
+        <i class="fas fa-plus -ml-0.5 h-5 w-5"></i> Nova Categoria
+    </a>
+{% endblock %}
+
+{% block content %}
+<div class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-700/50">
+                <tr>
+                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-white sm:pl-6">Nome</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Código</th>
+                    <th scope="col" class="px-3 py-3.5 text-center text-sm font-semibold text-gray-900 dark:text-white">Status</th>
+                    <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6"><span class="sr-only">Ações</span></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
+                {% for categoria in categorias %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-white sm:pl-6">{{ categoria.nome }}</td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">{{ categoria.codigo|default:"-" }}</td>
+                    <td class="whitespace-nowrap px-3 py-4 text-center text-sm">
+                        {% if categoria.ativa %}
+                            <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20 dark:bg-green-900/50 dark:text-green-300">Ativa</span>
+                        {% else %}
+                            <span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10 dark:bg-gray-700 dark:text-gray-300">Inativa</span>
+                        {% endif %}
+                    </td>
+                    <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 space-x-4">
+                        <a href="{% url 'produtos:categoria_update' categoria.pk %}" class="text-blue-600 hover:text-blue-900">Editar</a>
+                        <a href="{% url 'produtos:categoria_delete' categoria.pk %}" class="text-red-600 hover:text-red-900">Eliminar</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center py-12 text-gray-500 dark:text-gray-400">Nenhuma categoria encontrada.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    </div>
+{% endblock %}

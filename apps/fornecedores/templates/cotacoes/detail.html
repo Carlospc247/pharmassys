@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Detalhe da Cotação #{{ cotacao.referencia }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Cotação #{{ cotacao.referencia|default:cotacao.pk }}</h2>
+        <a href="{% url 'fornecedores:cotacao_comparar' pk=cotacao.pk %}" class="btn btn-lg btn-success">
+            <i class="fas fa-chart-bar"></i> Comparar Propostas
+        </a>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-dark text-white">
+            Status e Prazos
+        </div>
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">Data Limite de Resposta:</dt>
+                <dd class="col-sm-9">**{{ cotacao.data_limite|date:"d/m/Y H:i" }}**</dd>
+
+                <dt class="col-sm-3">Status Atual:</dt>
+                <dd class="col-sm-9">
+                    <span class="badge bg-info fs-6">{{ cotacao.get_status_display|default:"Em Rascunho" }}</span>
+                </dd>
+
+                <dt class="col-sm-3">Fornecedores Convidados:</dt>
+                <dd class="col-sm-9">{{ cotacao.fornecedores.count }}</dd>
+            </dl>
+        </div>
+    </div>
+    
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-secondary text-white">
+            Itens Solicitados (O que cotar)
+        </div>
+        <div class="card-body">
+            {% if cotacao.itens.all %}
+                <ul class="list-group">
+                    {% for item in cotacao.itens.all %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ item.produto.nome|default:"Produto Não Definido" }}
+                            <span class="badge bg-primary rounded-pill">Qtde: {{ item.quantidade }}</span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="alert alert-warning">Nenhum item adicionado à cotação.</div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="mt-3">
+        <a href="{% url 'fornecedores:cotacao_lista' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Voltar à Lista
+        </a>
+    </div>
+</div>
+{% endblock %}

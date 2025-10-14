@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Lista de Faturas Proforma{% endblock %}
+
+{% block page_title %}Faturas Proforma{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'documentos:painel' %}">Documentos</a></li>
+    <li class="breadcrumb-item active">Faturas Proforma</li>
+{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">Filtros de Pesquisa</h5>
+        <a href="#" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> Nova Proforma
+        </a>
+    </div>
+    <div class="card-body">
+        </div>
+</div>
+
+<div class="card shadow-sm mt-4">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead>
+                    <tr>
+                        <th>Número</th>
+                        <th>Cliente</th>
+                        <th>Data Emissão</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-end">Valor Total</th>
+                        <th class="text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for proforma in proformas %}
+                    <tr>
+                        <td class="fw-bold">{{ proforma.numero_documento }}</td>
+                        <td>{{ proforma.venda.cliente.nome_completo|default:"Consumidor Final" }}</td>
+                        <td>{{ proforma.data_emissao|date:"d/m/Y" }}</td>
+                        <td class="text-center">
+                             {% if proforma.status == 'emitido' %}
+                                <span class="badge bg-primary">Enviado</span>
+                            {% elif proforma.status == 'convertido' %}
+                                <span class="badge bg-success">Convertido</span>
+                            {% elif proforma.status == 'rejeitado' %}
+                                <span class="badge bg-danger">Rejeitado</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ proforma.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end fw-bold">AKZ {{ proforma.venda.total|floatformat:2 }}</td>
+                        <td class="text-center">
+                            <a href="#" class="btn btn-sm btn-outline-primary" title="Ver/Imprimir PDF"><i class="fas fa-print"></i></a>
+                            <a href="#" class="btn btn-sm btn-outline-success" title="Converter em Fatura"><i class="fas fa-check"></i></a>
+                            <a href="#" class="btn btn-sm btn-outline-danger" title="Marcar como Rejeitada"><i class="fas fa-times"></i></a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-5">
+                            <p>Nenhuma fatura proforma encontrada.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

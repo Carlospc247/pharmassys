@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Confirmar Exclusão{% endblock %}
+{% block page_title %}Confirmar Exclusão{% endblock %}
+
+{% block content %}
+<p>Tem certeza de que deseja excluir o cliente "{{ object.nome_completo|default:object.razao_social }}"?</p>
+<form method="post">
+    {% csrf_token %}
+    <button type="submit">Sim, Excluir</button>
+    <a href="{% url 'clientes:lista' %}">Cancelar</a>
+</form>
+{% endblock %}

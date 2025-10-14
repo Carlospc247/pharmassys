@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Criar Nova Cotação{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Criar Nova Solicitação de Cotação</h2>
+    <hr>
+    
+    <form method="post" novalidate>
+        {% csrf_token %}
+        
+        <div class="card shadow-sm p-4 mb-4">
+            <h5 class="mb-3">Detalhes da Cotação</h5>
+            
+            {# O formulário deve incluir campos para a lista de itens e os fornecedores convidados #}
+            {{ form|crispy }}
+            
+        </div>
+        
+        <div class="alert alert-warning">
+            **Atenção:** A funcionalidade completa de cotação exige **Inline Formsets** para a gestão dos **Itens da Cotação** (o que precisa cotar) e **Many-to-Many** para selecionar os **Fornecedores Convidados**.
+        </div>
+        
+        <div class="d-flex justify-content-end mt-4">
+            <a href="{% url 'fornecedores:cotacao_lista' %}" class="btn btn-secondary me-2">Cancelar</a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Salvar Rascunho
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

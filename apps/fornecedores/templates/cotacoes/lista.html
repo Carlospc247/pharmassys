@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Lista de Cotações de Fornecedores{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Gestão de Cotações ({{ cotacoes.count }} Total)</h2>
+        <a href="{% url 'fornecedores:cotacao_create' %}" class="btn btn-success">
+            <i class="fas fa-plus-circle"></i> Nova Cotação
+        </a>
+    </div>
+
+    {% if cotacoes %}
+    <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Referência</th>
+                    <th>Itens Solicitados</th>
+                    <th>Fornecedores Participantes</th>
+                    <th>Data Limite</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cotacao in cotacoes %}
+                <tr>
+                    <td>
+                        <a href="{% url 'fornecedores:cotacao_detail' pk=cotacao.pk %}">
+                            <strong>{{ cotacao.referencia|default:cotacao.pk }}</strong>
+                        </a>
+                    </td>
+                    <td>{{ cotacao.itens.count }}</td>
+                    <td>{{ cotacao.fornecedores.count }}</td>
+                    <td>{{ cotacao.data_limite|date:"d/m/Y" }}</td>
+                    <td>
+                        {# Assumindo que o modelo CotacaoFornecedor tem um get_status_display e cor_status #}
+                        <span class="badge bg-secondary">
+                            {{ cotacao.get_status_display|default:"Rascunho" }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{% url 'fornecedores:cotacao_comparar' pk=cotacao.pk %}" class="btn btn-sm btn-info" title="Comparar Ofertas">
+                            <i class="fas fa-balance-scale"></i> Comparar
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info" role="alert">
+        Nenhuma solicitação de cotação registrada.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

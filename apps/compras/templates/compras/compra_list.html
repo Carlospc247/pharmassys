@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% load compras_extras %}
+
+{% block content %}
+<div class="container mx-auto py-6">
+    <h1 class="text-2xl font-bold mb-4">Compras</h1>
+
+    <!-- Filtros -->
+    <form method="get" class="flex flex-wrap gap-4 mb-6">
+        <input type="text" name="fornecedor" placeholder="Fornecedor" value="{{ request.GET.fornecedor }}" class="border rounded px-3 py-2">
+        <input type="date" name="data_inicio" value="{{ request.GET.data_inicio }}" class="border rounded px-3 py-2">
+        <input type="date" name="data_fim" value="{{ request.GET.data_fim }}" class="border rounded px-3 py-2">
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Filtrar</button>
+        <a href="{% url 'compras:lista_compras' %}" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">Limpar</a>
+    </form>
+
+    <!-- Tabela de compras -->
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white border border-gray-200">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="px-4 py-2 border-b">ID</th>
+                    <th class="px-4 py-2 border-b">Fornecedor</th>
+                    <th class="px-4 py-2 border-b">Data</th>
+                    <th class="px-4 py-2 border-b">Total</th>
+                    <th class="px-4 py-2 border-b">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for compra in compras %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-2 border-b">{{ compra.id }}</td>
+                    <td class="px-4 py-2 border-b">{{ compra.fornecedor.nome if compra.fornecedor else '-' }}</td>
+                    <td class="px-4 py-2 border-b">{{ compra.data|date:"d/m/Y H:i" }}</td>
+                    <td class="px-4 py-2 border-b">{{ compra.total|floatformat:2 }}</td>
+                    <td class="px-4 py-2 border-b">
+                        <a href="{% url 'compras:detalhe_compra' compra.id %}" class="text-blue-600 hover:underline">Detalhes</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-4 py-2 text-center text-gray-500">Nenhuma compra encontrada.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <!-- Total geral -->
+            <tfoot>
+                <tr class="bg-gray-50 font-bold">
+                    <td colspan="3" class="px-4 py-2 text-right border-t">Total Geral:</td>
+                    <td class="px-4 py-2 border-t">
+                        {{ compras|sum_attribute:"total"|floatformat:2 }}
+                    </td>
+                    <td class="border-t"></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- Paginação -->
+    <div class="mt-4">
+        <div class="flex justify-center space-x-2">
+            {% if compras.has_previous %}
+                <a href="?page={{ compras.previous_page_number }}{% if request.GET.fornecedor %}&fornecedor={{ request.GET.fornecedor }}{% endif %}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Anterior</a>
+            {% endif %}
+            <span class="px-3 py-1 bg-gray-100 rounded">Página {{ compras.number }} de {{ compras.paginator.num_pages }}</span>
+            {% if compras.has_next %}
+                <a href="?page={{ compras.next_page_number }}{% if request.GET.fornecedor %}&fornecedor={{ request.GET.fornecedor }}{% endif %}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Próxima</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,968 @@
+{% extends 'core/dashboard.html' %}
+{% load static %}
+
+{% block title %}Controle de Estoque - vistoGEST{% endblock %}
+
+{% block extra_css %}
+<style>
+    .produto-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+    }
+    .produto-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .estoque-baixo { border-left-color: #EF4444; }
+    .estoque-medio { border-left-color: #F59E0B; }
+    .estoque-alto { border-left-color: #10B981; }
+    .produto-vencido { border-left-color: #DC2626; background-color: #FEF2F2; }
+    .produto-vencendo { border-left-color: #F59E0B; background-color: #FFFBEB; }
+    
+    .batch-actions {
+        transform: translateY(-100%);
+        transition: transform 0.3s ease;
+    }
+    .batch-actions.show {
+        transform: translateY(0);
+    }
+    
+    .movimentacao-entrada { color: #10B981; }
+    .movimentacao-saida { color: #EF4444; }
+    
+    .filtros-avancados {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+    }
+    .filtros-avancados.show {
+        max-height: 300px;
+    }
+</style>
+{% endblock %}
+
+{% block main_content %}
+<div id="controleEstoque" class="module active">
+    <!-- Header com Ações -->
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Controle de Estoque</h1>
+            <p class="text-gray-600 dark:text-gray-400">Gestão completa do inventário</p>
+        </div>
+        
+        <div class="flex flex-wrap gap-3">
+            <button id="btnNovaMovimentacao" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors">
+                <i class="fas fa-exchange-alt mr-2"></i>Nova Movimentação
+            </button>
+            <button id="btnInventario" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <i class="fas fa-clipboard-list mr-2"></i>Inventário
+            </button>
+            <button id="btnImportarEstoque" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <i class="fas fa-file-import mr-2"></i>Importar
+            </button>
+            <button id="btnExportarEstoque" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <i class="fas fa-download mr-2"></i>Exportar
+            </button>
+        </div>
+    </div>
+
+    <!-- Alertas e Estatísticas -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Estoque Baixo -->
+        <div class="bg-gradient-to-r from-red-500 to-red-600 p-6 rounded-xl text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-white/80 text-sm">Estoque Baixo</p>
+                    <p class="text-3xl font-bold" id="totalEstoqueBaixo">{{ estoque_stats.estoque_baixo }}</p>
+                    <p class="text-white/60 text-xs mt-1">Produtos críticos</p>
+                </div>
+                <div class="bg-white/20 p-3 rounded-lg">
+                    <i class="fas fa-exclamation-triangle text-2xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Produtos Vencendo -->
+        <div class="bg-gradient-to-r from-orange-500 to-orange-600 p-6 rounded-xl text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-white/80 text-sm">Vencendo (30 dias)</p>
+                    <p class="text-3xl font-bold" id="totalVencendo">{{ estoque_stats.produtos_vencendo }}</p>
+                    <p class="text-white/60 text-xs mt-1">Ação necessária</p>
+                </div>
+                <div class="bg-white/20 p-3 rounded-lg">
+                    <i class="fas fa-calendar-exclamation text-2xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Produtos Vencidos -->
+        <div class="bg-gradient-to-r from-red-600 to-red-700 p-6 rounded-xl text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-white/80 text-sm">Vencidos</p>
+                    <p class="text-3xl font-bold" id="totalVencidos">{{ estoque_stats.produtos_vencidos }}</p>
+                    <p class="text-white/60 text-xs mt-1">Remover urgente</p>
+                </div>
+                <div class="bg-white/20 p-3 rounded-lg">
+                    <i class="fas fa-times-circle text-2xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Valor Total Estoque -->
+        <div class="bg-gradient-to-r from-green-500 to-green-600 p-6 rounded-xl text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-white/80 text-sm">Valor Total</p>
+                    <p class="text-3xl font-bold" id="valorTotalEstoque">AKZ {{ total_estoque|floatformat:2|default:"0,00" }}</p>
+                    <p class="text-white/60 text-xs mt-1">Inventário atual</p>
+                </div>
+                <div class="bg-white/20 p-3 rounded-lg">
+                    <i class="fas fa-dollar-sign text-2xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros Avançados -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Filtros</h3>
+            <button id="btnFiltrosAvancados" class="text-primary hover:text-primary-dark transition-colors">
+                <i class="fas fa-chevron-down mr-1"></i>Filtros Avançados
+            </button>
+        </div>
+        
+        <!-- Filtros Básicos -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div>
+                <input type="text" id="buscarProduto" placeholder="Buscar produto..." 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+            </div>
+            <div>
+                <select id="filtroCategoria" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                    <option value="">Todas as categorias</option>
+                    {% for categoria in categorias %}
+                    <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <select id="filtroStatus" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                    <option value="">Todos os status</option>
+                    <option value="estoque_baixo">Estoque Baixo</option>
+                    <option value="estoque_normal">Estoque Normal</option>
+                    <option value="vencendo">Vencendo</option>
+                    <option value="vencido">Vencido</option>
+                </select>
+            </div>
+            <div>
+                <button id="btnAplicarFiltros" class="w-full bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-search mr-2"></i>Filtrar
+                </button>
+            </div>
+        </div>
+
+        <!-- Filtros Avançados -->
+        <div id="filtrosAvancados" class="filtros-avancados">
+            <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Faixa de Preço</label>
+                        <div class="flex space-x-2">
+                            <input type="number" id="precoMin" placeholder="Min" 
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                            <input type="number" id="precoMax" placeholder="Max" 
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantidade em Estoque</label>
+                        <div class="flex space-x-2">
+                            <input type="number" id="estoqueMin" placeholder="Min" 
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                            <input type="number" id="estoqueMax" placeholder="Max" 
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data de Validade</label>
+                        <select id="filtroValidade" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                            <option value="">Todas</option>
+                            <option value="7dias">Próximos 7 dias</option>
+                            <option value="30dias">Próximos 30 dias</option>
+                            <option value="90dias">Próximos 90 dias</option>
+                            <option value="vencidos">Já vencidos</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ações em Lote -->
+    <div id="batchActions" class="batch-actions bg-primary text-white p-4 rounded-lg mb-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <span id="selectedCount" class="font-semibold">0 produtos selecionados</span>
+                <div class="flex space-x-2">
+                    <button id="btnBatchMovimentacao" class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded transition-colors">
+                        <i class="fas fa-exchange-alt mr-1"></i>Movimentar
+                    </button>
+                    <button id="btnBatchAjuste" class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded transition-colors">
+                        <i class="fas fa-edit mr-1"></i>Ajustar
+                    </button>
+                    <button id="btnBatchExportar" class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded transition-colors">
+                        <i class="fas fa-download mr-1"></i>Exportar
+                    </button>
+                </div>
+            </div>
+            <button id="btnClearSelection" class="text-white/80 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Lista de Produtos -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Produtos em Estoque</h3>
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                        <input type="checkbox" id="selectAll" class="rounded border-gray-300">
+                        <label for="selectAll">Selecionar todos</label>
+                    </div>
+                    <select id="ordenarPor" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        <option value="nome">Ordenar por Nome</option>
+                        <option value="estoque_asc">Estoque (menor primeiro)</option>
+                        <option value="estoque_desc">Estoque (maior primeiro)</option>
+                        <option value="validade">Data de Validade</option>
+                        <option value="preco">Preço</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-6">
+            <div id="produtosGrid" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                <!-- Produtos serão carregados via JavaScript -->
+            </div>
+
+            <!-- Loading State -->
+            <div id="loadingProdutos" class="text-center py-12">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p class="text-gray-600 dark:text-gray-400">Carregando produtos...</p>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="hidden text-center py-12">
+                <i class="fas fa-boxes text-6xl text-gray-300 mb-4"></i>
+                <h3 class="text-xl font-semibold text-gray-600 mb-2">Nenhum produto encontrado</h3>
+                <p class="text-gray-500 mb-4">Ajuste os filtros ou adicione novos produtos</p>
+                <button class="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-lg transition-colors">
+                    <i class="fas fa-plus mr-2"></i>Adicionar Produto
+                </button>
+            </div>
+        </div>
+
+        <!-- Paginação -->
+        <div class="p-6 border-t border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-700 dark:text-gray-300">
+                    Mostrando <span id="registroInicio">1</span> a <span id="registroFim">20</span> de <span id="totalRegistros">{{ total_produtos }}</span> produtos
+                </div>
+                <div class="flex space-x-2">
+                    <button id="btnPaginaAnterior" class="px-3 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition-colors" disabled>
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span id="numeroPagina" class="px-3 py-2 bg-primary text-white rounded-lg">1</span>
+                    <button id="btnProximaPagina" class="px-3 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition-colors">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nova Movimentação -->
+<div id="modalMovimentacao" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white">Nova Movimentação</h2>
+                <button onclick="fecharModalMovimentacao()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <form id="formMovimentacao" class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Produto *</label>
+                    <select id="produtoMovimentacao" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        <option value="">Selecione o produto...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo *</label>
+                    <select id="tipoMovimentacao" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        <option value="">Selecione o tipo...</option>
+                        <option value="entrada">Entrada</option>
+                        <option value="saida">Saída</option>
+                        <option value="ajuste">Ajuste</option>
+                        <option value="perda">Perda</option>
+                        <option value="devolucao">Devolução</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantidade *</label>
+                    <input type="number" id="quantidadeMovimentacao" required min="1" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor Unitário</label>
+                    <input type="number" id="valorUnitario" step="0.01" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observação</label>
+                <textarea id="observacaoMovimentacao" rows="3" 
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                          placeholder="Descreva a movimentação..."></textarea>
+            </div>
+
+            <!-- Resumo da Movimentação -->
+            <div id="resumoMovimentacao" class="hidden bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6">
+                <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Resumo da Movimentação</h4>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span>Estoque Atual:</span>
+                        <span id="estoqueAtual">-</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Nova Quantidade:</span>
+                        <span id="novoEstoque">-</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Valor Total:</span>
+                        <span id="valorTotal">AKZ 0,00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="fecharModalMovimentacao()" 
+                        class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors">
+                    Cancelar
+                </button>
+                <button type="submit" 
+                        class="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors">
+                    <i class="fas fa-save mr-2"></i>Registrar Movimentação
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Inventário -->
+<div id="modalInventario" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto m-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white">Inventário Geral</h2>
+                <button onclick="fecharModalInventario()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="p-6">
+            <div class="mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <p class="text-gray-600 dark:text-gray-400">Contagem física do estoque</p>
+                    <button id="btnGerarInventario" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Novo Inventário
+                    </button>
+                </div>
+                
+                <!-- Lista de Inventários -->
+                <div id="listaInventarios" class="space-y-3">
+                    <!-- Inventários serão carregados via JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Sistema de Controle de Estoque
+class EstoqueSystem {
+    constructor() {
+        this.produtos = [];
+        this.produtosSelecionados = [];
+        this.filtros = {};
+        this.paginaAtual = 1;
+        this.itensPorPagina = 20;
+        
+        this.init();
+    }
+    
+    init() {
+        this.setupEventListeners();
+        this.carregarProdutos();
+        this.carregarProdutosMovimentacao();
+    }
+    
+    setupEventListeners() {
+        // Filtros
+        document.getElementById('btnFiltrosAvancados').addEventListener('click', this.toggleFiltrosAvancados.bind(this));
+        document.getElementById('btnAplicarFiltros').addEventListener('click', this.aplicarFiltros.bind(this));
+        
+        // Busca
+        document.getElementById('buscarProduto').addEventListener('input', this.debounce(this.filtrarProdutos.bind(this), 300));
+        
+        // Seleção
+        document.getElementById('selectAll').addEventListener('change', this.selecionarTodos.bind(this));
+        document.getElementById('btnClearSelection').addEventListener('click', this.limparSelecao.bind(this));
+        
+        // Ordenação
+        document.getElementById('ordenarPor').addEventListener('change', this.ordenarProdutos.bind(this));
+        
+        // Ações
+        document.getElementById('btnNovaMovimentacao').addEventListener('click', this.abrirModalMovimentacao.bind(this));
+        document.getElementById('btnInventario').addEventListener('click', this.abrirModalInventario.bind(this));
+        document.getElementById('btnExportarEstoque').addEventListener('click', this.exportarEstoque.bind(this));
+        
+        // Ações em lote
+        document.getElementById('btnBatchMovimentacao').addEventListener('click', this.movimentacaoLote.bind(this));
+        document.getElementById('btnBatchAjuste').addEventListener('click', this.ajusteLote.bind(this));
+        document.getElementById('btnBatchExportar').addEventListener('click', this.exportarSelecionados.bind(this));
+        
+        // Formulário de movimentação
+        document.getElementById('formMovimentacao').addEventListener('submit', this.salvarMovimentacao.bind(this));
+        document.getElementById('produtoMovimentacao').addEventListener('change', this.atualizarResumoMovimentacao.bind(this));
+        document.getElementById('tipoMovimentacao').addEventListener('change', this.atualizarResumoMovimentacao.bind(this));
+        document.getElementById('quantidadeMovimentacao').addEventListener('input', this.atualizarResumoMovimentacao.bind(this));
+        document.getElementById('valorUnitario').addEventListener('input', this.atualizarResumoMovimentacao.bind(this));
+        
+        // Paginação
+        document.getElementById('btnPaginaAnterior').addEventListener('click', () => this.mudarPagina(this.paginaAtual - 1));
+        document.getElementById('btnProximaPagina').addEventListener('click', () => this.mudarPagina(this.paginaAtual + 1));
+    }
+    
+    async carregarProdutos() {
+        try {
+            this.mostrarLoading();
+            
+            const params = new URLSearchParams({
+                page: this.paginaAtual,
+                per_page: this.itensPorPagina,
+                ...this.filtros
+            });
+            
+            const response = await fetch(`/estoque/produtos/?${params}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                this.produtos = data.produtos;
+                this.renderProdutos();
+                this.atualizarPaginacao(data.pagination);
+            } else {
+                this.showToast('Erro ao carregar produtos', 'error');
+            }
+        } catch (error) {
+            console.error('Erro:', error);
+            this.showToast('Erro de comunicação com o servidor', 'error');
+        }
+    }
+    
+    renderProdutos() {
+        const container = document.getElementById('produtosGrid');
+        const loading = document.getElementById('loadingProdutos');
+        const empty = document.getElementById('emptyState');
+        
+        loading.style.display = 'none';
+        
+        if (this.produtos.length === 0) {
+            container.innerHTML = '';
+            empty.classList.remove('hidden');
+            return;
+        }
+        
+        empty.classList.add('hidden');
+        
+        container.innerHTML = this.produtos.map(produto => {
+            const statusClass = this.getStatusClass(produto);
+            const isSelected = this.produtosSelecionados.includes(produto.id);
+            
+            return `
+                <div class="produto-card ${statusClass} bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center space-x-3">
+                            <input type="checkbox" 
+                                   class="produto-checkbox rounded border-gray-300" 
+                                   data-produto-id="${produto.id}"
+                                   ${isSelected ? 'checked' : ''}
+                                   onchange="estoqueSystem.toggleSelecao(${produto.id})">
+                            <div class="flex-1">
+                                <h4 class="font-semibold text-gray-900 dark:text-white text-sm">${produto.nome_comercial}</h4>
+                                <p class="text-xs text-gray-500">${produto.codigo_barras}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            ${this.getStatusBadges(produto)}
+                        </div>
+                    </div>
+                    
+                    <!-- Informações de Estoque -->
+                    <div class="grid grid-cols-2 gap-3 mb-3 text-sm">
+                        <div>
+                            <span class="text-gray-600 dark:text-gray-400">Estoque:</span>
+                            <span class="font-semibold ${produto.estoque_atual <= produto.estoque_minimo ? 'text-red-600' : 'text-green-600'}">
+                                ${produto.estoque_atual}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600 dark:text-gray-400">Mínimo:</span>
+                            <span class="font-semibold">${produto.estoque_minimo}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600 dark:text-gray-400">Custo:</span>
+                            <span class="font-semibold">AKZ ${parseFloat(produto.preco_custo).toFixed(2)}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600 dark:text-gray-400">Venda:</span>
+                            <span class="font-semibold">AKZ ${parseFloat(produto.preco_venda).toFixed(2)}</span>
+                        </div>
+                    </div>
+                    
+                    ${lote.data_validade ? `
+                    <div class="mb-3 text-sm">
+                        <span class="text-gray-600 dark:text-gray-400">Validade:</span>
+                        <span class="font-semibold ${this.getValidadeClass(produto.data_validade)}">
+                            ${this.formatDate(lote.data_validade)}
+                        </span>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- Ações -->
+                    <div class="flex space-x-2">
+                        <button onclick="estoqueSystem.novaMovimentacao(${produto.id})" 
+                                class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded text-xs transition-colors">
+                            <i class="fas fa-exchange-alt mr-1"></i>Movimentar
+                        </button>
+                        <button onclick="estoqueSystem.ajustarEstoque(${produto.id})" 
+                                class="flex-1 bg-green-500 hover:bg-green-600 text-white py-1 px-2 rounded text-xs transition-colors">
+                            <i class="fas fa-edit mr-1"></i>Ajustar
+                        </button>
+                        <button onclick="estoqueSystem.verHistorico(${produto.id})" 
+                                class="bg-gray-500 hover:bg-gray-600 text-white py-1 px-2 rounded text-xs transition-colors">
+                            <i class="fas fa-history"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    getStatusClass(produto) {
+        const hoje = new Date();
+        const validade = produto.data_validade ? new Date(produto.data_validade) : null;
+        
+        if (validade && validade < hoje) {
+            return 'produto-vencido';
+        }
+        
+        if (validade && validade <= new Date(hoje.getTime() + 30 * 24 * 60 * 60 * 1000)) {
+            return 'produto-vencendo';
+        }
+        
+        if (produto.estoque_atual <= produto.estoque_minimo) {
+            return 'estoque-baixo';
+        }
+        
+        if (produto.estoque_atual <= produto.estoque_minimo * 2) {
+            return 'estoque-medio';
+        }
+        
+        return 'estoque-alto';
+    }
+    
+    getStatusBadges(produto) {
+        const badges = [];
+        
+        
+        if (produto.controlado) {
+            badges.push('<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">Controlado</span>');
+        }
+        
+        const hoje = new Date();
+        const validade = produto.data_validade ? new Date(produto.data_validade) : null;
+        
+        if (validade && validade < hoje) {
+            badges.push('<span class="bg-red-500 text-white text-xs px-2 py-1 rounded-full">Vencido</span>');
+        } else if (validade && validade <= new Date(hoje.getTime() + 30 * 24 * 60 * 60 * 1000)) {
+            badges.push('<span class="bg-orange-500 text-white text-xs px-2 py-1 rounded-full">Vencendo</span>');
+        }
+        
+        return badges.join(' ');
+    }
+    
+    getValidadeClass(dataValidade) {
+        const hoje = new Date();
+        const validade = new Date(dataValidade);
+        
+        if (validade < hoje) {
+            return 'text-red-600';
+        }
+        
+        if (validade <= new Date(hoje.getTime() + 30 * 24 * 60 * 60 * 1000)) {
+            return 'text-orange-600';
+        }
+        
+        return 'text-green-600';
+    }
+    
+    formatDate(dateString) {
+        return new Date(dateString).toLocaleDateString('pt-BR');
+    }
+    
+    toggleFiltrosAvancados() {
+        const filtros = document.getElementById('filtrosAvancados');
+        const btn = document.getElementById('btnFiltrosAvancados');
+        const icon = btn.querySelector('i');
+        
+        filtros.classList.toggle('show');
+        
+        if (filtros.classList.contains('show')) {
+            icon.classList.remove('fa-chevron-down');
+            icon.classList.add('fa-chevron-up');
+        } else {
+            icon.classList.remove('fa-chevron-up');
+            icon.classList.add('fa-chevron-down');
+        }
+    }
+    
+    aplicarFiltros() {
+        this.filtros = {
+            busca: document.getElementById('buscarProduto').value,
+            categoria: document.getElementById('filtroCategoria').value,
+            status: document.getElementById('filtroStatus').value,
+            preco_min: document.getElementById('precoMin').value,
+            preco_max: document.getElementById('precoMax').value,
+            estoque_min: document.getElementById('estoqueMin').value,
+            estoque_max: document.getElementById('estoqueMax').value,
+            validade: document.getElementById('filtroValidade').value
+        };
+        
+        this.paginaAtual = 1;
+        this.carregarProdutos();
+    }
+    
+    filtrarProdutos() {
+        const busca = document.getElementById('buscarProduto').value;
+        this.filtros.busca = busca;
+        this.paginaAtual = 1;
+        this.carregarProdutos();
+    }
+    
+    ordenarProdutos() {
+        const ordenacao = document.getElementById('ordenarPor').value;
+        this.filtros.ordenar = ordenacao;
+        this.carregarProdutos();
+    }
+    
+    toggleSelecao(produtoId) {
+        const index = this.produtosSelecionados.indexOf(produtoId);
+        
+        if (index > -1) {
+            this.produtosSelecionados.splice(index, 1);
+        } else {
+            this.produtosSelecionados.push(produtoId);
+        }
+        
+        this.atualizarBatchActions();
+    }
+    
+    selecionarTodos(event) {
+        const checkboxes = document.querySelectorAll('.produto-checkbox');
+        
+        if (event.target.checked) {
+            this.produtosSelecionados = this.produtos.map(p => p.id);
+            checkboxes.forEach(cb => cb.checked = true);
+        } else {
+            this.produtosSelecionados = [];
+            checkboxes.forEach(cb => cb.checked = false);
+        }
+        
+        this.atualizarBatchActions();
+    }
+    
+    limparSelecao() {
+        this.produtosSelecionados = [];
+        const checkboxes = document.querySelectorAll('.produto-checkbox');
+        checkboxes.forEach(cb => cb.checked = false);
+        document.getElementById('selectAll').checked = false;
+        this.atualizarBatchActions();
+    }
+    
+    atualizarBatchActions() {
+        const batchActions = document.getElementById('batchActions');
+        const selectedCount = document.getElementById('selectedCount');
+        
+        selectedCount.textContent = `${this.produtosSelecionados.length} produtos selecionados`;
+        
+        if (this.produtosSelecionados.length > 0) {
+            batchActions.classList.add('show');
+        } else {
+            batchActions.classList.remove('show');
+        }
+    }
+    
+    abrirModalMovimentacao() {
+        document.getElementById('modalMovimentacao').classList.remove('hidden');
+    }
+    
+    fecharModalMovimentacao() {
+        document.getElementById('modalMovimentacao').classList.add('hidden');
+        document.getElementById('formMovimentacao').reset();
+        document.getElementById('resumoMovimentacao').classList.add('hidden');
+    }
+    
+    async carregarProdutosMovimentacao() {
+        try {
+            const response = await fetch('/produtos/lista-simples/');
+            const data = await response.json();
+            
+            if (data.success) {
+                const select = document.getElementById('produtoMovimentacao');
+                select.innerHTML = '<option value="">Selecione o produto...</option>' +
+                    data.produtos.map(produto => 
+                        `<option value="${produto.id}">${produto.nome_comercial} (${produto.codigo_barras})</option>`
+                    ).join('');
+            }
+        } catch (error) {
+            console.error('Erro ao carregar produtos:', error);
+        }
+    }
+    
+    async atualizarResumoMovimentacao() {
+        const produtoId = document.getElementById('produtoMovimentacao').value;
+        const tipo = document.getElementById('tipoMovimentacao').value;
+        const quantidade = parseInt(document.getElementById('quantidadeMovimentacao').value) || 0;
+        const valor = parseFloat(document.getElementById('valorUnitario').value) || 0;
+        
+        if (!produtoId || !tipo || !quantidade) {
+            document.getElementById('resumoMovimentacao').classList.add('hidden');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/produtos/${produtoId}/estoque/`);
+            const data = await response.json();
+            
+            if (data.success) {
+                const produto = data.produto;
+                let novoEstoque = produto.estoque_atual;
+                
+                switch(tipo) {
+                    case 'entrada':
+                    case 'devolucao':
+                        novoEstoque += quantidade;
+                        break;
+                    case 'saida':
+                    case 'perda':
+                        novoEstoque -= quantidade;
+                        break;
+                    case 'ajuste':
+                        novoEstoque = quantidade;
+                        break;
+                }
+                
+                document.getElementById('estoqueAtual').textContent = produto.estoque_atual;
+                document.getElementById('novoEstoque').textContent = novoEstoque;
+                document.getElementById('valorTotal').textContent = `AKZ ${(quantidade * valor).toFixed(2)}`;
+                
+                document.getElementById('resumoMovimentacao').classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error('Erro:', error);
+        }
+    }
+    
+    async salvarMovimentacao(event) {
+        event.preventDefault();
+        
+        const formData = new FormData(event.target);
+        const dados = {
+            produto_id: document.getElementById('produtoMovimentacao').value,
+            tipo: document.getElementById('tipoMovimentacao').value,
+            quantidade: parseInt(document.getElementById('quantidadeMovimentacao').value),
+            valor_unitario: parseFloat(document.getElementById('valorUnitario').value) || 0,
+            observacao: document.getElementById('observacaoMovimentacao').value
+        };
+        
+        try {
+            const response = await fetch('/estoque/movimentacao/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCSRFToken(),
+                },
+                body: JSON.stringify(dados)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showToast('Movimentação registrada com sucesso!', 'success');
+                this.fecharModalMovimentacao();
+                this.carregarProdutos();
+            } else {
+                this.showToast('Erro ao registrar movimentação: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('Erro:', error);
+            this.showToast('Erro de comunicação com o servidor', 'error');
+        }
+    }
+    
+    novaMovimentacao(produtoId) {
+        this.abrirModalMovimentacao();
+        document.getElementById('produtoMovimentacao').value = produtoId;
+        this.atualizarResumoMovimentacao();
+    }
+    
+    ajustarEstoque(produtoId) {
+        // Implementar modal de ajuste rápido
+        const novaQuantidade = prompt('Digite a nova quantidade em estoque:');
+        if (novaQuantidade !== null && !isNaN(novaQuantidade)) {
+            this.registrarAjuste(produtoId, parseInt(novaQuantidade));
+        }
+    }
+    
+    async registrarAjuste(produtoId, novaQuantidade) {
+        try {
+            const response = await fetch('/estoque/ajuste/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCSRFToken(),
+                },
+                body: JSON.stringify({
+                    produto_id: produtoId,
+                    nova_quantidade: novaQuantidade,
+                    observacao: 'Ajuste manual via interface'
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showToast('Estoque ajustado com sucesso!', 'success');
+                this.carregarProdutos();
+            } else {
+                this.showToast('Erro ao ajustar estoque: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('Erro:', error);
+            this.showToast('Erro de comunicação com o servidor', 'error');
+        }
+    }
+    
+    verHistorico(produtoId) {
+        window.open(`/estoque/historico/${produtoId}/`, '_blank');
+    }
+    
+    exportarEstoque() {
+        const params = new URLSearchParams(this.filtros);
+        window.open(`/estoque/exportar/?${params}`, '_blank');
+    }
+    
+    mostrarLoading() {
+        document.getElementById('loadingProdutos').style.display = 'block';
+        document.getElementById('produtosGrid').innerHTML = '';
+        document.getElementById('emptyState').classList.add('hidden');
+    }
+    
+    mudarPagina(novaPagina) {
+        if (novaPagina >= 1) {
+            this.paginaAtual = novaPagina;
+            this.carregarProdutos();
+        }
+    }
+    
+    atualizarPaginacao(pagination) {
+        document.getElementById('registroInicio').textContent = pagination.inicio;
+        document.getElementById('registroFim').textContent = pagination.fim;
+        document.getElementById('totalRegistros').textContent = pagination.total;
+        document.getElementById('numeroPagina').textContent = pagination.pagina_atual;
+        
+        const btnAnterior = document.getElementById('btnPaginaAnterior');
+        const btnProximo = document.getElementById('btnProximaPagina');
+        
+        btnAnterior.disabled = !pagination.tem_anterior;
+        btnProximo.disabled = !pagination.tem_proximo;
+        
+        btnAnterior.className = pagination.tem_anterior 
+            ? 'px-3 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition-colors'
+            : 'px-3 py-2 bg-gray-200 text-gray-400 rounded-lg cursor-not-allowed';
+            
+        btnProximo.className = pagination.tem_proximo 
+            ? 'px-3 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition-colors'
+            : 'px-3 py-2 bg-gray-200 text-gray-400 rounded-lg cursor-not-allowed';
+    }
+    
+    // Utilitários
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+    
+    getCSRFToken() {
+        return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    }
+    
+    showToast(message, type = 'info') {
+        if (window.dashboard && window.dashboard.showToast) {
+            window.dashboard.showToast(message, type);
+        } else {
+            console.log(`${type.toUpperCase()}: ${message}`);
+        }
+    }
+}
+
+// Funções globais
+function fecharModalMovimentacao() {
+    if (window.estoqueSystem) {
+        window.estoqueSystem.fecharModalMovimentacao();
+    }
+}
+
+function fecharModalInventario() {
+    document.getElementById('modalInventario').classList.add('hidden');
+}
+
+// Inicializar sistema
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('controleEstoque')) {
+        window.estoqueSystem = new EstoqueSystem();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "pedidos/imprimir.html" %}
+
+{# Este template apenas garante que o 'imprimir.html' é usado como base para a geração de PDF #}
+{# O motor de PDF (WeasyPrint/ReportLab) irá processar este HTML puro #}
+
+{% block title %}PDF - Pedido de Compra #{{ pedido.numero_pedido }}{% endblock %}
+
+{# Remove o script de impressão automática #}
+{% block extra_js %}
+<script>
+    // Apenas para garantir que a impressão automática não dispara em ambientes de PDF
+    if (typeof window.print !== 'undefined') {
+        window.print = function(){};
+    }
+</script>
+{% endblock %}

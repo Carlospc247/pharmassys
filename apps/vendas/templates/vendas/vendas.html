@@ -1,0 +1,712 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Gestão de Vendas - vistoGEST{% endblock %}
+
+{% block content %}
+<div class="p-6">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Gestão de Vendas</h1>
+            <p class="text-gray-600 mt-2">Controle completo das vendas da farmácia</p>
+        </div>
+        <div class="flex space-x-3">
+            <a href="{% url 'vendas:pdv' %}" class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-4 py-2 rounded-lg transition duration-300">
+                <i class="fas fa-plus mr-2"></i>Nova Venda
+            </a>
+            <button onclick="exportVendas()" class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg transition duration-300">
+                <i class="fas fa-download mr-2"></i>Exportar
+            </button>
+            <a href="{% url 'relatorios:dashboard' %}" class="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-4 py-2 rounded-lg transition duration-300">
+                <i class="fas fa-chart-bar nav-icon mr-2"></i>
+                <span class="nav-text">Relatórios</span>
+            </a>
+        </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div class="bg-white rounded-lg shadow-lg p-6 transform transition duration-500 hover:scale-105 hover:shadow-xl">
+            <div class="flex items-center">
+                <div class="p-3 rounded-xl bg-gradient-to-br from-green-400 to-green-600 text-white">
+                    <i class="fas fa-dollar-sign text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Vendas do Mês</p>
+                    <p class="text-3xl font-bold text-gray-900">AKZ {{ vendas_stats.vendas_mes|floatformat:2 }}</p>
+                    <p class="text-sm font-semibold text-green-500">
+                        {% if vendas_stats.crescimento_mes > 0 %}<i class="fas fa-arrow-up"></i>{% else %}<i class="fas fa-arrow-down"></i>{% endif %}
+                        {{ vendas_stats.crescimento_mes|floatformat:1 }}% vs mês anterior
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow-lg p-6 transform transition duration-500 hover:scale-105 hover:shadow-xl">
+            <div class="flex items-center">
+                <div class="p-3 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 text-white">
+                    <i class="fas fa-shopping-cart text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Transações</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ vendas_stats.quantidade_mes }}</p>
+                    <p class="text-sm font-semibold text-blue-500">
+                        {{ vendas_stats.vendas_hoje }} hoje
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow-lg p-6 transform transition duration-500 hover:scale-105 hover:shadow-xl">
+            <div class="flex items-center">
+                <div class="p-3 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 text-white">
+                    <i class="fas fa-calculator text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Ticket Médio</p>
+                    <p class="text-3xl font-bold text-gray-900">AKZ {{ vendas_stats.ticket_medio|floatformat:2 }}</p>
+                    <p class="text-sm font-semibold text-purple-500">
+                        {% if vendas_stats.variacao_ticket > 0 %}<i class="fas fa-arrow-up"></i>{% else %}<i class="fas fa-arrow-down"></i>{% endif %}
+                        {{ vendas_stats.variacao_ticket }}% vs ontem
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow-lg p-6 transform transition duration-500 hover:scale-105 hover:shadow-xl">
+            <div class="flex items-center">
+                <div class="p-3 rounded-xl bg-gradient-to-br from-yellow-400 to-yellow-600 text-white">
+                    <i class="fas fa-users text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Clientes Atendidos</p>
+                    <p class="text-3xl font-bold text-gray-900">{{ vendas_stats.clientes_mes }}</p>
+                    <p class="text-sm font-semibold text-yellow-500">
+                        {{ vendas_stats.novos_clientes }} novos este mês
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 mb-6">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <input type="checkbox" id="selectAll" class="rounded">
+                <label for="selectAll" class="text-sm font-medium text-gray-700">Selecionar Todas</label>
+                <span id="selectedCount" class="text-sm text-gray-500">(0 selecionadas)</span>
+            </div>
+            <div class="flex space-x-2" id="batchActions" style="display: none;">
+                <button onclick="exportarSelecionadas()" class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-3 py-2 rounded text-sm transition duration-300">
+                    <i class="fas fa-download mr-1"></i>Exportar
+                </button>
+                <button onclick="imprimirSelecionadas()" class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-2 rounded text-sm transition duration-300">
+                    <i class="fas fa-print mr-1"></i>Imprimir
+                </button>
+                <div class="relative">
+                    <button onclick="toggleDocumentosLote()" class="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-3 py-2 rounded text-sm transition duration-300">
+                        <i class="fas fa-file-alt mr-1"></i>Documentos
+                        <i class="fas fa-chevron-down ml-1"></i>
+                    </button>
+                    <div id="documentosLote" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 hidden">
+                        <div class="py-1">
+                            <button onclick="gerarDocumentosLote('fatura')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-file-invoice mr-2"></i>Faturas
+                            </button>
+                            <button onclick="gerarDocumentosLote('recibo')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-receipt mr-2"></i>Recibos
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="text-lg font-medium text-gray-900">
+                Vendas 
+                {% if request.GET.periodo == 'hoje' %}de Hoje
+                {% elif request.GET.periodo == 'semana' %}desta Semana
+                {% elif request.GET.periodo == 'mes' %}deste Mês
+                {% else %}Recentes
+                {% endif %}
+            </h3>
+            <div class="flex items-center space-x-2">
+                <span class="text-sm text-gray-500">Total: {{ vendas_total|floatformat:2 }} AKZ</span>
+                <div class="border-l border-gray-300 pl-2">
+                    <button onclick="alternarVisualizacao()" class="text-gray-400 hover:text-gray-600">
+                        <i id="viewIcon" class="fas fa-th-list"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200" id="vendasTable">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left">
+                            <input type="checkbox" id="selectAllTable" class="rounded">
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <a href="?{{ request.GET.urlencode }}&sort=id" class="group flex items-center">
+                                Venda
+                                <i class="fas fa-sort ml-1 opacity-0 group-hover:opacity-100"></i>
+                            </a>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <a href="?{{ request.GET.urlencode }}&sort=data_venda" class="group flex items-center">
+                                Data/Hora
+                                <i class="fas fa-sort ml-1 opacity-0 group-hover:opacity-100"></i>
+                            </a>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendedor</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <a href="?{{ request.GET.urlencode }}&sort=total" class="group flex items-center">
+                                Valor
+                                <i class="fas fa-sort ml-1 opacity-0 group-hover:opacity-100"></i>
+                            </a>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for venda in vendas %}
+                    <tr class="hover:bg-gray-50 venda-row" data-venda-id="{{ venda.id }}">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <input type="checkbox" class="venda-checkbox rounded" value="{{ venda.id }}">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10">
+                                    <div class="h-10 w-10 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+                                        <i class="fas fa-shopping-cart text-white"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900">#{{ venda.numero_venda|default:venda.id|stringformat:"04d" }}</div>
+                                    <div class="text-sm text-gray-500">
+                                        {{ venda.itens.count }} item{{ venda.itens.count|pluralize }}
+                                        {% if venda.desconto > 0 %}
+                                        • Desc: {{ venda.desconto|floatformat:1 }}%
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ venda.data_venda|date:"d/m/Y" }}</div>
+                            <div class="text-sm text-gray-500">{{ venda.data_venda|date:"H:i" }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-8 w-8">
+                                    {% if venda.cliente %}
+                                    <div class="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                                        <span class="text-xs font-medium text-gray-600">
+                                            {{ venda.cliente.nome_completo|slice:":1"|upper }}
+                                        </span>
+                                    </div>
+                                    {% else %}
+                                    <div class="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
+                                        <i class="fas fa-user text-gray-400 text-xs"></i>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="ml-3">
+                                    <div class="text-sm font-medium text-gray-900">
+                                        {{ venda.cliente.nome_completo|default:"Consumidor Final" }}
+                                    </div>
+                                    {% if venda.cliente.telefone %}
+                                    <div class="text-sm text-gray-500">{{ venda.cliente.telefone }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="text-sm text-gray-900">{{ venda.vendedor.nome_completo|default:"Sistema" }}</div>
+                                {% if venda.vendedor %}
+                                <span class="ml-2 px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    {{ venda.vendedor.cargo|default:"Vendedor" }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-semibold text-gray-900">AKZ {{ venda.total|floatformat:2 }}</div>
+                            <div class="text-sm text-gray-500">
+                                {% if venda.forma_pagamento %}
+                                {{ venda.forma_pagamento|title }}
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if venda.status == 'finalizada' %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                    <i class="fas fa-check mr-1"></i>Finalizada
+                                </span>
+                            {% elif venda.status == 'cancelada' %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                    <i class="fas fa-times mr-1"></i>Cancelada
+                                </span>
+                            {% else %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                    <i class="fas fa-clock mr-1"></i>Pendente
+                                </span>
+                            {% endif %}
+                        </td>
+                        
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div class="flex items-center space-x-2">
+                                <a href="{% url 'vendas:detail' venda.id %}" class="text-blue-600 hover:text-blue-900" title="Ver Detalhes">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                
+                                <div class="relative group">
+                                    <button class="text-green-600 hover:text-green-900 flex items-center" title="Documentos">
+                                        <i class="fas fa-file-alt mr-1"></i>
+                                        <i class="fas fa-chevron-down text-xs"></i>
+                                    </button>
+                                    <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 hidden group-hover:block">
+                                        <div class="py-1">
+                                            <a href="{% url 'vendas:detail' venda.id %}?download=1" 
+                                               class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                               onclick="trackDocumento('fatura', {{ venda.id }})">
+                                                <i class="fas fa-file-invoice mr-2 text-blue-600"></i>Fatura
+                                            </a>
+                                            <a href="{% url 'vendas:detail' venda.id %}?download=1" 
+                                               class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                               onclick="trackDocumento('fatura_recibo', {{ venda.id }})">
+                                                <i class="fas fa-receipt mr-2 text-green-600"></i>Fatura Recibo
+                                            </a>
+                                            <a href="{% url 'vendas:detail' venda.id %}?download=1" 
+                                               class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                               onclick="trackDocumento('recibo', {{ venda.id }})">
+                                                <i class="fas fa-hand-holding-usd mr-2 text-purple-600"></i>Recibo
+                                            </a>
+                                            <a href="{% url 'vendas:detail' venda.id %}?download=1" 
+                                               class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                               onclick="trackDocumento('nota_liquidacao', {{ venda.id }})">
+                                                <i class="fas fa-file-contract mr-2 text-yellow-600"></i>Nota de Liquidação
+                                            </a>
+                                            <a href="{% url 'vendas:detail' venda.id %}?download=1" 
+                                               class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                               onclick="trackDocumento('fatura_proforma', {{ venda.id }})">
+                                                <i class="fas fa-file-signature mr-2 text-indigo-600"></i>Fatura Proforma
+                                            </a>
+                                            <div class="border-t border-gray-100"></div>
+                                            <button onclick="enviarPorEmail({{ venda.id }})" 
+                                                    class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                <i class="fas fa-envelope mr-2 text-gray-600"></i>Enviar por Email
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {% if venda.status == 'pendente' %}
+                                <a href="#" onclick="editarVenda({{ venda.id }})" class="text-yellow-600 hover:text-yellow-900" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% endif %}
+                                
+                                {% if venda.status != 'finalizada' and venda.status != 'cancelada' %}
+                                <button onclick="cancelarVenda({{ venda.id }})" class="text-red-600 hover:text-red-900" title="Cancelar">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                                {% endif %}
+                                
+                                <button onclick="duplicarVenda({{ venda.id }})" class="text-purple-600 hover:text-purple-900" title="Duplicar">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+
+                                <div class="relative group">
+                                    <button class="text-gray-400 hover:text-gray-600" title="Mais ações">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <div class="absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg z-10 hidden group-hover:block">
+                                        <div class="py-1">
+                                            <button onclick="adicionarNota({{ venda.id }})" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                <i class="fas fa-sticky-note mr-2"></i>Adicionar Nota
+                                            </button>
+                                            <button onclick="verHistorico({{ venda.id }})" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                <i class="fas fa-history mr-2"></i>Histórico
+                                            </button>
+                                            {% if venda.status == 'finalizada' %}
+                                            <button onclick="estornarVenda({{ venda.id }})" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                                <i class="fas fa-undo mr-2"></i>Estornar
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="px-6 py-8 text-center text-gray-500">
+                            <div class="py-8">
+                                <i class="fas fa-shopping-cart text-4xl mb-4 opacity-50"></i>
+                                <p class="text-lg font-medium mb-2">Nenhuma venda encontrada</p>
+                                <p class="text-sm">
+                                    {% if request.GET %}
+                                    Tente ajustar os filtros ou 
+                                    <a href="{% url 'vendas:vendas' %}" class="text-blue-600 hover:text-blue-800">limpar todos os filtros</a>
+                                    {% else %}
+                                    <a href="{% url 'vendas:pdv' %}" class="text-blue-600 hover:text-blue-800">Clique aqui para fazer sua primeira venda</a>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="pagination">
+                {% for page in paginator.page_range %}
+                    {% if page == paginator.number %}
+                        <strong>{{ page }}</strong>
+                    {% else %}
+                        <a href="?page={{ page }}">{{ page }}</a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        
+        {% if is_paginated %}
+        <div class="bg-white px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+            <div class="flex-1 flex justify-between sm:hidden">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}" 
+                   class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    Anterior
+                </a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}" 
+                   class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    Próximo
+                </a>
+                {% endif %}
+            </div>
+            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm text-gray-700">
+                        Mostrando
+                        <span class="font-medium">{{ page_obj.start_index }}</span>
+                        a
+                        <span class="font-medium">{{ page_obj.end_index }}</span>
+                        de
+                        <span class="font-medium">{{ paginator.count }}</span>
+                        resultado{{ paginator.count|pluralize }}
+                    </p>
+                </div>
+                <div>
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                        {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}" 
+                           class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <span class="bg-blue-50 border-blue-500 text-blue-600 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                            {{ num }}
+                        </span>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <a href="?page={{ num }}&{{ request.GET.urlencode }}" 
+                           class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                            {{ num }}
+                        </a>
+                        {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}" 
+                           class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                        {% endif %}
+                    </nav>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div id="emailModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Enviar Documentos por Email</h3>
+                <button onclick="fecharEmailModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="emailForm">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email do destinatário:</label>
+                    <input type="email" id="emailDestinatario" required 
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 text-base">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Documentos:</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="documentos" value="fatura" class="mr-2">
+                            <i class="fas fa-file-invoice mr-2 text-blue-600"></i>Fatura
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" name="documentos" value="recibo" class="mr-2">
+                            <i class="fas fa-receipt mr-2 text-green-600"></i>Recibo
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" name="documentos" value="nota_liquidacao" class="mr-2">
+                            <i class="fas fa-file-contract mr-2 text-yellow-600"></i>Nota de Liquidação
+                        </label>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Mensagem (opcional):</label>
+                    <textarea id="emailMensagem" rows="3" 
+                              class="w-full border border-gray-300 rounded-md px-3 py-2 text-base"
+                              placeholder="Digite uma mensagem personalizada..."></textarea>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="fecharEmailModal()" 
+                            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        <i class="fas fa-paper-plane mr-2"></i>Enviar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Variáveis globais
+    let vendaSelecionadaParaEmail = null;
+    let vendasSelecionadas = [];
+
+    // Seleção em lote
+    document.getElementById('selectAll').addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.venda-checkbox');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        atualizarSelecao();
+    });
+
+    document.getElementById('selectAllTable').addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.venda-checkbox');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+        document.getElementById('selectAll').checked = this.checked;
+        atualizarSelecao();
+    });
+
+    document.querySelectorAll('.venda-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', atualizarSelecao);
+    });
+
+    function atualizarSelecao() {
+        const checkboxes = document.querySelectorAll('.venda-checkbox:checked');
+        const count = checkboxes.length;
+        
+        document.getElementById('selectedCount').textContent = `(${count} selecionada${count !== 1 ? 's' : ''})`;
+        
+        if (count > 0) {
+            document.getElementById('batchActions').style.display = 'flex';
+            vendasSelecionadas = Array.from(checkboxes).map(cb => cb.value);
+        } else {
+            document.getElementById('batchActions').style.display = 'none';
+            vendasSelecionadas = [];
+        }
+        
+        // Atualizar checkbox principal
+        const allCheckboxes = document.querySelectorAll('.venda-checkbox');
+        const selectAll = document.getElementById('selectAll');
+        const selectAllTable = document.getElementById('selectAllTable');
+        
+        if (count === 0) {
+            selectAll.indeterminate = false;
+            selectAll.checked = false;
+            selectAllTable.indeterminate = false;
+            selectAllTable.checked = false;
+        } else if (count === allCheckboxes.length) {
+            selectAll.indeterminate = false;
+            selectAll.checked = true;
+            selectAllTable.indeterminate = false;
+            selectAllTable.checked = true;
+        } else {
+            selectAll.indeterminate = true;
+            selectAllTable.indeterminate = true;
+        }
+    }
+
+    // Funções de documentos
+    function trackDocumento(tipo, vendaId) {
+        console.log(`Gerando ${tipo} para venda ${vendaId}`);
+        // Aqui você pode adicionar tracking/analytics
+    }
+
+    function enviarPorEmail(vendaId) {
+        vendaSelecionadaParaEmail = vendaId;
+        
+        // Pré-popular email se cliente tiver
+        const row = document.querySelector(`tr[data-venda-id="${vendaId}"]`);
+        // Implementar lógica para pegar email do cliente se disponível
+        
+        document.getElementById('emailModal').classList.remove('hidden');
+    }
+
+    function fecharEmailModal() {
+        document.getElementById('emailModal').classList.add('hidden');
+        vendaSelecionadaParaEmail = null;
+        document.getElementById('emailForm').reset();
+    }
+
+    // Envio de email
+    document.getElementById('emailForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const email = document.getElementById('emailDestinatario').value;
+        const documentos = Array.from(document.querySelectorAll('input[name="documentos"]:checked')).map(cb => cb.value);
+        const mensagem = document.getElementById('emailMensagem').value;
+        
+        if (documentos.length === 0) {
+            alert('Selecione pelo menos um documento para enviar.');
+            return;
+        }
+        
+        // Simular envio
+        console.log('Enviando documentos:', {
+            vendaId: vendaSelecionadaParaEmail,
+            email: email,
+            documentos: documentos,
+            mensagem: mensagem
+        });
+        
+        alert(`Documentos enviados para ${email} com sucesso!`);
+        fecharEmailModal();
+    });
+
+    // Outras funções
+    function editarVenda(vendaId) {
+        alert(`Editando venda #${vendaId}`);
+        // Implementar redirecionamento para edição
+    }
+
+    function cancelarVenda(vendaId) {
+        if (confirm('Tem certeza que deseja cancelar esta venda?')) {
+            // Implementar cancelamento via AJAX
+            alert(`Venda #${vendaId} cancelada`);
+            location.reload();
+        }
+    }
+
+    function duplicarVenda(vendaId) {
+        if (confirm('Duplicar esta venda? Será criada uma nova venda com os mesmos itens.')) {
+            // Implementar duplicação
+            alert(`Venda #${vendaId} duplicada`);
+        }
+    }
+
+    function adicionarNota(vendaId) {
+        const nota = prompt('Digite uma nota para esta venda:');
+        if (nota) {
+            alert(`Nota adicionada à venda #${vendaId}`);
+            // Implementar via AJAX
+        }
+    }
+
+    function verHistorico(vendaId) {
+        alert(`Exibindo histórico da venda #${vendaId}`);
+        // Implementar modal ou redirecionamento
+    }
+
+    function estornarVenda(vendaId) {
+        if (confirm('ATENÇÃO: Estornar esta venda? Esta ação irá:\n- Reverter o estoque\n- Cancelar documentos fiscais\n- Registrar no histórico\n\nContinuar?')) {
+            alert(`Venda #${vendaId} estornada`);
+            // Implementar estorno
+        }
+    }
+
+    // Ações em lote
+    function exportarSelecionadas() {
+        if (vendasSelecionadas.length === 0) return;
+        
+        alert(`Exportando ${vendasSelecionadas.length} vendas selecionadas`);
+        // Implementar exportação
+    }
+
+    function imprimirSelecionadas() {
+        if (vendasSelecionadas.length === 0) return;
+        
+        alert(`Imprimindo ${vendasSelecionadas.length} vendas selecionadas`);
+        // Implementar impressão em lote
+    }
+
+    function toggleDocumentosLote() {
+        const dropdown = document.getElementById('documentosLote');
+        dropdown.classList.toggle('hidden');
+    }
+
+    function gerarDocumentosLote(tipo) {
+        if (vendasSelecionadas.length === 0) return;
+        
+        if (confirm(`Gerar ${tipo} para ${vendasSelecionadas.length} vendas selecionadas?`)) {
+            alert(`Gerando ${tipo} para vendas: ${vendasSelecionadas.join(', ')}`);
+            // Implementar geração em lote
+        }
+        
+        document.getElementById('documentosLote').classList.add('hidden');
+    }
+
+    // Outras funções
+    function exportVendas() {
+        const params = new URLSearchParams(window.location.search);
+        params.set('export', 'excel');
+        window.location.href = '?' + params.toString();
+    }
+
+    function relatorioVendas() {
+        window.location.href = '/dashboard/relatorios/?modulo=vendas';
+    }
+
+    function alternarVisualizacao() {
+        const table = document.getElementById('vendasTable');
+        const icon = document.getElementById('viewIcon');
+        
+        // Implementar alternância entre tabela e cards
+        if (icon.classList.contains('fa-th-list')) {
+            icon.classList.remove('fa-th-list');
+            icon.classList.add('fa-th');
+            // Implementar visualização em cards
+        } else {
+            icon.classList.remove('fa-th');
+            icon.classList.add('fa-th-list');
+            // Voltar para tabela
+        }
+    }
+
+    // Fechar dropdowns ao clicar fora
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.group')) {
+            document.querySelectorAll('.group .absolute:not(.hidden)').forEach(dropdown => {
+                dropdown.classList.add('hidden');
+            });
+        }
+    });
+
+    // Auto-refresh da página a cada 5 minutos para dados em tempo real
+    setInterval(() => {
+        if (document.visibilityState === 'visible' && vendasSelecionadas.length === 0) {
+            console.log('Auto-refresh de vendas');
+            // Em produção, seria uma requisição AJAX para atualizar apenas os dados novos
+        }
+    }, 300000); // 5 minutos
+</script>
+{% endblock %}

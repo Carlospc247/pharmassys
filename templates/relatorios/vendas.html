@@ -1,0 +1,1031 @@
+{% extends 'core/dashboard.html' %}
+{% load static %}
+
+{% block title %}Relatório de Vendas - vistoGEST{% endblock %}
+
+{% block extra_css %}
+<style>
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        transition: all 0.3s ease;
+    }
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+    }
+    .chart-container { height: 400px; }
+    .chart-small { height: 250px; }
+    .table-responsive {
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    .trend-up { color: #10B981; }
+    .trend-down { color: #EF4444; }
+    .filter-panel {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+    }
+    .export-dropdown {
+        min-width: 200px;
+    }
+</style>
+{% endblock %}
+
+{% block main_content %}
+<div id="relatorioVendas" class="module active">
+    <!-- Header com Filtros -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Relatório de Vendas</h1>
+                <p class="text-gray-600 dark:text-gray-400">Análise completa do desempenho de vendas</p>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="flex flex-wrap gap-3">
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Período:</label>
+                    <select id="periodoPredefinido" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        <option value="hoje">Hoje</option>
+                        <option value="7dias">Últimos 7 dias</option>
+                        <option value="30dias" selected>Últimos 30 dias</option>
+                        <option value="90dias">Últimos 90 dias</option>
+                        <option value="personalizado">Período personalizado</option>
+                    </select>
+                </div>
+                
+                <div id="periodoPersonalizado" class="hidden flex items-center space-x-2">
+                    <input type="date" id="dataInicio" value="{{ periodo_inicio|date:'Y-m-d' }}"
+                           class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                    <span class="text-gray-500">até</span>
+                    <input type="date" id="dataFim" value="{{ periodo_fim|date:'Y-m-d' }}"
+                           class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                </div>
+                
+                <select id="filtroVendedor" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                    <option value="">Todos os vendedores</option>
+                    {% for vendedor in vendas_por_vendedor %}
+                    <option value="{{ vendedor.vendedor__user__id }}">{{ vendedor.vendedor__user__first_name }} {{ vendedor.vendedor__user__last_name }}</option>
+                    {% endfor %}
+                </select>
+                
+                <button id="btnAplicarFiltros" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-filter mr-2"></i>Aplicar
+                </button>
+                
+                <!-- Dropdown de Exportação -->
+                <div class="relative">
+                    <button id="btnExportar" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-download mr-2"></i>Exportar
+                        <i class="fas fa-chevron-down ml-1"></i>
+                    </button>
+                    <div id="exportDropdown" class="hidden absolute right-0 mt-2 export-dropdown bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
+                        <a href="#" onclick="exportarRelatorio('excel')" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <i class="fas fa-file-excel mr-2 text-green-600"></i>Excel (.xlsx)
+                        </a>
+                        <a href="#" onclick="exportarRelatorio('csv')" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <i class="fas fa-file-csv mr-2 text-blue-600"></i>CSV
+                        </a>
+                        <a href="#" onclick="exportarRelatorio('pdf')" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <i class="fas fa-file-pdf mr-2 text-red-600"></i>PDF
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cards de Métricas -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="metric-card p-6 rounded-xl text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-white/80 text-sm">Total de Vendas</p>
+                    <p class="text-3xl font-bold" id="totalVendas">{{ total_vendas }}</p>
+                    <p class="text-white/60 text-xs mt-1">
+                        <i class="fas fa-arrow-up trend-up"></i>
+                        <span id="variacaoVendas">+12.5% vs período anterior</span>
+                    </p>
+                </div>
+                <div class="bg-white/20 p-3 rounded-lg">
+                    <i class="fas fa-shopping-cart text-2xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-green-500 to-green-600 p-6 rounded-xl text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-white/80 text-sm">Faturamento Total</p>
+                    <p class="text-3xl font-bold" id="faturamentoTotal">AKZ {{ faturamento_total|floatformat:2 }}</p>
+                    <p class="text-white/60 text-xs mt-1">
+                        <i class="fas fa-arrow-up trend-up"></i>
+                        <span id="variacacaoFaturamento">+8.3% vs período anterior</span>
+                    </p>
+                </div>
+                <div class="bg-white/20 p-3 rounded-lg">
+                    <i class="fas fa-dollar-sign text-2xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-6 rounded-xl text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-white/80 text-sm">Ticket Médio</p>
+                    <p class="text-3xl font-bold" id="ticketMedio">AKZ {{ ticket_medio|floatformat:2 }}</p>
+                    <p class="text-white/60 text-xs mt-1">
+                        <i class="fas fa-arrow-down trend-down"></i>
+                        <span id="variacaoTicket">-2.1% vs período anterior</span>
+                    </p>
+                </div>
+                <div class="bg-white/20 p-3 rounded-lg">
+                    <i class="fas fa-receipt text-2xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-purple-500 to-purple-600 p-6 rounded-xl text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-white/80 text-sm">Produtos Vendidos</p>
+                    <p class="text-3xl font-bold" id="produtosVendidos">{{ total_itens_vendidos|default:0 }}</p>
+                    <p class="text-white/60 text-xs mt-1">
+                        <i class="fas fa-arrow-up trend-up"></i>
+                        <span id="variacaoProdutos">+15.7% vs período anterior</span>
+                    </p>
+                </div>
+                <div class="bg-white/20 p-3 rounded-lg">
+                    <i class="fas fa-pills text-2xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficos Principais -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Evolução das Vendas -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Evolução das Vendas</h3>
+                <div class="flex space-x-2">
+                    <button class="chart-toggle active" data-chart="vendas-valor" data-target="chartVendas">Valor</button>
+                    <button class="chart-toggle" data-chart="vendas-quantidade" data-target="chartVendas">Quantidade</button>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="chartVendas"></canvas>
+            </div>
+        </div>
+
+        <!-- Vendas por Forma de Pagamento -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Formas de Pagamento</h3>
+            <div class="chart-container">
+                <canvas id="chartPagamento"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Análises Detalhadas -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Top Produtos -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Top Produtos</h3>
+            <div class="space-y-3">
+                {% for produto in top_produtos %}
+                <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-primary bg-opacity-20 rounded-lg flex items-center justify-center">
+                            <span class="text-primary font-bold text-sm">{{ forloop.counter }}</span>
+                        </div>
+                        <div>
+                            <p class="font-medium text-gray-900 dark:text-white text-sm">{{ produto.produto__nome_comercial|truncatechars:25 }}</p>
+                            <p class="text-xs text-gray-500">{{ produto.total_vendido }} unidades</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-semibold text-gray-900 dark:text-white">AKZ {{ produto.faturamento|floatformat:2 }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Performance por Vendedor -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Performance por Vendedor</h3>
+            <div class="space-y-3">
+                {% for vendedor in vendas_por_vendedor %}
+                <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-medium text-gray-900 dark:text-white">{{ vendedor.vendedor__user__first_name }} {{ vendedor.vendedor__user__last_name }}</span>
+                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ vendedor.total_vendas }} vendas</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <div class="flex-1 bg-gray-200 dark:bg-gray-600 rounded-full h-2 mr-3">
+                            <div class="bg-primary h-2 rounded-full" style="width: {{ vendedor.percentual|default:0 }}%"></div>
+                        </div>
+                        <span class="font-semibold text-gray-900 dark:text-white">AKZ {{ vendedor.faturamento|floatformat:2 }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Análise Temporal -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Análise Temporal</h3>
+            <div class="chart-small">
+                <canvas id="chartHorario"></canvas>
+            </div>
+            <div class="mt-4 space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-600 dark:text-gray-400">Pico de vendas:</span>
+                    <span class="font-semibold text-gray-900 dark:text-white">14h - 16h</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600 dark:text-gray-400">Melhor dia:</span>
+                    <span class="font-semibold text-gray-900 dark:text-white">Sexta-feira</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600 dark:text-gray-400">Vendas médias/dia:</span>
+                    <span class="font-semibold text-gray-900 dark:text-white">{{ vendas_media_dia|floatformat:0 }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela Detalhada -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Vendas Detalhadas</h3>
+            <div class="flex space-x-3">
+                <input type="text" id="buscarVenda" placeholder="Buscar por número, cliente..."
+                       class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                <button id="btnAtualizarTabela" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-sync-alt mr-2"></i>Atualizar
+                </button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="w-full" id="tabelaVendas">
+                <thead class="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Número
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Data/Hora
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Cliente
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Vendedor
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Itens
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Pagamento
+                        </th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Total
+                        </th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Ações
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700" id="corpoTabelaVendas">
+                    <!-- Dados serão carregados via JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginação -->
+        <div class="flex items-center justify-between mt-4">
+            <div class="text-sm text-gray-700 dark:text-gray-300">
+                Mostrando <span id="registroInicio">1</span> a <span id="registroFim">10</span> de <span id="totalRegistros">{{ total_vendas }}</span> registros
+            </div>
+            <div class="flex space-x-2">
+                <button id="btnPaginaAnterior" class="px-3 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition-colors">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span id="numeroPagina" class="px-3 py-2 bg-primary text-white rounded-lg">1</span>
+                <button id="btnProximaPagina" class="px-3 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition-colors">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detalhes da Venda -->
+<div id="modalDetalhesVenda" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto m-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex justify-between items-center">
+                <h2 id="tituloDetalhes" class="text-xl font-bold text-gray-900 dark:text-white">Detalhes da Venda</h2>
+                <button onclick="fecharModalDetalhes()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <div id="conteudoDetalhes" class="p-6">
+            <!-- Conteúdo será carregado via JavaScript -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Dados para os gráficos
+const vendasData = {{ vendas_por_dia|safe }};
+const pagamentoData = {{ vendas_por_pagamento|safe }};
+
+let currentPage = 1;
+let itemsPerPage = 10;
+let currentFilters = {};
+
+document.addEventListener('DOMContentLoaded', function() {
+    initRelatorioVendas();
+});
+
+function initRelatorioVendas() {
+    // Event listeners
+    setupEventListeners();
+    
+    // Inicializar gráficos
+    initCharts();
+    
+    // Carregar dados da tabela
+    carregarTabelaVendas();
+    
+    // Atualizar métricas em tempo real
+    setInterval(atualizarMetricas, 30000); // A cada 30 segundos
+}
+
+function setupEventListeners() {
+    // Filtros
+    document.getElementById('periodoPredefinido').addEventListener('change', function() {
+        if (this.value === 'personalizado') {
+            document.getElementById('periodoPersonalizado').classList.remove('hidden');
+        } else {
+            document.getElementById('periodoPersonalizado').classList.add('hidden');
+            aplicarFiltroPeriodo(this.value);
+        }
+    });
+    
+    document.getElementById('btnAplicarFiltros').addEventListener('click', aplicarFiltros);
+    document.getElementById('btnExportar').addEventListener('click', toggleExportDropdown);
+    document.getElementById('buscarVenda').addEventListener('input', debounce(filtrarTabela, 300));
+    document.getElementById('btnAtualizarTabela').addEventListener('click', carregarTabelaVendas);
+    
+    // Paginação
+    document.getElementById('btnPaginaAnterior').addEventListener('click', () => changePage(currentPage - 1));
+    document.getElementById('btnProximaPagina').addEventListener('click', () => changePage(currentPage + 1));
+    
+    // Chart toggles
+    document.querySelectorAll('.chart-toggle').forEach(button => {
+        button.addEventListener('click', function() {
+            const chartType = this.dataset.chart;
+            const targetChart = this.dataset.target;
+            toggleChartData(chartType, targetChart, this);
+        });
+    });
+    
+    // Fechar dropdown ao clicar fora
+    document.addEventListener('click', function(event) {
+        const dropdown = document.getElementById('exportDropdown');
+        const button = document.getElementById('btnExportar');
+        
+        if (!button.contains(event.target) && !dropdown.contains(event.target)) {
+            dropdown.classList.add('hidden');
+        }
+    });
+}
+
+function initCharts() {
+    // Gráfico de Evolução das Vendas
+    const ctxVendas = document.getElementById('chartVendas').getContext('2d');
+    window.chartVendas = new Chart(ctxVendas, {
+        type: 'line',
+        data: {
+            labels: vendasData.map(item => item.data),
+            datasets: [{
+                label: 'Valor das Vendas (AKZ)',
+                data: vendasData.map(item => item.valor),
+                borderColor: '#3B82F6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#3B82F6',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    borderColor: '#3B82F6',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: function(context) {
+                            return `Vendas: AKZ ${context.parsed.y.toFixed(2)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'AKZ ' + value.toFixed(0);
+                        }
+                    }
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        }
+    });
+
+    // Gráfico de Formas de Pagamento
+    const ctxPagamento = document.getElementById('chartPagamento').getContext('2d');
+    window.chartPagamento = new Chart(ctxPagamento, {
+        type: 'doughnut',
+        data: {
+            labels: [
+                {% for pagamento in vendas_por_pagamento %}
+                '{{ pagamento.forma_pagamento__nome }}'{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            datasets: [{
+                data: [
+                    {% for pagamento in vendas_por_pagamento %}
+                    {{ pagamento.faturamento|default:0 }}{% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                ],
+                backgroundColor: [
+                    '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'
+                ],
+                borderWidth: 3,
+                borderColor: '#ffffff',
+                hoverBorderWidth: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return `${context.label}: ${percentage}% (AKZ ${context.parsed.toFixed(2)})`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Gráfico de Análise Temporal (por hora)
+    const ctxHorario = document.getElementById('chartHorario').getContext('2d');
+    window.chartHorario = new Chart(ctxHorario, {
+        type: 'bar',
+        data: {
+            labels: ['8h', '9h', '10h', '11h', '12h', '13h', '14h', '15h', '16h', '17h', '18h', '19h'],
+            datasets: [{
+                label: 'Vendas por Hora',
+                data: [12, 15, 18, 22, 25, 20, 35, 40, 38, 28, 22, 15], // Dados mockados
+                backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                borderColor: '#3B82F6',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function toggleChartData(chartType, targetChart, button) {
+    // Remover classe active de todos os botões do grupo
+    const buttons = button.parentElement.querySelectorAll('.chart-toggle');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    
+    // Adicionar classe active ao botão clicado
+    button.classList.add('active');
+    
+    // Atualizar dados do gráfico
+    if (targetChart === 'chartVendas') {
+        const chart = window.chartVendas;
+        if (chartType === 'vendas-valor') {
+            chart.data.datasets[0].data = vendasData.map(item => item.valor);
+            chart.data.datasets[0].label = 'Valor das Vendas (AKZ)';
+            chart.options.scales.y.ticks.callback = function(value) {
+                return 'AKZ ' + value.toFixed(0);
+            };
+        } else {
+            chart.data.datasets[0].data = vendasData.map(item => item.quantidade);
+            chart.data.datasets[0].label = 'Quantidade de Vendas';
+            chart.options.scales.y.ticks.callback = function(value) {
+                return value + ' vendas';
+            };
+        }
+        chart.update('active');
+    }
+}
+
+async function carregarTabelaVendas() {
+    try {
+        showLoadingTable();
+        
+        const params = new URLSearchParams({
+            page: currentPage,
+            per_page: itemsPerPage,
+            ...currentFilters
+        });
+        
+        const response = await fetch(`/relatorios/vendas/dados/?${params}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            renderTabelaVendas(data.vendas);
+            updatePagination(data.pagination);
+        } else {
+            showToast('Erro ao carregar dados das vendas', 'error');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        showToast('Erro de comunicação com o servidor', 'error');
+    }
+}
+
+function renderTabelaVendas(vendas) {
+    const tbody = document.getElementById('corpoTabelaVendas');
+    
+    if (vendas.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <i class="fas fa-search text-4xl mb-2 opacity-50"></i>
+                    <p>Nenhuma venda encontrada</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = vendas.map(venda => `
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <td class="px-4 py-3">
+                <div class="font-medium text-gray-900 dark:text-white">${venda.numero_venda}</div>
+            </td>
+            <td class="px-4 py-3">
+                <div class="text-sm text-gray-900 dark:text-white">${formatDateTime(venda.data_venda)}</div>
+            </td>
+            <td class="px-4 py-3">
+                <div class="text-sm text-gray-900 dark:text-white">${venda.cliente_nome}</div>
+                <div class="text-xs text-gray-500">${venda.cliente_codigo}</div>
+            </td>
+            <td class="px-4 py-3">
+                <div class="text-sm text-gray-900 dark:text-white">${venda.vendedor_nome}</div>
+            </td>
+            <td class="px-4 py-3">
+                <div class="text-sm text-gray-900 dark:text-white">${venda.total_itens} itens</div>
+            </td>
+            <td class="px-4 py-3">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    ${venda.forma_pagamento}
+                </span>
+            </td>
+            <td class="px-4 py-3 text-right">
+                <div class="font-semibold text-gray-900 dark:text-white">AKZ ${parseFloat(venda.total).toFixed(2)}</div>
+            </td>
+            <td class="px-4 py-3 text-center">
+                <div class="flex justify-center space-x-2">
+                    <button onclick="verDetalhesVenda(${venda.id})" 
+                            class="text-blue-600 hover:text-blue-800 transition-colors" 
+                            title="Ver detalhes">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button onclick="imprimirFatura(${venda.id})" 
+                            class="text-green-600 hover:text-green-800 transition-colors" 
+                            title="Imprimir fatura">
+                        <i class="fas fa-print"></i>
+                    </button>
+                    <button onclick="enviarPorEmail(${venda.id})" 
+                            class="text-purple-600 hover:text-purple-800 transition-colors" 
+                            title="Enviar por email">
+                        <i class="fas fa-envelope"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function showLoadingTable() {
+    const tbody = document.getElementById('corpoTabelaVendas');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="8" class="px-4 py-8 text-center">
+                <div class="flex items-center justify-center">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span class="ml-2 text-gray-600 dark:text-gray-400">Carregando...</span>
+                </div>
+            </td>
+        </tr>
+    `;
+}
+
+function updatePagination(pagination) {
+    document.getElementById('registroInicio').textContent = pagination.inicio;
+    document.getElementById('registroFim').textContent = pagination.fim;
+    document.getElementById('totalRegistros').textContent = pagination.total;
+    document.getElementById('numeroPagina').textContent = pagination.pagina_atual;
+    
+    document.getElementById('btnPaginaAnterior').disabled = !pagination.tem_anterior;
+    document.getElementById('btnProximaPagina').disabled = !pagination.tem_proximo;
+}
+
+function changePage(page) {
+    if (page >= 1) {
+        currentPage = page;
+        carregarTabelaVendas();
+    }
+}
+
+function aplicarFiltros() {
+    const periodo = document.getElementById('periodoPredefinido').value;
+    const vendedor = document.getElementById('filtroVendedor').value;
+    
+    currentFilters = {
+        periodo: periodo,
+        vendedor: vendedor
+    };
+    
+    if (periodo === 'personalizado') {
+        currentFilters.data_inicio = document.getElementById('dataInicio').value;
+        currentFilters.data_fim = document.getElementById('dataFim').value;
+    }
+    
+    currentPage = 1;
+    carregarTabelaVendas();
+    atualizarMetricas();
+}
+
+function aplicarFiltroPeriodo(periodo) {
+    const hoje = new Date();
+    let dataInicio;
+    
+    switch(periodo) {
+        case 'hoje':
+            dataInicio = hoje;
+            break;
+        case '7dias':
+            dataInicio = new Date(hoje.getTime() - (7 * 24 * 60 * 60 * 1000));
+            break;
+        case '30dias':
+            dataInicio = new Date(hoje.getTime() - (30 * 24 * 60 * 60 * 1000));
+            break;
+        case '90dias':
+            dataInicio = new Date(hoje.getTime() - (90 * 24 * 60 * 60 * 1000));
+            break;
+        default:
+            return;
+    }
+    
+    document.getElementById('dataInicio').value = dataInicio.toISOString().split('T')[0];
+    document.getElementById('dataFim').value = hoje.toISOString().split('T')[0];
+    
+    aplicarFiltros();
+}
+
+function filtrarTabela() {
+    const busca = document.getElementById('buscarVenda').value;
+    currentFilters.busca = busca;
+    currentPage = 1;
+    carregarTabelaVendas();
+}
+
+function toggleExportDropdown() {
+    const dropdown = document.getElementById('exportDropdown');
+    dropdown.classList.toggle('hidden');
+}
+
+async function exportarRelatorio(formato) {
+    const params = new URLSearchParams(currentFilters);
+    params.append('formato', formato);
+    
+    try {
+        const response = await fetch(`/relatorios/vendas/exportar/?${params}`);
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `relatorio_vendas.${formato}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            showToast('Relatório exportado com sucesso!', 'success');
+        } else {
+            showToast('Erro ao exportar relatório', 'error');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        showToast('Erro ao exportar relatório', 'error');
+    }
+    
+    // Fechar dropdown
+    document.getElementById('exportDropdown').classList.add('hidden');
+}
+
+async function verDetalhesVenda(vendaId) {
+    try {
+        const response = await fetch(`/vendas/${vendaId}/detalhes/`);
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('tituloDetalhes').textContent = `Detalhes da Venda ${data.venda.numero_venda}`;
+            document.getElementById('conteudoDetalhes').innerHTML = renderDetalhesVenda(data.venda);
+            document.getElementById('modalDetalhesVenda').classList.remove('hidden');
+        } else {
+            showToast('Erro ao carregar detalhes da venda', 'error');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        showToast('Erro de comunicação com o servidor', 'error');
+    }
+}
+
+function renderDetalhesVenda(venda) {
+    return `
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Informações Gerais -->
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Informações Gerais</h3>
+                
+                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Número:</span>
+                        <span class="font-semibold">${venda.numero_venda}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Data/Hora:</span>
+                        <span class="font-semibold">${formatDateTime(venda.data_venda)}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Cliente:</span>
+                        <span class="font-semibold">${venda.cliente_nome}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Vendedor:</span>
+                        <span class="font-semibold">${venda.vendedor_nome}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Forma Pagamento:</span>
+                        <span class="font-semibold">${venda.forma_pagamento}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Resumo Financeiro -->
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Resumo Financeiro</h3>
+                
+                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Subtotal:</span>
+                        <span class="font-semibold">AKZ ${parseFloat(venda.subtotal).toFixed(2)}</span>
+                    </div>
+                    ${venda.desconto_valor > 0 ? `
+                    <div class="flex justify-between">
+                        <span class="text-gray-600 dark:text-gray-400">Desconto:</span>
+                        <span class="font-semibold text-red-600">- AKZ ${parseFloat(venda.desconto_valor).toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    <div class="flex justify-between text-lg border-t pt-2">
+                        <span class="font-bold text-gray-900 dark:text-white">Total:</span>
+                        <span class="font-bold text-primary">AKZ ${parseFloat(venda.total).toFixed(2)}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Itens da Venda -->
+        <div class="mt-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Itens da Venda</h3>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Produto</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Qtd</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Preço Unit.</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        ${venda.itens.map(item => `
+                            <tr>
+                                <td class="px-4 py-3">
+                                    <div class="font-medium text-gray-900 dark:text-white">${item.produto_nome}</div>
+                                    <div class="text-xs text-gray-500">${item.produto_codigo}</div>
+                                </td>
+                                <td class="px-4 py-3 text-center">${item.quantidade}</td>
+                                <td class="px-4 py-3 text-right">AKZ ${parseFloat(item.preco_unitario).toFixed(2)}</td>
+                                <td class="px-4 py-3 text-right font-semibold">AKZ ${parseFloat(item.total).toFixed(2)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Ações -->
+        <div class="mt-6 flex justify-end space-x-3">
+            <button onclick="imprimirFatura(${venda.id})" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <i class="fas fa-print mr-2"></i>Imprimir Fatura
+            </button>
+            <button onclick="enviarPorEmail(${venda.id})" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <i class="fas fa-envelope mr-2"></i>Enviar por Email
+            </button>
+        </div>
+    `;
+}
+
+function fecharModalDetalhes() {
+    document.getElementById('modalDetalhesVenda').classList.add('hidden');
+}
+
+function imprimirFatura(vendaId) {
+    window.open(`/documentos/fatura/${vendaId}/`, '_blank');
+}
+
+async function enviarPorEmail(vendaId) {
+    try {
+        const response = await fetch(`/comunicacao/enviar-fatura-cliente/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken(),
+            },
+            body: JSON.stringify({ venda_id: vendaId })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('Fatura enviada por email com sucesso!', 'success');
+        } else {
+            showToast(result.message || 'Erro ao enviar fatura por email', 'error');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        showToast('Erro de comunicação com o servidor', 'error');
+    }
+}
+
+async function atualizarMetricas() {
+    try {
+        const params = new URLSearchParams(currentFilters);
+        const response = await fetch(`/relatorios/vendas/metricas/?${params}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            // Atualizar valores nas métricas
+            document.getElementById('totalVendas').textContent = data.metricas.total_vendas;
+            document.getElementById('faturamentoTotal').textContent = `AKZ ${parseFloat(data.metricas.faturamento_total).toFixed(2)}`;
+            document.getElementById('ticketMedio').textContent = `AKZ ${parseFloat(data.metricas.ticket_medio).toFixed(2)}`;
+            document.getElementById('produtosVendidos').textContent = data.metricas.produtos_vendidos;
+            
+            // Atualizar variações
+            document.getElementById('variacaoVendas').textContent = data.metricas.variacao_vendas;
+            document.getElementById('variacacaoFaturamento').textContent = data.metricas.variacao_faturamento;
+            document.getElementById('variacaoTicket').textContent = data.metricas.variacao_ticket;
+            document.getElementById('variacaoProdutos').textContent = data.metricas.variacao_produtos;
+        }
+    } catch (error) {
+        console.error('Erro ao atualizar métricas:', error);
+    }
+}
+
+// Utilitários
+function formatDateTime(dateTimeString) {
+    const date = new Date(dateTimeString);
+    return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function getCSRFToken() {
+    return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+}
+
+function showToast(message, type = 'info') {
+    if (window.dashboard && window.dashboard.showToast) {
+        window.dashboard.showToast(message, type);
+    } else {
+        console.log(`${type.toUpperCase()}: ${message}`);
+    }
+}
+
+// Adicionar estilos para botões de toggle
+const style = document.createElement('style');
+style.textContent = `
+    .chart-toggle {
+        padding: 0.5rem 1rem;
+        background-color: transparent;
+        color: #6B7280;
+        border: 1px solid #D1D5DB;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
+    }
+    .chart-toggle:hover {
+        background-color: #F3F4F6;
+        color: #374151;
+    }
+    .chart-toggle.active {
+        background-color: #3B82F6;
+        color: white;
+        border-color: #3B82F6;
+    }
+    .modal-overlay {
+        background-color: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}
