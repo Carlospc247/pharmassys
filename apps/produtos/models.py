@@ -48,7 +48,7 @@ class Produto(TimeStampedModel):
     nome_produto = models.CharField(max_length=200)
     nome_comercial = models.CharField(max_length=200)
 
-    taxa_iva = models.ForeignKey(
+    iva_percentual = models.ForeignKey(
         'fiscal.TaxaIVAAGT',
         on_delete=models.SET_NULL,
         null=True,
@@ -115,9 +115,9 @@ class Produto(TimeStampedModel):
         Mantém a compatibilidade com o código antigo. 
         Se o código chamar produto.iva_percentual, ele obtém a taxa do objeto TaxaIVAAGT.
         """
-        if self.taxa_iva:
+        if self.iva_percentual:
             # Pega o valor percentual do modelo fiscal legal.
-            return self.taxa_iva.tax_percentage 
+            return self.iva_percentual.tax_percentage 
         return Decimal('0.00')
     
     @property
