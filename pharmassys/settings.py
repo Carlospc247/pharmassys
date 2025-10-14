@@ -5,13 +5,11 @@ from datetime import timedelta
 import dj_database_url
 from storages.backends.s3boto3 import S3Boto3Storage
 from celery.schedules import crontab
-import environ
 
-
-
-
+# =========================================
+# Diretórios base
+# =========================================
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 # =========================================
 # Core
@@ -21,7 +19,7 @@ DEBUG = config('DEBUG', default=False, cast=lambda v: v.lower() in ('true', '1',
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=lambda v: [s.strip() for s in v.split(',')])
 
 # =========================================
-# Application definition
+# Aplicações
 # =========================================
 INSTALLED_APPS = [
     # Django
@@ -48,7 +46,7 @@ INSTALLED_APPS = [
     'django_filters',
     'django_extensions',
     
-    # Seus apps
+    # Apps internos
     'apps.core',
     'apps.produtos',
     'apps.licenca',
@@ -85,80 +83,52 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'pharmassys.urls'
 WSGI_APPLICATION = 'pharmassys.wsgi.application'
 
-
+# =========================================
+# Celery (tarefas agendadas)
+# =========================================
 CELERY_BEAT_SCHEDULE = {
     'backup_diario': {
         'task': 'apps.configuracoes.tasks.backup_automatico_diario',
         'schedule': crontab(hour=2, minute=0),  # todos os dias às 2h
     },
     'check-critical-margin-daily': {
-         'task': 'apps.vendas.tasks.verificar_margem_critica',
-         'schedule': timedelta(days=1), # Executa a cada 24h
-     },
-     'check-critical-stock-hourly': {
-         'task': 'apps.vendas.tasks.verificar_stock_critico',
-         'schedule': timedelta(hours=1), # Executa a cada 1h
-     },
+        'task': 'apps.vendas.tasks.verificar_margem_critica',
+        'schedule': timedelta(days=1),
+    },
+    'check-critical-stock-hourly': {
+        'task': 'apps.vendas.tasks.verificar_stock_critico',
+        'schedule': timedelta(hours=1),
+    },
 }
 
+# =========================================
+# Redis / Cache / Celery
+# =========================================
+REDIS_HOST = config('REDIS_HOST', default='127.0.0.1')
+REDIS_PORT = config('REDIS_PORT', default=6379, cast=int)
 
-# Exemplo de configuração de Celery Beat (configuração no settings.py)
-CELERY_BEAT_SCHEDULE = {
-     'check-critical-margin-daily': {
-         'task': 'apps.vendas.tasks.verificar_margem_critica',
-         'schedule': timedelta(days=1), # Executa a cada 24h
-     },
-     'check-critical-stock-hourly': {
-         'task': 'apps.vendas.tasks.verificar_stock_critico',
-         'schedule': timedelta(hours=1), # Executa a cada 1h
-     },
-}
-
-
-# settings.py (CONFIGURAÇÃO OTIMIZADA DE CACHE E CELERY)
-
-
-
-REDIS_HOST = env('REDIS_HOST', default='127.0.0.1') 
-REDIS_PORT = env.int('REDIS_PORT', default=6379)
-
-# URL Base para Construção: redis://HOST:PORT
 REDIS_URL_BASE = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 
-# =================================================================
-# CACHES (Django Cache)
-# =================================================================
-
 CACHES = {
-    # 1. Cache Padrão: DB 1
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"{REDIS_URL_BASE}/1", # DB 1 para sessões/cache geral
+        "LOCATION": f"{REDIS_URL_BASE}/1",
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "CONNECTION_POOL_KWARGS": {"max_connections": 100}, # Otimização de conexão
+            "CONNECTION_POOL_KWARGS": {"max_connections": 100},
         }
     },
-    # 2. Cache de Business Intelligence (B.I.): DB 2
-    "B.I.": { 
+    "B.I.": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"{REDIS_URL_BASE}/2", # DB 2 para isolar os dados de Rentabilidade
+        "LOCATION": f"{REDIS_URL_BASE}/2",
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         }
     }
 }
 
-# =================================================================
-# CELERY (Tarefas Assíncronas)
-# =================================================================
-
-# 3. Celery Broker e Backend: DB 0
-# Lê a variável CELERY_BROKER_URL, mas se não estiver definida, usa a URL Base + DB 0
-CELERY_BROKER_URL = env('CELERY_BROKER_URL', default=f'{REDIS_URL_BASE}/0')
-CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default=f'{REDIS_URL_BASE}/0')
-
-
+CELERY_BROKER_URL = config('CELERY_BROKER_URL', default=f'{REDIS_URL_BASE}/0')
+CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default=f'{REDIS_URL_BASE}/0')
 
 # =========================================
 # Database
@@ -211,7 +181,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # =========================================
-# Internationalization
+# Internacionalização
 # =========================================
 LANGUAGE_CODE = 'pt'
 TIME_ZONE = 'Africa/Luanda'
@@ -219,11 +189,11 @@ USE_I18N = True
 USE_TZ = True
 
 # =========================================
-# Static & Media via AWS S3
+# Arquivos estáticos e de mídia (AWS S3)
 # =========================================
 if not DEBUG:
-    AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
-    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+    AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
     AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
     AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='us-east-1')
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
@@ -235,14 +205,13 @@ if not DEBUG:
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
 
 # =========================================
-# Security
+# Segurança
 # =========================================
 SECURE_SSL_REDIRECT = True
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 X_FRAME_OPTIONS = 'DENY'
 
-# 🔥 CORRIGIDO: CSRF TRUSDED ORIGINS
 CSRF_TRUSTED_ORIGINS = [
     "https://vistogest.pro",
     "https://www.vistogest.pro",
@@ -261,7 +230,7 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
 
 # =========================================
-# Django Allauth
+# Allauth
 # =========================================
 SITE_ID = 1
 AUTHENTICATION_BACKENDS = [
@@ -274,7 +243,7 @@ ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 
 # =========================================
-# JWT / REST Framework
+# REST Framework / JWT
 # =========================================
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -286,7 +255,7 @@ REST_FRAMEWORK = {
 }
 
 # =========================================
-# Default primary key
+# Configuração padrão de PK
 # =========================================
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'core.Usuario'

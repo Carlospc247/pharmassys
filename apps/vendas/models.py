@@ -5,23 +5,19 @@ from django.utils import timezone
 import uuid
 from django.db import models
 from django.conf import settings
-from django.utils import timezone
 from apps.core.models import Empresa
 from django.conf import settings
 from decimal import Decimal
 from apps.core.models import TimeStampedModel, Empresa,  Loja
 from apps.clientes.models import Cliente
+from apps.fiscal.services import FaturaFiscalService
 from apps.produtos.models import Produto
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.validators import RegexValidator, MinValueValidator, MaxValueValidator
 from apps.core.services import gerar_numero_documento
-from django.db import models
-from django.utils import timezone
-from decimal import Decimal
-from django.db import models
 from django.db.models import Sum, F
-from apps.core.choices import FORMA_PAGAMENTO_CHOICES
+
 
 
 class FormaPagamento(models.Model):

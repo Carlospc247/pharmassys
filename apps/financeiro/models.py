@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta
 import uuid
 
 from pharmassys import settings
-from apps.core.choices import FORMA_PAGAMENTO_CHOICES
+
 
 
 
@@ -430,7 +430,7 @@ class ContaPagar(TimeStampedModel):
     
     # Relacionamentos
     fornecedor = models.ForeignKey(Fornecedor, on_delete=models.SET_NULL, null=True, blank=True)
-    plano_contas = models.ForeignKey('PlanoContas', on_delete=models.PROTECT)
+    plano_contas = models.ForeignKey('financeiro.PlanoContas', on_delete=models.PROTECT)
     centro_custo = models.ForeignKey(CentroCusto, on_delete=models.PROTECT, null=True, blank=True)
     
     # Parcelamento

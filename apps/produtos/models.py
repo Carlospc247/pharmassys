@@ -7,7 +7,7 @@ from django.utils.html import format_html
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from apps.core.models import Empresa, TimeStampedModel, Categoria
-from apps.fiscal.models import TaxaIVAAGT
+
 
 
 
@@ -49,7 +49,7 @@ class Produto(TimeStampedModel):
     nome_comercial = models.CharField(max_length=200)
 
     taxa_iva = models.ForeignKey(
-        TaxaIVAAGT,
+        'fiscal.TaxaIVAAGT',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
