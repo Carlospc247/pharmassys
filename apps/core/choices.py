@@ -9,3 +9,13 @@ FORMA_PAGAMENTO_CHOICES = [
     ('vale', 'Vale'),
     ('outros', 'Outros'),
 ]
+
+# apps/core/choices.py
+
+TIPO_RETENCAO_CHOICES = [
+    ('IRT', 'Imposto sobre Rendimentos do Trabalho'),
+    ('IRPC', 'Imposto sobre Rendimentos de Pessoas Coletivas'),
+    ('IVA', 'IVA Retido na Fonte'),
+    ('IS', 'Imposto do Selo'),
+    ('OUTROS', 'Outros tipos de retenção'),
+]
