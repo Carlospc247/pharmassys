@@ -36,7 +36,7 @@ def format_percentage(value):
 # =====================================
 
 class ContasFilhasInline(admin.TabularInline):
-    model = ".financeiro.PlanoContas"
+    model = PlanoContas
     fk_name = 'conta_pai'
     extra = 0
     fields = ['codigo', 'nome', 'tipo_conta', 'natureza', 'aceita_lancamento', 'ativa']
@@ -376,7 +376,7 @@ class MovimentacaoFinanceiraAdmin(admin.ModelAdmin):
 # =====================================
 
 class ParcelasContaPagarInline(admin.TabularInline):
-    model = "financeiro.ContaPagar"
+    model = ContaPagar
     fk_name = 'conta_pai'
     extra = 0
     fields = ['numero_parcela', 'data_vencimento', 'valor_original', 'valor_pago', 'status']
@@ -514,7 +514,7 @@ class ContaPagarAdmin(admin.ModelAdmin):
 # =====================================
 
 class ParcelasContaReceberInline(admin.TabularInline):
-    model = "financeiro.ContaReceber"
+    model = ContaReceber
     fk_name = 'conta_pai'
     extra = 0
     fields = ['numero_parcela', 'data_vencimento', 'valor_original', 'valor_recebido', 'status']
