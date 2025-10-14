@@ -1,5 +1,5 @@
 # apps/financeiro/models.py
-from time import timezone
+from django.utils import timezone  
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
@@ -274,7 +274,7 @@ class MovimentacaoFinanceira(TimeStampedModel):
         related_name='transferencias_recebidas',
         help_text="Para transferências entre contas"
     )
-    plano_contas = models.ForeignKey('financeiro.PlanoContas', on_delete=models.PROTECT)
+    plano_contas = models.ForeignKey(PlanoContas, on_delete=models.PROTECT)
     centro_custo = models.ForeignKey(CentroCusto, on_delete=models.PROTECT, null=True, blank=True)
     
     # Relacionamentos
@@ -432,7 +432,7 @@ class ContaPagar(TimeStampedModel):
     
     # Relacionamentos
     fornecedor = models.ForeignKey(Fornecedor, on_delete=models.SET_NULL, null=True, blank=True)
-    plano_contas = models.ForeignKey('financeiro.PlanoContas', on_delete=models.PROTECT)
+    plano_contas = models.ForeignKey(PlanoContas, on_delete=models.PROTECT)
     centro_custo = models.ForeignKey(CentroCusto, on_delete=models.PROTECT, null=True, blank=True)
     
     # Parcelamento
@@ -632,58 +632,57 @@ class ContaReceber(TimeStampedModel):
             self.status = 'vencida'
         elif (self.data_vencimento - hoje).days <= 3 and self.status == 'aberta':
             # até 3 dias para vencer
-            self.status = 'vencendo'
+            pass  # Manter como aberta
         else:
             self.status = 'aberta'
 
         super().save(*args, **kwargs)
-
+    
+    @property
+    def dias_vencimento(self):
+        """Dias para vencimento (negativo se vencida)"""
+        return (self.data_vencimento - date.today()).days
+    
+    @property
+    def esta_vencida(self):
+        """Verifica se a conta está vencida"""
+        return self.data_vencimento < date.today() and self.status in ['aberta', 'vencida']
+    
+    def receber(self, valor_recebimento, conta_bancaria, tipo_documento='transferencia', observacoes=""):
+        """Registra recebimento da conta"""
+        if self.status not in ['aberta', 'vencida']:
+            raise ValidationError("Apenas contas abertas ou vencidas podem ser recebidas")
         
-        @property
-        def dias_vencimento(self):
-            """Dias para vencimento (negativo se vencida)"""
-            return (self.data_vencimento - date.today()).days
+        if valor_recebimento <= 0:
+            raise ValidationError("Valor do recebimento deve ser maior que zero")
         
-        @property
-        def esta_vencida(self):
-            """Verifica se a conta está vencida"""
-            return self.data_vencimento < date.today() and self.status in ['aberta', 'vencida']
+        # Registrar movimentação financeira
+        movimentacao = MovimentacaoFinanceira.objects.create(
+            tipo_movimentacao='entrada',
+            tipo_documento=tipo_documento,
+            data_movimentacao=date.today(),
+            valor=valor_recebimento,
+            conta_bancaria=conta_bancaria,
+            plano_contas=self.plano_contas,
+            centro_custo=self.centro_custo,
+            cliente=self.cliente,
+            venda_relacionada=self.venda,
+            descricao=f"Recebimento: {self.descricao}",
+            observacoes=f"Conta a receber: {self.numero_documento}. {observacoes}",
+            status='confirmada',
+            confirmada=True,
+            data_confirmacao=timezone.now(),
+            usuario_responsavel=conta_bancaria.empresa.funcionarios.first().usuario,  # Simplificado
+            empresa=self.empresa
+        )
         
-        def receber(self, valor_recebimento, conta_bancaria, tipo_documento='transferencia', observacoes=""):
-            """Registra recebimento da conta"""
-            if self.status not in ['aberta', 'vencida']:
-                raise ValidationError("Apenas contas abertas ou vencidas podem ser recebidas")
-            
-            if valor_recebimento <= 0:
-                raise ValidationError("Valor do recebimento deve ser maior que zero")
-            
-            # Registrar movimentação financeira
-            movimentacao = MovimentacaoFinanceira.objects.create(
-                tipo_movimentacao='entrada',
-                tipo_documento=tipo_documento,
-                data_movimentacao=date.today(),
-                valor=valor_recebimento,
-                conta_bancaria=conta_bancaria,
-                plano_contas=self.plano_contas,
-                centro_custo=self.centro_custo,
-                cliente=self.cliente,
-                venda_relacionada=self.venda,
-                descricao=f"Recebimento: {self.descricao}",
-                observacoes=f"Conta a receber: {self.numero_documento}. {observacoes}",
-                status='confirmada',
-                confirmada=True,
-                data_confirmacao=datetime.now(),
-                usuario_responsavel=conta_bancaria.empresa.funcionarios.first().usuario,  # Simplificado
-                empresa=self.empresa
-            )
-            
-            # Atualizar valores da conta
-            self.valor_recebido += valor_recebimento
-            self.save()
-            
-            return movimentacao
+        # Atualizar valores da conta
+        self.valor_recebido += valor_recebimento
+        self.save()
+        
+        return movimentacao
 
-
+    
 class FluxoCaixa(TimeStampedModel):
     """Projeção de fluxo de caixa"""
     TIPO_CHOICES = [
