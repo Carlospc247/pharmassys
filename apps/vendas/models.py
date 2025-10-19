@@ -23,7 +23,6 @@ from django.db.models import Sum, F
 class FormaPagamento(models.Model):
     FORMA_PAGAMENTO_CHOICES = [
         ('dinheiro', 'Dinheiro'),
-        ('kwik', 'KWIK'),
         ('cartao_debito', 'Cartão de Débito'),
         ('cartao_credito', 'Cartão de Crédito'),
         ('transferencia', 'Transferência'),
@@ -130,7 +129,8 @@ class Venda(TimeStampedModel):
         verbose_name="ATCUD (Código Único do Documento)"
     )
     # Data
-    data_venda = models.DateTimeField(auto_now_add=True, default=timezone.now)
+    data_venda = models.DateTimeField(auto_now_add=True)
+    #data_venda = models.DateTimeField(auto_now_add=True, default=timezone.now)
 
     # Status
     STATUS_CHOICES = [

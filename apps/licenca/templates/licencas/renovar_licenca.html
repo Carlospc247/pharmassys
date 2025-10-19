@@ -1,0 +1,28 @@
+{% extends 'admin/base_site.html' %}
+
+{% block title %}Renovar Licença{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Renovar Licença - {{ licenca.empresa.nome }}</h2>
+
+    {% if messages %}
+        <div class="alert alert-info">
+            {% for message in messages %}
+                <p>{{ message }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="meses">Meses de Renovação:</label>
+            <input type="number" name="meses" id="meses" class="form-control" value="1" min="1" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Renovar Licença</button>
+        <a href="{% url 'admin:licenciamento_licenca_change' licenca.id %}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

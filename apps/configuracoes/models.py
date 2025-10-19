@@ -31,6 +31,7 @@ class ConfiguracaoFiscal(TimeStampedModel):
         ('geral', 'Regime Geral'),
         ('simplificado', 'Regime Simplificado (IVA)'),
         ('exclusao', 'Regime de Não Sujeição (Exclusão)'),
+        ('outros', 'Outros (Regimes especiais e outros)'),
     ]
     regime_tributario = models.CharField(max_length=20, choices=REGIME_CHOICES, default='geral')
     

@@ -12,6 +12,10 @@ from datetime import date, datetime, timedelta
 import uuid
 
 from pharmassys import settings
+from django.db import models
+from django.core.exceptions import ValidationError
+from django.utils.timezone import now
+from datetime import date
 
 
 
@@ -110,6 +114,7 @@ class CentroCusto(TimeStampedModel):
     def __str__(self):
         return f"{self.codigo} - {self.nome}"
 
+
 class ContaBancaria(TimeStampedModel):
     """Contas bancárias da empresa"""
     TIPO_CONTA_CHOICES = [
@@ -127,16 +132,6 @@ class ContaBancaria(TimeStampedModel):
     conta = models.CharField(max_length=30)
     digito = models.CharField(max_length=5, blank=True)
     tipo_conta = models.CharField(max_length=15, choices=TIPO_CONTA_CHOICES, default='corrente')
-    
-    # Transferência
-    kwik_chave = models.CharField(max_length=100, blank=True)
-    kwik_tipo = models.CharField(max_length=20, choices=[
-        ('bi', 'BI'),
-        ('nif', 'NIF'),
-        ('email', 'Email'),
-        ('telefone', 'Telefone'),
-        ('chave_aleatoria', 'Chave Aleatória'),
-    ], blank=True)
     
     # Saldos
     saldo_inicial = models.DecimalField(
@@ -158,12 +153,6 @@ class ContaBancaria(TimeStampedModel):
         decimal_places=2, 
         default=0,
         help_text="Limite de crédito/cheque especial"
-    )
-    limite_kwik = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        default=0,
-        help_text="Limite diário para KWIK"
     )
     plano_contas_ativo = models.ForeignKey(
         PlanoContas,
@@ -215,6 +204,7 @@ class ContaBancaria(TimeStampedModel):
         """Saldo disponível (incluindo limite)"""
         return self.saldo_atual + self.limite_credito
 
+
 class MovimentacaoFinanceira(TimeStampedModel):
     """Movimentações financeiras"""
     TIPO_MOVIMENTACAO_CHOICES = [
@@ -227,7 +217,6 @@ class MovimentacaoFinanceira(TimeStampedModel):
         ('dinheiro', 'Dinheiro'),
         ('cheque', 'Cheque'),
         ('transferencia', 'Transferência'),
-        ('kwik', 'KWIK'),
         ('cartao', 'Cartão'),
         ('debito_automatico', 'Débito Automático'),
         ('outros', 'Outros'),
@@ -300,9 +289,7 @@ class MovimentacaoFinanceira(TimeStampedModel):
     banco_cheque = models.CharField(max_length=100, blank=True)
     emissor_cheque = models.CharField(max_length=200, blank=True)
     
-    # Dados Transferência (se aplicável)
-    chave_kwik = models.CharField(max_length=100, blank=True)
-    txid_kwik = models.CharField(max_length=100, blank=True)
+
     
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
 
@@ -390,10 +377,6 @@ class MovimentacaoFinanceira(TimeStampedModel):
             empresa=self.empresa
         )
 
-from django.db import models
-from django.core.exceptions import ValidationError
-from django.utils.timezone import now
-from datetime import date
 
 class ContaPai(models.Model):
     """Conta principal que consolida parcelas"""
@@ -431,11 +414,11 @@ class ContaPai(models.Model):
     observacoes = models.TextField(blank=True)
 
     # Relacionamentos opcionais para integração com contas a pagar ou receber
-    empresa = models.ForeignKey('Empresa', on_delete=models.CASCADE)
-    cliente = models.ForeignKey('Cliente', on_delete=models.SET_NULL, null=True, blank=True)
-    fornecedor = models.ForeignKey('Fornecedor', on_delete=models.SET_NULL, null=True, blank=True)
-    plano_contas = models.ForeignKey('PlanoContas', on_delete=models.PROTECT, null=True, blank=True)
-    centro_custo = models.ForeignKey('CentroCusto', on_delete=models.PROTECT, null=True, blank=True)
+    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE)
+    cliente = models.ForeignKey('clientes.Cliente', on_delete=models.SET_NULL, null=True, blank=True)
+    fornecedor = models.ForeignKey('fornecedores.Fornecedor', on_delete=models.SET_NULL, null=True, blank=True)
+    plano_contas = models.ForeignKey(PlanoContas, on_delete=models.PROTECT, null=True, blank=True)
+    centro_custo = models.ForeignKey(CentroCusto, on_delete=models.PROTECT, null=True, blank=True)
     
     class Meta:
         verbose_name = "Conta Principal"
@@ -543,7 +526,7 @@ class ContaPagar(TimeStampedModel):
         on_delete=models.CASCADE, 
         null=True, 
         blank=True,
-        related_name='parcelas'
+        related_name='parcelas_pagar'
     )
     
     # Status
@@ -694,8 +677,8 @@ class ContaReceber(TimeStampedModel):
     valor_saldo = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     
     # Relacionamentos
-    cliente = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True, blank=True)
-    venda = models.ForeignKey(Venda, on_delete=models.SET_NULL, null=True, blank=True)
+    cliente = models.ForeignKey('clientes.Cliente', on_delete=models.SET_NULL, null=True, blank=True)
+    venda = models.ForeignKey('vendas.Venda', on_delete=models.SET_NULL, null=True, blank=True)
     plano_contas = models.ForeignKey(PlanoContas, on_delete=models.PROTECT)
     centro_custo = models.ForeignKey(CentroCusto, on_delete=models.PROTECT, null=True, blank=True)
     
@@ -707,7 +690,7 @@ class ContaReceber(TimeStampedModel):
         on_delete=models.CASCADE, 
         null=True, 
         blank=True,
-        related_name='parcelas'
+        related_name='parcelas_receber'
     )
     
     # Status
@@ -992,9 +975,6 @@ class CategoriaFinanceira(models.Model):
         return self.nome
 
 
-# ... (Seu código existente para MovimentacaoFinanceira e PlanoContas) ...
-
-# 🚨 Ajuste no modelo 'LancamentoFinanceiro'
 class LancamentoFinanceiro(TimeStampedModel): # Use TimeStampedModel para tracking
     TIPO_CHOICES = (
         ('debito', 'Débito'),
@@ -1062,7 +1042,6 @@ class MovimentoCaixa(TimeStampedModel):
     
     FORMA_PAGAMENTO_CHOICES = [
     ('dinheiro', 'Dinheiro'),
-    ('kwik', 'KWIK'),
     ('cartao_debito', 'Cartão de Débito'),
     ('cartao_credito', 'Cartão de Crédito'),
     ('transferencia', 'Transferência'),
@@ -1174,9 +1153,7 @@ class MovimentoCaixa(TimeStampedModel):
     emissor_cheque = models.CharField(max_length=200, blank=True)
     data_cheque = models.DateField(null=True, blank=True)
     
-    # Dados KWIK (se aplicável)
-    chave_kwik = models.CharField(max_length=100, blank=True)
-    txid_kwik = models.CharField(max_length=100, blank=True)
+
     
     # Dados do cartão (se aplicável)
     numero_cartao_mascarado = models.CharField(max_length=20, blank=True)
@@ -1292,8 +1269,8 @@ class MovimentoCaixa(TimeStampedModel):
         if not plano_vendas:
             return  # Sem plano de contas, não criar movimentação
         
-        # Criar movimentação apenas para dinheiro e kwik/transferencia (que vão direto para o caixa)
-        if self.forma_pagamento in ['dinheiro', 'kwik']:
+        # Criar movimentação apenas para dinheiro e transferencia (que vão direto para o caixa)
+        if self.forma_pagamento in ['dinheiro', 'transferencia']:
             MovimentacaoFinanceira.objects.create(
                 tipo_movimentacao='entrada',
                 tipo_documento=self.forma_pagamento,

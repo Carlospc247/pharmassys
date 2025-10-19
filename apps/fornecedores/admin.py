@@ -50,7 +50,7 @@ class FornecedorAdmin(admin.ModelAdmin):
             'fields': ('condicao_pagamento_padrao', 'prazo_entrega_dias', 'valor_minimo_pedido')
         }),
         ('Dados Bancários', {
-            'fields': ('banco_principal', 'agencia', 'conta_corrente', 'kwik_chave'),
+            'fields': ('banco_principal', 'agencia', 'conta_corrente'),
             'classes': ['collapse']
         }),
         ('Configurações Comerciais', {
@@ -118,7 +118,7 @@ class FornecedorAdmin(admin.ModelAdmin):
 @admin.register(CondicaoPagamento)
 class CondicaoPagamentoAdmin(admin.ModelAdmin):
     list_display = ['nome', 'prazo_dias', 'parcelas', 'desconto_a_vista', 'permite_cartao', 'ativa']
-    list_filter = ['ativa', 'permite_cartao', 'permite_kwik']
+    list_filter = ['ativa', 'permite_cartao']
     search_fields = ['nome', 'descricao']
     list_editable = ['ativa']
 

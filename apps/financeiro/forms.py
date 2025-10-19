@@ -278,7 +278,7 @@ class LancamentoFinanceiroForm(forms.ModelForm):
     
     class Meta:
         model = LancamentoFinanceiro
-        fields = ['descricao', 'valor', 'tipo', 'data']
+        fields = ['descricao', 'valor', 'tipo', 'data_lancamento']
         
         widgets = {
             'data': forms.DateInput(
@@ -449,7 +449,7 @@ class MovimentoCaixaForm(forms.ModelForm):
             'valor', 'valor_troco', 'descricao', 'observacoes',
             'cliente', 'fornecedor', 'numero_documento',
             'numero_cheque', 'banco_cheque', 'emissor_cheque', 'data_cheque',
-            'chave_kwik', 'txid_kwik', 'numero_cartao_mascarado',
+            'numero_cartao_mascarado',
             'bandeira_cartao', 'numero_autorizacao', 'numero_comprovante'
         ]
         
@@ -483,12 +483,6 @@ class MovimentoCaixaForm(forms.ModelForm):
             ),
             'emissor_cheque': forms.TextInput(
                 attrs={'class': 'form-control', 'maxlength': '200'}
-            ),
-            'chave_kwik': forms.TextInput(
-                attrs={'class': 'form-control', 'maxlength': '100'}
-            ),
-            'txid_kwik': forms.TextInput(
-                attrs={'class': 'form-control', 'maxlength': '100'}
             ),
             'numero_cartao_mascarado': forms.TextInput(
                 attrs={'class': 'form-control', 'maxlength': '20', 'placeholder': '**** **** **** 1234'}
@@ -560,11 +554,9 @@ class MovimentoCaixaForm(forms.ModelForm):
             Fieldset(
                 'Dados de Transferência',
                 Row(
-                    Column('chave_kwik', css_class='form-group col-md-6 mb-0'),
                     Column('txid_p', css_class='form-group col-md-6 mb-0'),
                     css_class='form-row'
                 ),
-                css_class='kwik-fields'
             ),
             Fieldset(
                 'Dados do Cartão',
@@ -596,13 +588,10 @@ class MovimentoCaixaForm(forms.ModelForm):
                     var formaPagamento = $('#id_forma_pagamento').val();
                     
                     $('.cheque-fields').hide();
-                    $('.kwik-fields').hide();
                     $('.cartao-fields').hide();
                     
                     if (formaPagamento === 'cheque') {
                         $('.cheque-fields').show();
-                    } else if (formaPagamento === 'kwik') {
-                        $('.kwik-fields').show();
                     } else if (formaPagamento.includes('cartao')) {
                         $('.cartao-fields').show();
                     }
@@ -638,10 +627,6 @@ class MovimentoCaixaForm(forms.ModelForm):
             if not numero_cheque:
                 raise ValidationError('Número do cheque é obrigatório para pagamentos em cheque')
         
-        elif forma_pagamento == 'kwik':
-            chave_kwik = cleaned_data.get('chave_kwik')
-            if not chave_kwik:
-                raise ValidationError('Chave KWIK é obrigatória para pagamentos KWIK')
         
         elif forma_pagamento in ['cartao_debito', 'cartao_credito']:
             numero_autorizacao = cleaned_data.get('numero_autorizacao')

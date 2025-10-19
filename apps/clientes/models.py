@@ -410,8 +410,6 @@ class HistoricoCliente(TimeStampedModel):
         ('devolucao', 'Devolução'),
         ('reclamacao', 'Reclamação'),
         ('elogio', 'Elogio'),
-        ('consulta', 'Consulta'),
-        ('orientacao', 'Orientação Farmacêutica'),
         ('ligacao', 'Ligação'),
         ('email', 'Email'),
         ('whatsapp', 'WhatsApp'),

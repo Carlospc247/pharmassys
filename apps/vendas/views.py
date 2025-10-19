@@ -11,6 +11,7 @@ from django.views import View
 from django.views.generic import (
     ListView, DetailView, CreateView, UpdateView, DeleteView
 )
+from django.core.cache import caches
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
@@ -147,9 +148,8 @@ import json
 
 # Importar modelos necessários
 from .models import (
-    Venda, Cliente, Produto, Servico,
-    NotaCredito, ItemNotaCredito, NotaDebito, ItemNotaDebito,
-    DocumentoTransporte, ItemDocumentoTransporte
+    Venda, NotaCredito, ItemNotaCredito, NotaDebito,
+    ItemNotaDebito, DocumentoTransporte, ItemDocumentoTransporte
 )
 from .forms import (
     NotaCreditoForm, ItemNotaCreditoForm, NotaDebitoForm, ItemNotaDebitoForm,
@@ -179,9 +179,7 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.utils import timezone
 from decimal import Decimal
-
-
-
+from django.contrib.auth.mixins import AccessMixin
 from django.contrib.auth.mixins import AccessMixin
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
@@ -214,7 +212,7 @@ class PermissaoAcaoMixin(AccessMixin):
             # Usa a lógica dinâmica do modelo Funcionario (que já criámos)
             if not funcionario.pode_realizar_acao(self.acao_requerida):
                 messages.error(request, f"Acesso negado. O seu cargo não permite realizar a ação de '{self.acao_requerida}'.")
-                return redirect(reverse_lazy('home')) # Redirecionamento para a Home ou Dashboard
+                return redirect(reverse_lazy('core:dashboard')) # Redirecionamento para a Home ou Dashboard
 
         return super().dispatch(request, *args, **kwargs)
 
@@ -849,13 +847,6 @@ class EstornarPagamentoView(PermissaoAcaoMixin, BaseVendaView, View):
                 
         return redirect('vendas:pagamento_detail', pk=pk)
 
-class PagamentoKWIKView(BaseVendaView, TemplateView):
-    template_name = 'vendas/pagamento_kwik.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = 'Pagamento KWIK'
-        return context
 
 
 class PagamentoCartaoView(BaseVendaView, TemplateView):
@@ -3358,7 +3349,7 @@ def liquidar_fatura_api(request, fatura_id):
             print(f"[SUCESSO] Conta Destino: {conta_bancaria_destino}")
             
             # --- 4. Busca do Plano de Contas ---
-            plano_contas_receita = .objects.filter(
+            plano_contas_receita = PlanoContas.objects.filter(
                 empresa=fatura.empresa, 
                 tipo_conta='receita', 
                 codigo='4.1.1' 
@@ -5356,7 +5347,7 @@ class VendaViewSet(viewsets.ModelViewSet):
 from django.db.models import Sum, F
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import VendaItem # Assumindo que este modelo liga Produto e Venda
+
 
 # apps/vendas/views.py (CÓDIGO PENDENTE DA FASE ANTERIOR)
 from rest_framework import generics, status
@@ -5440,10 +5431,8 @@ from django.db.models import Sum, F, DecimalField
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.core.cache import caches # Importar o módulo de cache
-from .models import VendaItem 
-# from .serializers import RentabilidadeItemSerializer # Assumindo o import
 
-# Usamos o cache dedicado que definimos em settings.py
+
 bi_cache = caches['B.I.'] 
 
 class RentabilidadeAPIView(APIView):

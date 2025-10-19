@@ -3,7 +3,6 @@ from celery import shared_task
 from django.db.models import F, Sum, DecimalField
 from datetime import timedelta
 from django.utils import timezone
-from apps.vendas.models import VendaItem # Ajuste o caminho conforme sua estrutura
 from apps.produtos.models import Produto # Ajuste o caminho
 # from apps.users.utils import enviar_email_alerta # Importe sua função de e-mail
 

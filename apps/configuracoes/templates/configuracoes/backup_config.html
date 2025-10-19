@@ -23,8 +23,7 @@
         {% csrf_token %}
         
         <div class="p-6 space-y-6">
-            {# Este loop renderiza cada campo do seu BackupConfiguracoesForm.
-               O script no final irá adicionar as classes de estilo automaticamente. #}
+            {# Este loop renderiza cada campo do seu BackupConfiguracoesForm. O script no final irá adicionar as classes de estilo automaticamente. #}
             {% for field in form %}
                 <div>
                     <label for="{{ field.id_for_label }}" class="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-200 mb-1">

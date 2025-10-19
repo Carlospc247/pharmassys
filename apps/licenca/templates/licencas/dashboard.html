@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard de Licenças{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Dashboard de Licenças</h2>
+    <p>Visão geral das licenças gerenciadas.</p>
+    <a href="{% url 'licencas:lista' %}" class="btn btn-primary">Ver Licenças</a>
+    <a href="{% url 'licencas:nova' %}" class="btn btn-success">Adicionar Licença</a>
+</div>
+{% endblock %}

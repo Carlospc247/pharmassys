@@ -1,6 +1,34 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import ListView, DetailView
 from .models import Compra
+from django.contrib.auth.mixins import AccessMixin
+from django.urls import reverse_lazy
+
+
+
+class PermissaoAcaoMixin(AccessMixin):
+    # CRÍTICO: Definir esta variável na View
+    acao_requerida = None 
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+
+        try:
+            # Tenta obter o Funcionario (ligação fundamental)
+            funcionario = request.user.funcionario 
+        except Exception:
+            messages.error(request, "Acesso negado. O seu usuário não está ligado a um registro de funcionário.")
+            return self.handle_no_permission()
+
+        if self.acao_requerida:
+            # Usa a lógica dinâmica do modelo Funcionario (que já criámos)
+            if not funcionario.pode_realizar_acao(self.acao_requerida):
+                messages.error(request, f"Acesso negado. O seu cargo não permite realizar a ação de '{self.acao_requerida}'.")
+                return redirect(reverse_lazy('core:dashboard'))
+
+        return super().dispatch(request, *args, **kwargs)
+
 
 # Lista todas as compras com filtros simples
 class CompraListView(ListView):

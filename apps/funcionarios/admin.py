@@ -50,7 +50,7 @@ class CargoAdmin(admin.ModelAdmin):
                     'pode_gerenciar_funcionarios', 'pode_ver_vendas', "pode_editar_produtos")
         }),
         ('Permissões de Gestão interna', {
-            'fields': ('pode_acessar_financeiro', 'pode_acessar_rh', 'pode_acessar_fornecedores', 'pode_acessar_configuracoes',)
+            'fields': ('pode_acessar_financeiro', 'pode_acessar_rh', 'pode_acessar_fornecedores',)
         }),
         ('Permissões de Faturas', {
             'fields': (
@@ -60,6 +60,71 @@ class CargoAdmin(admin.ModelAdmin):
                 'pode_aprovar_proforma',
                 'pode_emitir_recibo',
                 'pode_acessar_documentos',
+            )
+        }),
+        ('Permissões fiscais', {
+            'fields': (
+                'pode_emitir_notacredito',
+                'pode_aplicar_notacredito',
+                'pode_aprovar_notacredito',
+                'pode_emitir_notadebito',
+                'pode_aplicar_notadebito',
+                'pode_aprovar_notadebito',
+                'pode_emitir_documentotransporte',
+                'pode_confirmar_entrega',
+            )
+        }),
+        ('Permissões de configurações e fiscal', {
+            'fields': (
+                'pode_acessar_configuracoes',
+                'pode_alterar_dados_fiscais',
+                'pode_eliminar_detalhes_fiscal',
+                'pode_acessar_detalhes_fiscal',
+                'pode_atualizar_backups',
+                'pode_ver_configuracoes',
+                'pode_alterar_interface',
+            )
+        }),
+        ('Permissões de SAFT e fiscal', {
+            'fields': (
+                'pode_exportar_saft',
+                'pode_ver_historico_saft',
+                'pode_baixar_saft',
+                'pode_validar_saft',
+                'pode_visualizar_saft',
+                'pode_ver_status_saft',
+                'pode_criar_dados_bancarios',
+                'pode_apagar_dados_bancarios',
+                'pode_atualizar_dados_bancarios',
+                'pode_ver_taxaiva_agt',
+                'pode_gerir_assinatura_digital',
+                'pode_gerir_retencoes_na_fonte',
+                'pode_criar_retencoes_na_fonte',
+                'pode_apagar_retencoes_na_fonte',
+                'pode_acessar_dashboard_fiscal',
+                'pode_validar_documentos_fiscais',
+                'pode_verificar_integridade_hash',
+                'pode_acessar_painel_principal_fiscal',
+                'pode_ver_taxas_iva',
+                'pode_criar_taxas_iva',
+                'pode_apagar_taxas_iva',
+                'pode_ver_status_atual_assinatura_digital',
+                'pode_configurar_assinatura_digital',
+                'pode_gerar_par_chave_publica_ou_privada',
+            )
+        }),
+        ('Permissões de SAFT e relatórios', {
+            'fields': (
+                'pode_ver_relatorio_fiscal',
+                'pode_ver_relatorio_retencoes',
+                'pode_ver_relatorio_taxas_iva',
+                'pode_acessar_dashboard_saft',
+                'pode_baixar_chave_publica',
+                'pode_baixar_retencoes',
+                'pode_baixar_saft_backup_fiscal',
+                'pode_baixar_relatorio_retencoes',
+                'pode_acessar_configuracao_fiscal',
+                'pode_verificar_integridade_cadeia_hash_fiscal',
             )
         }),
         ('Permissões do Sistema (Django)', {
@@ -152,10 +217,10 @@ class FuncionarioAdmin(admin.ModelAdmin):
             "fields": ("escolaridade", "curso_formacao", "instituicao_ensino", "ano_conclusao")
         }),
         ("Registros Profissionais", {
-            "fields": ("numero_ofa", "data_validade_ofa", "numero_ocpca", "outros_registros")
+            "fields": ( "outros_registros",)
         }),
         ("Bancário", {
-            "fields": ("banco", "agencia", "conta_corrente", "tipo_conta", "kwik_chave")
+            "fields": ("banco", "agencia", "conta_corrente", "tipo_conta")
         }),
         ("Jornada de Trabalho", {
             "fields": (

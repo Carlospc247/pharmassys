@@ -40,7 +40,7 @@ class Produto(TimeStampedModel):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='produtos')
     categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True, blank=True)
     fornecedor = models.ForeignKey('fornecedores.Fornecedor', on_delete=models.SET_NULL, null=True, blank=True)
-    fabricante = models.ForeignKey('produtos.Fabricante', on_delete=models.SET_NULL, null=True, blank=True)
+    fabricante = models.ForeignKey(Fabricante, on_delete=models.SET_NULL, null=True, blank=True)
     
     # Identificação
     codigo_interno = models.CharField(max_length=50)
@@ -110,14 +110,10 @@ class Produto(TimeStampedModel):
     preco_venda_display.short_description = 'Preço de Venda'
 
     @property
-    def iva_percentual(self):
-        """
-        Mantém a compatibilidade com o código antigo. 
-        Se o código chamar produto.iva_percentual, ele obtém a taxa do objeto TaxaIVAAGT.
-        """
+    def iva_percentual_display(self):
+        """Compatibilidade retroativa — devolve o valor da iva_percentual"""
         if self.iva_percentual:
-            # Pega o valor percentual do modelo fiscal legal.
-            return self.iva_percentual.tax_percentage 
+            return self.iva_percentual.tax_percentage
         return Decimal('0.00')
     
     @property

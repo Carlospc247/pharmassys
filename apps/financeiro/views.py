@@ -30,6 +30,32 @@ from .forms import (
     ContaReceberForm, ContaPagarForm, LancamentoFinanceiroForm,
     CategoriaFinanceiraForm, CentroCustoForm, MovimentoCaixaForm
 )
+from django.contrib.auth.mixins import AccessMixin
+
+
+
+class PermissaoAcaoMixin(AccessMixin):
+    # CRÍTICO: Definir esta variável na View
+    acao_requerida = None 
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+
+        try:
+            # Tenta obter o Funcionario (ligação fundamental)
+            funcionario = request.user.funcionario 
+        except Exception:
+            messages.error(request, "Acesso negado. O seu usuário não está ligado a um registro de funcionário.")
+            return self.handle_no_permission()
+
+        if self.acao_requerida:
+            # Usa a lógica dinâmica do modelo Funcionario (que já criámos)
+            if not funcionario.pode_realizar_acao(self.acao_requerida):
+                messages.error(request, f"Acesso negado. O seu cargo não permite realizar a ação de '{self.acao_requerida}'.")
+                return redirect(reverse_lazy('core:dashboard'))
+
+        return super().dispatch(request, *args, **kwargs)
 
 
 
@@ -251,7 +277,7 @@ class MovimentacaoFinanceiraCreateView(LoginRequiredMixin, CreateView):
         'valor_multa', 'valor_desconto', 'conta_bancaria', 'conta_destino',
         'plano_contas', 'centro_custo', 'fornecedor', 'cliente',
         'descricao', 'observacoes', 'numero_cheque', 'banco_cheque',
-        'emissor_cheque', 'chave_kwik', 'txid_kwik'
+        'emissor_cheque'
     ]
     success_url = reverse_lazy('financeiro:movimentacao_lista')
     
@@ -827,8 +853,8 @@ class ContaBancariaCreateView(LoginRequiredMixin, CreateView):
     template_name = 'financeiro/conta_bancaria/form.html'
     fields = [
         'nome', 'banco', 'agencia', 'conta', 'digito', 'tipo_conta',
-        'kwik_chave', 'kwik_tipo', 'saldo_inicial', 'limite_credito',
-        'limite_kwik', 'ativa', 'conta_principal', 'permite_saldo_negativo',
+        'saldo_inicial', 'limite_credito',
+        'ativa', 'conta_principal', 'permite_saldo_negativo',
         'codigo_integracao', 'observacoes'
     ]
     success_url = reverse_lazy('financeiro:conta_bancaria_lista')
@@ -894,7 +920,7 @@ class ContaBancariaUpdateView(LoginRequiredMixin, UpdateView):
     template_name = 'financeiro/conta_bancaria/form.html'
     fields = [
         'nome', 'banco', 'agencia', 'conta', 'digito', 'tipo_conta',
-        'kwik_chave', 'kwik_tipo', 'limite_credito', 'limite_kwik',
+        'saldo_inicial', 'limite_credito',
         'ativa', 'conta_principal', 'permite_saldo_negativo',
         'codigo_integracao', 'observacoes'
     ]
@@ -956,15 +982,15 @@ class FinanceiroDashboardView(LoginRequiredMixin, TemplateView):
         # Receitas e despesas do mês - CORRIGIDO: Usa 'data'
         context['receitas_mes'] = LancamentoFinanceiro.objects.filter(
         tipo='receita',
-        data__gte=inicio_mes,
-        data__lte=hoje
-        ).aggregate(total=Sum('valor'))['total'] or Decimal('0.00') # Use Decimal('0.00') para garantir o tipo
+        data_lancamento__gte=inicio_mes,
+        data_lancamento__lte=hoje
+        ).aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
         
         context['despesas_mes'] = LancamentoFinanceiro.objects.filter(
             tipo='despesa',
-            data__gte=inicio_mes,
-            data__lte=hoje
-        ).aggregate(total=Sum('valor'))['total'] or Decimal('0.00') # Use Decimal('0.00') para garantir o tipo
+            data_lancamento__gte=inicio_mes,
+            data_lancamento__lte=hoje
+        ).aggregate(total=Sum('valor'))['total'] or Decimal('0.00') 
 
         
         # Gráficos
@@ -1019,13 +1045,13 @@ class FluxoCaixaView(LoginRequiredMixin, TemplateView):
         # Entradas
         entradas = LancamentoFinanceiro.objects.filter(
             tipo='receita',
-            data__range=[data_inicio, data_fim]
+            data_lancamento__range=[data_inicio, data_fim]
         ).aggregate(total=Sum('valor'))['total'] or 0
         
         # Saídas
         saidas = LancamentoFinanceiro.objects.filter(
             tipo='despesa',
-            data__range=[data_inicio, data_fim]
+            data_lancamento__range=[data_inicio, data_fim]
         ).aggregate(total=Sum('valor'))['total'] or 0
         
         context.update({
@@ -1520,9 +1546,8 @@ class BancoEditarView(LoginRequiredMixin, UpdateView):
     template_name = "financeiro/banco/form.html"  # Template para edição
     fields = [
         "nome", "banco", "agencia", "conta", "digito", "tipo_conta",
-        "kwik_chave", "kwik_tipo",
         "saldo_inicial", "saldo_atual",
-        "limite_credito", "limite_kwik",
+        "limite_credito",
         "ativa", "conta_principal", "permite_saldo_negativo",
         "codigo_integracao", "ultima_conciliacao",
         "observacoes",

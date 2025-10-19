@@ -14,13 +14,44 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView, UpdateView, ListView, View
 from django.contrib.auth.decorators import login_required
-# Importe os seus modelos e formulários
 from .models import ConfiguracaoFiscal, BackupConfiguracao, PersonalizacaoInterface, HistoricoBackup
 from .forms import ConfiguracaoFiscalForm, BackupConfiguracoesForm, ContactForm, PersonalizacaoInterfaceForm
 from apps.core.models import Empresa
+from django.urls import reverse_lazy
+from django.views.generic import CreateView, UpdateView, DeleteView
+from .models import DadosBancarios
+from .forms import DadosBancariosForm
+from django.contrib.auth.mixins import AccessMixin
 
 
-class ConfiguracoesBaseView(LoginRequiredMixin):
+
+class PermissaoAcaoMixin(AccessMixin):
+    # CRÍTICO: Definir esta variável na View
+    acao_requerida = None 
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+
+        try:
+            # Tenta obter o Funcionario (ligação fundamental)
+            funcionario = request.user.funcionario 
+        except Exception:
+            messages.error(request, "Acesso negado. O seu usuário não está ligado a um registro de funcionário.")
+            return self.handle_no_permission()
+
+        if self.acao_requerida:
+            # Usa a lógica dinâmica do modelo Funcionario (que já criámos)
+            if not funcionario.pode_realizar_acao(self.acao_requerida):
+                messages.error(request, f"Acesso negado. O seu cargo não permite realizar a ação de '{self.acao_requerida}'.")
+                return redirect(reverse_lazy('configuracoes:dashboard')) # Redirecionamento para a Home ou Dashboard
+
+        return super().dispatch(request, *args, **kwargs)
+ 
+
+
+class ConfiguracoesBaseView(LoginRequiredMixin, PermissaoAcaoMixin):
+    acao_requerida = 'acessar_configuracoes'
     """
     Mixin base para as views de configurações, garantindo que o utilizador
     tem uma empresa associada.
@@ -52,6 +83,8 @@ class ConfiguracoesBaseView(LoginRequiredMixin):
 
 
 class ConfiguracoesDashboardView(ConfiguracoesBaseView, TemplateView):
+    acao_requerida = 'acessar_configuracoes'
+
     template_name = 'configuracoes/dashboard.html'
 
     def get_context_data(self, **kwargs):
@@ -69,7 +102,8 @@ class ConfiguracoesDashboardView(ConfiguracoesBaseView, TemplateView):
         return context
 
 
-class ConfiguracaoFiscalUpdateView(ConfiguracoesBaseView, UpdateView):
+class ConfiguracaoFiscalUpdateView(ConfiguracoesBaseView, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'alterar_dados_fiscais'
     model = ConfiguracaoFiscal
     form_class = ConfiguracaoFiscalForm
     template_name = 'configuracoes/fiscal.html'
@@ -91,7 +125,9 @@ class ConfiguracaoFiscalUpdateView(ConfiguracoesBaseView, UpdateView):
 
 
 
-class PersonalizacaoInterfaceUpdateView(ConfiguracoesBaseView, UpdateView):
+class PersonalizacaoInterfaceUpdateView(ConfiguracoesBaseView, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'alterar_interface'
+
     model = PersonalizacaoInterface
     form_class = PersonalizacaoInterfaceForm
     template_name = 'configuracoes/interface.html'
@@ -124,7 +160,7 @@ class PersonalizacaoInterfaceUpdateView(ConfiguracoesBaseView, UpdateView):
         return context
 
 
-class SuporteView(LoginRequiredMixin, FormView):
+class SuporteView(LoginRequiredMixin, PermissaoAcaoMixin, FormView):
     template_name = 'configuracoes/suporte.html'
     form_class = ContactForm
     success_url = reverse_lazy('configuracoes:suporte')
@@ -175,7 +211,9 @@ class SuporteView(LoginRequiredMixin, FormView):
         return context
 
 
-class BackupConfiguracaoUpdateView(ConfiguracoesBaseView, UpdateView):
+class BackupConfiguracaoUpdateView(ConfiguracoesBaseView, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'atualizar_backups'
+
     model = BackupConfiguracao
     form_class = BackupConfiguracoesForm
     template_name = 'configuracoes/backup_config.html'
@@ -194,7 +232,8 @@ class BackupConfiguracaoUpdateView(ConfiguracoesBaseView, UpdateView):
         return context
 
 
-class BackupListView(ConfiguracoesBaseView, ListView):
+class BackupListView(ConfiguracoesBaseView, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'ver_configuracoes'
     model = HistoricoBackup
     template_name = 'configuracoes/backup_historico.html'
     context_object_name = 'backups'
@@ -211,7 +250,8 @@ class BackupListView(ConfiguracoesBaseView, ListView):
 
 from apps.configuracoes.services.backup_service import executar_backup
 
-class BackupManualCreateView(ConfiguracoesBaseView, View):
+class BackupManualCreateView(ConfiguracoesBaseView, PermissaoAcaoMixin, View):
+    acao_requerida = 'fazer_backup_manual'
     def post(self, request, *args, **kwargs):
         empresa = self.get_empresa()
         try:
@@ -223,7 +263,7 @@ class BackupManualCreateView(ConfiguracoesBaseView, View):
 
 
 
-class BackupDownloadView(ConfiguracoesBaseView, View):
+class BackupDownloadView(ConfiguracoesBaseView, PermissaoAcaoMixin, View):
     def get(self, request, *args, **kwargs):
         backup = get_object_or_404(HistoricoBackup, pk=kwargs['pk'], empresa=self.get_empresa())
         
@@ -233,7 +273,7 @@ class BackupDownloadView(ConfiguracoesBaseView, View):
         return FileResponse(open(backup.ficheiro_backup.path, 'rb'), as_attachment=True)
 
 
-class BackupRestoreView(ConfiguracoesBaseView, View):
+class BackupRestoreView(ConfiguracoesBaseView, PermissaoAcaoMixin, View):
     def post(self, request, *args, **kwargs):
         messages.warning(request, "A funcionalidade de restauração automática não está implementada por motivos de segurança. Por favor, contacte o suporte técnico para restaurar um backup.")
         return redirect('configuracoes:backup_historico')
@@ -244,7 +284,8 @@ from django.views.generic import DetailView, DeleteView
 from django.urls import reverse_lazy
 
 
-class ConfiguracaoFiscalDetailView(ConfiguracoesBaseView, DetailView):
+class ConfiguracaoFiscalDetailView(ConfiguracoesBaseView, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_detalhes_fiscal'
     """
     Exibe os detalhes da configuração fiscal da empresa logada.
     """
@@ -252,16 +293,20 @@ class ConfiguracaoFiscalDetailView(ConfiguracoesBaseView, DetailView):
     template_name = 'configuracoes/fiscal_detail.html'
 
     def get_object(self, queryset=None):
-        # Garante que a configuração fiscal da empresa existe
-        return ConfiguracaoFiscal.objects.get(empresa=self.get_empresa())
+        empresa = self.get_empresa()
+        obj, created = ConfiguracaoFiscal.objects.get_or_create(empresa=empresa)
+        return obj
+
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['title'] = "Detalhes Fiscais da Empresa"
         return context
+    
 
 # E a nova view para eliminar a configuração
-class ConfiguracaoFiscalDeleteView(ConfiguracoesBaseView, DeleteView):
+class ConfiguracaoFiscalDeleteView(ConfiguracoesBaseView, PermissaoAcaoMixin, DeleteView):
+    acao_requerida = 'eliminar_detalhes_fiscal'
     """
     Exibe a página de confirmação para eliminar as configurações fiscais.
     """
@@ -278,26 +323,11 @@ class ConfiguracaoFiscalDeleteView(ConfiguracoesBaseView, DeleteView):
  
 
 
-class ConfiguracaoFiscalDetailView(DetailView):
-    model = ConfiguracaoFiscal
-    template_name = 'configuracoes/fiscal_detail.html'
-
-    def get_object(self):
-        return get_object_or_404(ConfiguracaoFiscal, empresa=self.request.user.empresa)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        # Passa a lista de contas bancárias relacionadas para o template
-        context['dados_bancarios'] = self.object.dados_bancarios.all()
-        return context
 
 
-from django.urls import reverse_lazy
-from django.views.generic import CreateView, UpdateView, DeleteView
-from .models import DadosBancarios
-from .forms import DadosBancariosForm # Vais precisar de criar este form
 
-class DadosBancariosCreateView(CreateView):
+class DadosBancariosCreateView(CreateView, PermissaoAcaoMixin):
+    acao_requerida ='criar_dados_bancarios'
     model = DadosBancarios
     form_class = DadosBancariosForm
     template_name = 'configuracoes/dados_bancarios_form.html'
@@ -309,13 +339,15 @@ class DadosBancariosCreateView(CreateView):
         form.instance.configuracao_fiscal = config_fiscal
         return super().form_valid(form)
 
-class DadosBancariosUpdateView(UpdateView):
+class DadosBancariosUpdateView(UpdateView, PermissaoAcaoMixin):
+    acao_requerida ='atualizar_dados_bancarios'
     model = DadosBancarios
     form_class = DadosBancariosForm
     template_name = 'configuracoes/dados_bancarios_form.html'
     success_url = reverse_lazy('configuracoes:fiscal')
 
-class DadosBancariosDeleteView(DeleteView):
+class DadosBancariosDeleteView(DeleteView, PermissaoAcaoMixin):
+    acao_requerida ='apagar_dados_bancarios'
     model = DadosBancarios
     template_name = 'configuracoes/dados_bancarios_confirm_delete.html'
     success_url = reverse_lazy('configuracoes:fiscal_detail')

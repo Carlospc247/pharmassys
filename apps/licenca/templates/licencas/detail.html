@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}Detalhes da Licença{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Detalhes da Licença</h2>
+    <p><strong>Empresa:</strong> {{ licenca.empresa.nome }}</p>
+    <p><strong>Plano:</strong> {{ licenca.plano.nome }}</p>
+    <p><strong>Status:</strong> {{ licenca.status }}</p>
+    <p><strong>Data de Início:</strong> {{ licenca.data_inicio }}</p>
+    <p><strong>Data de Vencimento:</strong> {{ licenca.data_vencimento }}</p>
+    <a href="{% url 'licencas:editar' licenca.pk %}" class="btn btn-warning">Editar</a>
+    <form action="{% url 'licencas:deletar' licenca.pk %}" method="post" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Deletar</button>
+    </form>
+    <a href="{% url 'licencas:renovar' licenca.pk %}" class="btn btn-success">Renovar Licença</a>
+    
+    <h3>Histórico</h3>
+    <ul>
+        {% for item in historico %}
+        <li>{{ item.data_nova }} - {{ item.acao }}: {{ item.observacoes }}</li>
+        {% empty %}
+        <li>Nenhum histórico encontrado.</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

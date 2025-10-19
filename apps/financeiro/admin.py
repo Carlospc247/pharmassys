@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 from decimal import Decimal
 from datetime import date, datetime, timedelta
 from .models import (
-    PlanoContas, CentroCusto, ContaBancaria, MovimentacaoFinanceira,
+    ContaPai, PlanoContas, CentroCusto, ContaBancaria, MovimentacaoFinanceira,
     ContaPagar, ContaReceber, FluxoCaixa, ConciliacaoBancaria, 
     OrcamentoFinanceiro, CategoriaFinanceira, LancamentoFinanceiro,
     MovimentoCaixa, ImpostoTributo, ConfiguracaoImposto
@@ -143,7 +143,7 @@ class ContaBancariaAdmin(admin.ModelAdmin):
         'conta_principal', 'ativa'
     ]
     list_filter = ['tipo_conta', 'ativa', 'conta_principal', 'banco']
-    search_fields = ['nome', 'banco', 'agencia', 'conta', 'kwik_chave']
+    search_fields = ['nome', 'banco', 'agencia', 'conta']
     readonly_fields = ['saldo_atual', 'saldo_disponivel']
     list_editable = ['ativa']
     
@@ -152,11 +152,11 @@ class ContaBancariaAdmin(admin.ModelAdmin):
             'fields': ('nome', 'banco', 'agencia', 'conta', 'digito', 'tipo_conta')
         }),
         ('Transferência Eletrônica', {
-            'fields': ('kwik_chave', 'kwik_tipo'),
-            'classes': ['collapse']
+            'classes': ['collapse'],
+            'fields': (),
         }),
         ('Saldos e Limites', {
-            'fields': ('saldo_inicial', 'saldo_atual', 'limite_credito', 'limite_kwik')
+            'fields': ('saldo_inicial', 'saldo_atual', 'limite_credito')
         }),
         ('Configurações', {
             'fields': ('ativa', 'conta_principal', 'permite_saldo_negativo')
@@ -277,7 +277,7 @@ class MovimentacaoFinanceiraAdmin(admin.ModelAdmin):
             'fields': ('status', 'confirmada', 'conciliada', 'data_conciliacao', 'usuario_responsavel')
         }),
         ('Dados Específicos', {
-            'fields': ('numero_cheque', 'banco_cheque', 'emissor_cheque', 'chave_kwik', 'txid_kwik'),
+            'fields': ('numero_cheque', 'banco_cheque', 'emissor_cheque'),
             'classes': ['collapse']
         }),
         ('Observações', {
@@ -376,10 +376,8 @@ class MovimentacaoFinanceiraAdmin(admin.ModelAdmin):
 
 class ParcelasContaPagarInline(admin.TabularInline):
     model = ContaPagar
-    fk_name = 'conta_pai'
-    extra = 0
-    fields = ['numero_parcela', 'data_vencimento', 'valor_original', 'valor_pago', 'status']
-    readonly_fields = ['valor_saldo']
+    fk_name = 'conta_pai'  # ok, aponta para ContaPai
+    extra = 1
 
 @admin.register(ContaPagar)
 class ContaPagarAdmin(admin.ModelAdmin):
@@ -418,7 +416,7 @@ class ContaPagarAdmin(admin.ModelAdmin):
         }),
     )
     
-    inlines = [ParcelasContaPagarInline]
+    
     actions = ['marcar_como_paga', 'gerar_relatorio_vencimentos']
     
     def get_queryset(self, request):
@@ -514,9 +512,8 @@ class ContaPagarAdmin(admin.ModelAdmin):
 
 class ParcelasContaReceberInline(admin.TabularInline):
     model = ContaReceber
-    extra = 0
-    fields = ['numero_parcela', 'data_vencimento', 'valor_original', 'valor_recebido', 'status']
-    readonly_fields = ['valor_saldo']
+    fk_name = 'conta_pai'  # ContaReceber.conta_pai → ContaPai
+    extra = 1
 
 @admin.register(ContaReceber)
 class ContaReceberAdmin(admin.ModelAdmin):
@@ -555,7 +552,7 @@ class ContaReceberAdmin(admin.ModelAdmin):
         }),
     )
     
-    inlines = [ParcelasContaReceberInline]
+ 
     actions = ['marcar_como_recebida', 'aplicar_desconto', 'gerar_cobranca']
     
     def get_queryset(self, request):
@@ -657,6 +654,13 @@ class ContaReceberAdmin(admin.ModelAdmin):
         )
     gerar_cobranca.short_description = "Gerar cobrança"
 
+@admin.register(ContaPai)
+class ContaPaiAdmin(admin.ModelAdmin):
+    list_display = ('numero_documento', 'descricao', 'empresa', 'status', 'valor_original', 'valor_pago', 'valor_recebido', 'valor_saldo', 'dias_vencimento')
+    search_fields = ('numero_documento', 'descricao')
+    list_filter = ('status', 'empresa')
+    inlines = [ParcelasContaPagarInline, ParcelasContaReceberInline]
+    
 # =====================================
 # FLUXO DE CAIXA
 # =====================================
@@ -1099,10 +1103,6 @@ class MovimentoCaixaAdmin(admin.ModelAdmin):
             'fields': ('numero_cheque', 'banco_cheque', 'emissor_cheque', 'data_cheque'),
             'classes': ['collapse']
         }),
-        ('Dados KWIK', {
-            'fields': ('chave_kwik', 'txid_kwik'),
-            'classes': ['collapse']
-        }),
         ('Dados do Cartão', {
             'fields': ('numero_cartao_mascarado', 'bandeira_cartao', 'numero_autorizacao', 'numero_comprovante'),
             'classes': ['collapse']
@@ -1153,7 +1153,7 @@ class MovimentoCaixaAdmin(admin.ModelAdmin):
     
     def forma_pagamento_display(self, obj):
         icons = {
-            'dinheiro': '💵', 'kwik': '📱', 'cartao_debito': '💳',
+            'dinheiro': '💵', 'cartao_debito': '💳',
             'cartao_credito': '💳', 'transferencia': '🔄', 'cheque': '📝'
         }
         icon = icons.get(obj.forma_pagamento, '💰')

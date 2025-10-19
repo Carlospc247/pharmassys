@@ -117,14 +117,42 @@ from apps.financeiro.models import (
     PlanoContas
 )
 from apps.estoque.models import MovimentacaoEstoque, Inventario, AlertaEstoque
-# A importação de bibliotecas e módulos essenciais para o funcionamento das views.
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Sum, Count, F, Q, Case, When, Value, DecimalField
 from django.db.models.functions import TruncMonth, TruncDay
 from django.views.generic import TemplateView
 from datetime import datetime, date, timedelta
+from django.contrib.auth.mixins import AccessMixin
+
 
 logger = logging.getLogger(__name__)
+
+
+
+
+class PermissaoAcaoMixin(AccessMixin):
+    # CRÍTICO: Definir esta variável na View
+    acao_requerida = None 
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+
+        try:
+            # Tenta obter o Funcionario (ligação fundamental)
+            funcionario = request.user.funcionario 
+        except Exception:
+            messages.error(request, "Acesso negado. O seu usuário não está ligado a um registro de funcionário.")
+            return self.handle_no_permission()
+
+        if self.acao_requerida:
+            # Usa a lógica dinâmica do modelo Funcionario (que já criámos)
+            if not funcionario.pode_realizar_acao(self.acao_requerida):
+                messages.error(request, f"Acesso negado. O seu cargo não permite realizar a ação de '{self.acao_requerida}'.")
+                return redirect(reverse_lazy('core:dashboard'))
+
+        return super().dispatch(request, *args, **kwargs)
+
 
 
 

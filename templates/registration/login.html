@@ -1,13 +1,14 @@
 {% extends 'base_auth.html' %}
 
-{% block title %}Login - PharmasSys{% endblock %}
+{% block title %}Login - VistoGEST{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
-    <div class="text-center">
-        <h2 class="text-xl font-semibold text-gray-800 mb-2">Fazer Login</h2>
+    <div class="text-center text-2xl">
+        <span class="text-blue-800 font-bold">Fazer</span> <span class="text-orange-600 font-bold">Login</span>
         <p class="text-sm text-gray-600">Entre com suas credenciais para acessar o sistema</p>
     </div>
+    <div class="mx-auto mt-3 mb-6 w-60 border-b-4 border-orange-500 rounded-full"></div>
 
     <!-- Mensagens de Erro -->
     {% if form.errors %}

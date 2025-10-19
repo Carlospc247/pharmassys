@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}Lista de Renovações{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Lista de Renovações</h2>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Licença</th>
+                <th>Ação</th>
+                <th>Data Anterior</th>
+                <th>Data Nova</th>
+                <th>Observações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for renovacao in renovacoes %}
+            <tr>
+                <td>{{ renovacao.licenca.empresa.nome }} - {{ renovacao.licenca.plano.nome }}</td>
+                <td>{{ renovacao.acao }}</td>
+                <td>{{ renovacao.data_anterior }}</td>
+                <td>{{ renovacao.data_nova }}</td>
+                <td>{{ renovacao.observacoes }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5">Nenhuma renovação encontrada.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

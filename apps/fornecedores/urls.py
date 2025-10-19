@@ -105,7 +105,6 @@ urlpatterns = [
     # =====================================
     path('ajax/buscar/', views.BuscarFornecedorAjaxView.as_view(), name='buscar_ajax'),
     path('ajax/validar-nif/', views.ValidarNifView.as_view(), name='validar_nif'),
-    path('ajax/consultar-receita/', views.ConsultarReceitaFederalView.as_view(), name='consultar_receita'),
     path('ajax/calcular-prazo/', views.CalcularPrazoEntregaView.as_view(), name='calcular_prazo'),
     
     # =====================================

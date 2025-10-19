@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Histórico de Ficheiros SAF-T{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">
+                <i class="fas fa-file-invoice me-2"></i>
+                Histórico de Geração de Ficheiros SAF-T ({{ empresa.nome }})
+            </h4>
+        </div>
+        <div class="card-body">
+            
+            {% if historicos %}
+            <p class="text-muted">Lista de todos os ficheiros SAF-T gerados para a sua empresa. Clique no ícone de download para obter o ficheiro.</p>
+
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">ID</th>
+                            <th scope="col">Período Fiscal</th>
+                            <th scope="col">Data de Geração</th>
+                            <th scope="col">Tipo de Dados</th>
+                            <th scope="col">Status</th>
+                            <th scope="col" class="text-center">Ficheiro</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for historico in historicos %}
+                        <tr>
+                            <td>#{{ historico.pk }}</td>
+                            <td>
+                                {% if historico.data_inicio_periodo and historico.data_fim_periodo %}
+                                    {{ historico.data_inicio_periodo|date:"d/m/Y" }} a {{ historico.data_fim_periodo|date:"d/m/Y" }}
+                                {% else %}
+                                    Completo
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ historico.data_criacao|date:"d/m/Y H:i" }}
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ historico.get_tipo_dados_display|default:"Geral" }}</span>
+                            </td>
+                            <td>
+                                {% if historico.status == 'concluido' %}
+                                    <span class="badge bg-success"><i class="fas fa-check-circle"></i> Concluído</span>
+                                {% elif historico.status == 'erro' %}
+                                    <span class="badge bg-danger" data-bs-toggle="tooltip" title="{{ historico.mensagem_erro|default:'Detalhes do erro não disponíveis.' }}">
+                                        <i class="fas fa-exclamation-triangle"></i> Erro
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark"><i class="fas fa-hourglass-half"></i> Em Processamento</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if historico.ficheiro_saft %}
+                                <a href="{{ historico.ficheiro_saft.url }}" class="btn btn-sm btn-outline-success" target="_blank" download>
+                                    <i class="fas fa-download me-1"></i> Download ({{ historico.tamanho_ficheiro|filesizeformat }})
+                                </a>
+                                {% elif historico.status == 'erro' %}
+                                <span class="text-danger small">Ficheiro Indisponível</span>
+                                {% else %}
+                                <span class="text-muted small">Aguarde...</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {% else %}
+            <div class="alert alert-info" role="alert">
+                <h4 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Nenhum Histórico Encontrado</h4>
+                <p>Ainda não foram encontrados registos de ficheiros SAF-T gerados para a empresa {{ empresa.nome }}.</p>
+                <hr>
+                <p class="mb-0">Aceda à área de Geração SAF-T para criar um novo ficheiro fiscal.</p>
+            </div>
+            {% endif %}
+
+        </div>
+        <div class="card-footer text-muted">
+            Última atualização: {{ now|date:"d/m/Y H:i:s" }}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extrascript %}
+<script>
+    // Inicializa tooltips do Bootstrap
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+</script>
+{% endblock %}

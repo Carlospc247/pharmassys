@@ -625,22 +625,137 @@
             color: white;
         }
 
-        nav {/*garante que a área do menu (<nav>) seja rolável quando o conteúdo ultrapassar a altura da tela*/
-            max-height: calc(100vh - 64px); /* Ajuste conforme necessário */
-            overflow-y: auto; /* Torna a área rolável */
+        /* ============================================
+   6. ESTILOS PARA SIDEBAR RESPONSIVA E EXPANSÃO DESKTOP
+============================================ */
+        
+        /* Transições suaves para o sidebar e main content */
+        .sidebar-transition {
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .content-transition {
+            transition: margin-left 0.3s ease-in-out;
+        }
+
+        /* Scrollbar customizada para navegação */
+        .custom-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: #d1d5db transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #d1d5db;
+            border-radius: 3px;
+        }
+
+        .dark .custom-scrollbar {
+            scrollbar-color: #4b5563 transparent;
+        }
+
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #4b5563;
+        }
+
+        /* Responsividade do sidebar */
+        @media (max-width: 1023px) {
+            .sidebar-overlay {
+                backdrop-filter: blur(4px);
+            }
+        }
+
+        /* Estilos específicos para desktop - sidebar sempre fixed */
+        @media (min-width: 1024px) {
+            .sidebar-desktop {
+                position: fixed !important;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                z-index: 30;
+            }
+
+            /* Quando sidebar está aberto no desktop */
+            .main-content-with-sidebar {
+                margin-left: 16rem; /* 256px - largura do sidebar */
+            }
+
+            /* Quando sidebar está fechado no desktop */
+            .main-content-full-width {
+                margin-left: 0;
+            }
+        }
+
+        /* Botão do menu com animação */
+        .menu-button {
+            transition: all 0.2s ease-in-out;
+        }
+
+        .menu-button:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .dark .menu-button:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Animação para ícones do menu */
+        .menu-icon {
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .menu-item:hover .menu-icon {
+            transform: scale(1.1);
+        }
+
+        /* Garante que a navegação seja rolável */
+        nav {
+            max-height: calc(100vh - 64px);
+            overflow-y: auto;
+        }
+
+        /* Estilos para indicar item ativo do menu */
+        .menu-active {
+            background-color: #dbeafe;
+            border-right: 3px solid #3b82f6;
+        }
+
+        .dark .menu-active {
+            background-color: #1e3a8a;
+            border-right-color: #60a5fa;
+        }
+
+        /* Animação do botão toggle no desktop */
+        .desktop-toggle-button {
+            transition: all 0.3s ease-in-out;
+        }
+
+        .desktop-toggle-button:hover {
+            background-color: rgba(79, 70, 229, 0.1);
+            border-color: rgba(79, 70, 229, 0.2);
         }
     </style>
 
     {% block extra_css %}{% endblock %}
 </head>
 
-<body class="h-full overflow-hidden" x-data="appData('{{ interface_prefs.tema|default:'light' }}')" x-init="initApp()">
+<body class="h-full overflow-hidden" 
+      x-data="appData('{{ interface_prefs.tema|default:'light' }}')" 
+      x-init="initApp()"
+      :class="{ 'sidebar-open': sidebarOpen }">
+
     <!-- Loading Overlay -->
     <div x-show="loading" x-cloak x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0"
         x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200"
         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-        class="fixed inset-0 flex flex-col items-center justify-center backdrop-blur-sm loading-overlay gradient-overlay-bg">
-        <!--class="fixed inset-0 flex flex-col items-center justify-center bg-gray-900 bg-opacity-50 backdrop-blur-sm loading-overlay">-->
+        class="fixed inset-0 flex flex-col items-center justify-center backdrop-blur-sm loading-overlay gradient-overlay-bg z-50">
 
         <svg class="loading-spinner h-12 w-12 text-white" xmlns="http://www.w3.org/2000/svg" fill="none"
             viewBox="0 0 24 24">
@@ -653,22 +768,46 @@
         <span class="mt-4 text-white text-lg font-medium tracking-wider">Carregando...</span>
     </div>
 
-    <!--Fechar e abrir sidebar/menu em dispositivo model-->
-    <div x-show="mobileMenuOpen" x-cloak @click="mobileMenuOpen = false" x-transition:enter="ease-out duration-300"
-        x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-        x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100"
-        x-transition:leave-end="opacity-0" class="fixed inset-0 z-40 bg-black bg-opacity-50 backdrop-blur-sm lg:hidden">
+    <!-- Overlay para fechar sidebar no mobile -->
+    <div x-show="sidebarOpen && isMobile" 
+         x-cloak 
+         @click="closeSidebar()" 
+         x-transition:enter="ease-out duration-300"
+         x-transition:enter-start="opacity-0" 
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="ease-in duration-200" 
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0" 
+         class="fixed inset-0 z-40 bg-black bg-opacity-50 sidebar-overlay lg:hidden">
     </div>
 
-  <div class="flex h-full ">
+    <div class="flex h-full">
         <!-- Sidebar -->
-        <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" class="fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 
-                      sidebar-transition lg:translate-x-0 lg:static lg:inset-0">
+        <aside x-show="sidebarOpen" 
+               x-cloak
+               x-transition:enter="ease-out duration-300"
+               x-transition:enter-start="transform -translate-x-full"
+               x-transition:enter-end="transform translate-x-0"
+               x-transition:leave="ease-in duration-300"
+               x-transition:leave-start="transform translate-x-0"
+               x-transition:leave-end="transform -translate-x-full"
+               :class="isMobile ? 'fixed inset-y-0 left-0 z-50' : 'sidebar-desktop'"
+               class="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700">
 
             <!-- Logo -->
-            <div class="flex h-16 shrink-0 items-center px-6 border-b border-gray-200 dark:border-gray-700">
-                <img class="h-8 w-auto" src="{% load static %}{% static 'img/logo.png' %}" alt="vistoGEST">
-                <span class="ml-3 text-xl font-bold text-indigo-900 dark:text-white">vistoGEST</span>
+            <div class="flex h-16 shrink-0 items-center justify-between px-6 border-b border-gray-200 dark:border-gray-700">
+                <div class="flex items-center">
+                    <img class="h-8 w-auto" src="{% load static %}{% static 'img/logo.png' %}" alt="vistoGEST">
+                    <span class="ml-3 text-xl font-bold text-indigo-900 dark:text-white">vistoGEST</span>
+                </div>
+                
+                <!-- Botão de fechar no mobile -->
+                <button @click="closeSidebar()" 
+                        x-show="isMobile"
+                        class="lg:hidden -m-2.5 p-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md menu-button">
+                    <span class="sr-only">Fechar menu</span>
+                    <i class="fas fa-times h-6 w-6"></i>
+                </button>
             </div>
 
             <!-- Navigation -->
@@ -676,53 +815,54 @@
                 <ul role="list" class="flex flex-1 flex-col gap-y-1">
                     <!-- Dashboard -->
                     <li>
-                        <a href="{% url 'core:dashboard' %}" class="{% if request.resolver_match.namespace == 'core' and request.resolver_match.url_name == 'dashboard' %}bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-200{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800{% endif %} 
+                        <a href="{% url 'core:dashboard' %}" 
+                           @click="isMobile && closeSidebar()"
+                           class="menu-item {% if request.resolver_match.namespace == 'core' and request.resolver_match.url_name == 'dashboard' %}menu-active{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800{% endif %} 
                                   group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold">
-                            <i class="fas fa-tachometer-alt h-6 w-6 shrink-0"></i>
+                            <i class="fas fa-tachometer-alt h-6 w-6 shrink-0 menu-icon"></i>
                             Dashboard
                         </a>
                     </li>
 
                     <!-- Vendas -->
-                    {% if perms.vendas.view_venda %}
-                    <li
-                        x-data="{ open: {% if request.resolver_match.namespace == 'vendas' %}true{% else %}false{% endif %} }">
+                    <li x-data="{ open: {% if request.resolver_match.namespace == 'vendas' %}true{% else %}false{% endif %} }">
                         <button @click="open = !open"
-                            class="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
-                                       group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
-                            <i class="fas fa-shopping-cart h-6 w-6 shrink-0"></i>
+                            class="menu-item text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                                   group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
+                            <i class="fas fa-shopping-cart h-6 w-6 shrink-0 menu-icon"></i>
                             Vendas
                             <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform"
                                 :class="open ? 'rotate-90' : ''"></i>
                         </button>
-                        <ul x-show="open" x-cloak class="mt-1 px-2">
-                            <li><a href="{% url 'vendas:pdv' %}"
+                        <ul x-show="open" x-cloak x-transition class="mt-1 px-2">
+                            <li><a href="{% url 'vendas:pdv' %}" 
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-cash-register mr-2"></i>PDV
                             </a></li>
                             <li><a href="{% url 'vendas:lista' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-list mr-2"></i>Vendas
                             </a></li>
                         </ul>
                     </li>
-                    {% endif %}
 
-
-                    {% if perms.vendas.view_venda or perms.vendas.view_faturacredito or perms.vendas.view_recibo or perms.vendas.view_faturaproforma %}
+                    <!-- Faturamento e Documentos -->
                     <li x-data="{ open: {% if 'fatura' in request.path or 'recibo' in request.path or 'proforma' in request.path or 'pdv' in request.path or 'documentos' in request.path %}true{% else %}false{% endif %} }">
                         <button @click="open = !open"
-                            class="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                            class="menu-item text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
                                 group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
-                            <i class="fas fa-file-invoice-dollar h-6 w-6 shrink-0"></i> 
+                            <i class="fas fa-file-invoice-dollar h-6 w-6 shrink-0 menu-icon"></i> 
                             Faturamento e Documentos
                             <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform"
                             :class="open ? 'rotate-90' : ''"></i>
                         </button>
-                        <ul x-show="open" x-cloak class="mt-1 px-2">
+                        <ul x-show="open" x-cloak x-transition class="mt-1 px-2">
                             
                             <!-- Dashboard -->
                             <li><a href="{% url 'vendas:documentos_dashboard' %}" 
+                                   @click="isMobile && closeSidebar()"
                                 class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-chart-line mr-2"></i>Dashboard Documentos
                             </a></li>
@@ -736,275 +876,270 @@
                                 </span>
                             </li>
                             
-                            {% if perms.vendas.add_venda %}
                             <li><a href="{% url 'vendas:pdv' %}" 
+                                   @click="isMobile && closeSidebar()"
                                 class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-cash-register mr-2"></i>PDV - Ponto de Venda
                             </a></li>
-                            {% endif %}
-                            
-                            {% if perms.vendas.view_venda %}
+                     
                             <li><a href="{% url 'vendas:vendas_lista' %}" 
+                                   @click="isMobile && closeSidebar()"
                                 class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-receipt mr-2"></i>Vendas Realizadas (FR)
                             </a></li>
-                            {% endif %}
                             
                             <li class="border-t border-gray-200 dark:border-gray-700 my-2"></li>
                             
-                            <!-- Em Desenvolvimento -->
-                             <!--
-                            <li class="px-2 py-1">
-                                <span class="text-xs font-semibold text-green-500 dark:text-green-400 uppercase tracking-wide">
-                                    ✅ Documentos Disponíveis
-                                </span>
-                            </li>
-                             -->
-                            
-                            {% if perms.vendas.view_faturacredito %}
                             <li><a href="{% url 'vendas:faturas_credito_lista' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-file-invoice mr-2"></i>Faturas a Crédito (FT)
                                 </a></li>
-                            {% endif %}
                             
-                            {% if perms.vendas.view_recibo %}
                             <li><a href="{% url 'vendas:recibos_lista' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-money-check-alt mr-2"></i>Recibos (REC)
                                 </a></li>
-                            {% endif %}
-                            
-                            {% if perms.vendas.view_faturaproforma %}
+                       
                             <li><a href="{% url 'vendas:proformas_lista' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-file-contract mr-2"></i>Proformas
                                 </a></li>
-                            {% endif %}
                             
                             <li class="border-t border-gray-200 dark:border-gray-700 my-2"></li>
                             
-                            {% if perms.vendas.add_faturacredito %}
                             <li><a href="{% url 'vendas:nova_fatura_credito' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-plus-circle mr-2"></i>Nova Fatura Crédito
                                 </a></li>
-                            {% endif %}
                             
-                            {% if perms.vendas.add_faturaproforma %}
                             <li><a href="{% url 'vendas:nova_proforma' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-hand-holding-usd mr-2"></i>Nova Proforma
                                 </a></li>
-                            {% endif %}
-                            
-                            {% if perms.vendas.view_faturacredito %}
+
                             <li><a href="{% url 'vendas:contas_receber' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-coins mr-2"></i>Contas a Receber
                                 </a></li>
-                            {% endif %}
                             
-                            </ul>
-                            </li>
-                            {% endif %}
-
+                        </ul>
+                    </li>
 
                     <!-- Produtos -->
-                    {% if perms.produtos.view_produto %}
-                    <li
-                        x-data="{ open: {% if request.resolver_match.namespace == 'produtos' %}true{% else %}false{% endif %} }">
+                    <li x-data="{ open: {% if request.resolver_match.namespace == 'produtos' %}true{% else %}false{% endif %} }">
                         <button @click="open = !open"
-                            class="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
-                                       group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
-                            <i class="fas fa-box h-6 w-6 shrink-0"></i>
+                            class="menu-item text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                                   group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
+                            <i class="fas fa-box h-6 w-6 shrink-0 menu-icon"></i>
                             Produtos/Serviços
                             <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform"
                                 :class="open ? 'rotate-90' : ''"></i>
                         </button>
-                        <ul x-show="open" x-cloak class="mt-1 px-2">
+                        <ul x-show="open" x-cloak x-transition class="mt-1 px-2">
                             <li><a href="{% url 'produtos:produto_list' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-list mr-2"></i>Produtos
                                 </a>
                             </li>
                             <li><a href="{% url 'servicos:servico_list' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
-                                    <i class="fas fa-hands-helping mr-2"></i></i>Serviços
+                                    <i class="fas fa-hands-helping mr-2"></i>Serviços
                                 </a>
                             </li>
                             <li><a href="{% url 'produtos:categoria_list' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-tags mr-2"></i>Categorias
                                 </a></li>
                         </ul>
                     </li>
-                    {% endif %}
 
                     <!-- Estoque -->
-                    {% if perms.estoque.view_movimentacaoestoque %}
-                    <li
-                        x-data="{ open: {% if request.resolver_match.namespace == 'estoque' %}true{% else %}false{% endif %} }">
+                    <li x-data="{ open: {% if request.resolver_match.namespace == 'estoque' %}true{% else %}false{% endif %} }">
                         <button @click="open = !open"
-                            class="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
-                                       group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
-                            <i class="fas fa-warehouse h-6 w-6 shrink-0"></i>
+                            class="menu-item text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                                   group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
+                            <i class="fas fa-warehouse h-6 w-6 shrink-0 menu-icon"></i>
                             Estoque
                             <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform"
                                 :class="open ? 'rotate-90' : ''"></i>
                         </button>
-                        <ul x-show="open" x-cloak class="mt-1 px-2">
+                        <ul x-show="open" x-cloak x-transition class="mt-1 px-2">
                             <li><a href="{% url 'estoque:dashboard' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-chart-bar mr-2"></i>Visão Geral
                                 </a></li>
                             <li><a href="{% url 'estoque:movimentacao_lista' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-exchange-alt mr-2"></i>Movimentações
                                 </a></li>
                             <li><a href="{% url 'estoque:inventario_lista' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-clipboard-list mr-2"></i>Inventário
                                 </a></li>
                         </ul>
                     </li>
-                    {% endif %}
 
                     <!-- Clientes -->
-                    {% if perms.clientes.view_cliente %}
-                    <li
-                        x-data="{ open: {% if request.resolver_match.namespace == 'clientes' %}true{% else %}false{% endif %} }">
+                    <li x-data="{ open: {% if request.resolver_match.namespace == 'clientes' %}true{% else %}false{% endif %} }">
                         <button @click="open = !open"
-                            class="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
-                                       group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
-                            <i class="fas fa-users h-6 w-6 shrink-0"></i>
+                            class="menu-item text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                                   group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
+                            <i class="fas fa-users h-6 w-6 shrink-0 menu-icon"></i>
                             Clientes
                             <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform"
                                 :class="open ? 'rotate-90' : ''"></i>
                         </button>
-                        <ul x-show="open" x-cloak class="mt-1 px-2">
+                        <ul x-show="open" x-cloak x-transition class="mt-1 px-2">
                             <li><a href="{% url 'clientes:dashboard' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-list mr-2"></i>Clientes
                                 </a></li>
-                            
                         </ul>
                     </li>
-                    {% endif %}
 
                     <!-- Fornecedores -->
-                    {% if perms.fornecedores.view_fornecedor %}
                     <li>
-                        <a href="{% url 'fornecedores:lista' %}" class="{% if request.resolver_match.namespace == 'fornecedores' %}bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-200{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800{% endif %} 
+                        <a href="{% url 'fornecedores:lista' %}" 
+                           @click="isMobile && closeSidebar()"
+                           class="menu-item {% if request.resolver_match.namespace == 'fornecedores' %}menu-active{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800{% endif %} 
                                   group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold">
-                            <i class="fas fa-truck h-6 w-6 shrink-0"></i>
+                            <i class="fas fa-truck h-6 w-6 shrink-0 menu-icon"></i>
                             Fornecedores
                         </a>
                     </li>
-                    {% endif %}
 
                     <!-- Funcionários -->
-                    {% if perms.funcionarios.view_funcionario %}
-                    <li
-                        x-data="{ open: {% if request.resolver_match.namespace == 'funcionarios' %}true{% else %}false{% endif %} }">
+                    <li x-data="{ open: {% if request.resolver_match.namespace == 'funcionarios' %}true{% else %}false{% endif %} }">
                         <button @click="open = !open"
-                            class="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
-                                       group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
-                            <i class="fas fa-user-tie h-6 w-6 shrink-0"></i>
+                            class="menu-item text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                                   group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
+                            <i class="fas fa-user-tie h-6 w-6 shrink-0 menu-icon"></i>
                             Funcionários
                             <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform"
                                 :class="open ? 'rotate-90' : ''"></i>
                         </button>
-                        <ul x-show="open" x-cloak class="mt-1 px-2">
+                        <ul x-show="open" x-cloak x-transition class="mt-1 px-2">
                             <li><a href="{% url 'funcionarios:dashboard' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-list mr-2"></i>Dashboard
                                 </a></li>
                             <li><a href="{% url 'funcionarios:funcionarios' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-list mr-2"></i>Ver Funcionários
                                 </a></li>
                             <li><a href="{% url 'funcionarios:cargo_lista' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-briefcase mr-2"></i>Ver Cargos
                                 </a></li>
                         </ul>
                     </li>
-                    {% endif %}
 
                     <!-- Financeiro -->
-                    {% if perms.financeiro.view_contareceber %}
-                    <li
-                        x-data="{ open: {% if request.resolver_match.namespace == 'financeiro' %}true{% else %}false{% endif %} }">
+                    <li x-data="{ open: {% if request.resolver_match.namespace == 'financeiro' %}true{% else %}false{% endif %} }">
                         <button @click="open = !open"
-                            class="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
-                                       group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
-                            <i class="fas fa-dollar-sign h-6 w-6 shrink-0"></i>
+                            class="menu-item text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                                   group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
+                            <i class="fas fa-dollar-sign h-6 w-6 shrink-0 menu-icon"></i>
                             Financeiro
                             <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform"
                                 :class="open ? 'rotate-90' : ''"></i>
                         </button>
-                        <ul x-show="open" x-cloak class="mt-1 px-2">
+                        <ul x-show="open" x-cloak x-transition class="mt-1 px-2">
                             <li><a href="{% url 'financeiro:dashboard' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-chart-line mr-2"></i>Visão Geral
                                 </a></li>
                             <li><a href="{% url 'financeiro:conta_receber_lista' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-arrow-down mr-2 text-green-500"></i>Contas a Receber
                                 </a></li>
                             <li><a href="{% url 'financeiro:conta_pagar_lista' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-arrow-up mr-2 text-red-500"></i>Contas a Pagar
                                 </a></li>
                             <li><a href="{% url 'financeiro:fluxo_caixa' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-money-bill-wave mr-2"></i>Fluxo de Caixa
                                 </a></li>
                         </ul>
                     </li>
-                    {% endif %}
 
                     <!-- Relatórios -->
                     {% if perms.relatorios.view_relatorio %}
-                    <li
-                        x-data="{ open: {% if request.resolver_match.namespace == 'relatorios' %}true{% else %}false{% endif %} }">
+                    <li x-data="{ open: {% if request.resolver_match.namespace == 'relatorios' %}true{% else %}false{% endif %} }">
                         <button @click="open = !open"
-                            class="text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
-                                       group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
-                            <i class="fas fa-chart-bar h-6 w-6 shrink-0"></i>
+                            class="menu-item text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                                   group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
+                            <i class="fas fa-chart-bar h-6 w-6 shrink-0 menu-icon"></i>
                             Relatórios
                             <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform"
                                 :class="open ? 'rotate-90' : ''"></i>
                         </button>
-                        <ul x-show="open" x-cloak class="mt-1 px-2">
+                        <ul x-show="open" x-cloak x-transition class="mt-1 px-2">
                             <li><a href="{% url 'relatorios:dashboard' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-tachometer-alt mr-2"></i>Dashboard
                                 </a></li>
                             <li><a href="{% url 'relatorios:vendas' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-shopping-cart mr-2"></i>Vendas
                                 </a>
                             </li>
                             <li><a href="{% url 'relatorios:estoque' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-warehouse mr-2"></i>Estoque
                                 </a></li>
                             <li><a href="{% url 'relatorios:financeiro' %}"
+                                   @click="isMobile && closeSidebar()"
                                     class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                                     <i class="fas fa-dollar-sign mr-2"></i>Financeiro
                                 </a></li>
                         </ul>
                     </li>
                     {% endif %}
+                    
+                    <li class="mt-auto">
+                        <a href="{% url 'fiscal:dashboard' %}" 
+                           @click="isMobile && closeSidebar()"
+                           class="menu-item {% if request.resolver_match.namespace == 'fiscal' %}menu-active{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800{% endif %} 
+                                  group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold">
+                            <i class="fas fa-university h-6 w-6 shrink-0 menu-icon"></i>
+                            AGT
+                        </a>
+                    </li>
+                    
 
                     <!-- Configurações -->
                     {% if perms.configuracoes.view_personalizacaointerface %}
                     <li class="mt-auto">
-                        <a href="{% url 'configuracoes:dashboard' %}" class="{% if request.resolver_match.namespace == 'configuracoes' %}bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-200{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800{% endif %} 
+                        <a href="{% url 'configuracoes:dashboard' %}" 
+                           @click="isMobile && closeSidebar()"
+                           class="menu-item {% if request.resolver_match.namespace == 'configuracoes' %}menu-active{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800{% endif %} 
                                   group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold">
-                            <i class="fas fa-cog h-6 w-6 shrink-0"></i>
+                            <i class="fas fa-cog h-6 w-6 shrink-0 menu-icon"></i>
                             Configurações
                         </a>
                     </li>
@@ -1014,20 +1149,34 @@
         </aside>
 
         <!-- Main Content -->
-        <div class="flex flex-1 flex-col lg:pl-0">
+        <div class="flex flex-1 flex-col content-transition"
+             :class="!isMobile && sidebarOpen ? 'main-content-with-sidebar' : 'main-content-full-width'">
             <!-- Top Navigation -->
             <header class="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 dark:border-gray-700 
                           bg-white dark:bg-gray-900 px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
 
                 <!-- Mobile menu button -->
-                <button @click="sidebarOpen = !sidebarOpen" type="button"
-                    class="-m-2.5 p-2.5 text-gray-700 dark:text-gray-300 lg:hidden">
-                    <span class="sr-only">Abrir sidebar</span>
-                    <i class="fas fa-bars h-6 w-6"></i>
+                <button @click="toggleSidebar()" 
+                        type="button"
+                        x-show="isMobile"
+                        class="menu-button -m-2.5 p-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md lg:hidden">
+                    <span class="sr-only" x-text="sidebarOpen ? 'Fechar menu' : 'Abrir menu'"></span>
+                    <i :class="sidebarOpen ? 'fas fa-times' : 'fas fa-bars'" class="h-6 w-6 transition-transform"></i>
+                </button>
+
+                <!-- Desktop menu toggle button -->
+                <button @click="toggleSidebar()" 
+                        type="button"
+                        x-show="!isMobile"
+                        class="desktop-toggle-button hidden lg:flex -m-2.5 p-2.5 text-gray-700 dark:text-gray-300 
+                               hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md border border-transparent">
+                    <span class="sr-only" x-text="sidebarOpen ? 'Recolher menu' : 'Expandir menu'"></span>
+                    <i :class="sidebarOpen ? 'fas fa-chevron-left' : 'fas fa-chevron-right'" 
+                       class="h-5 w-5 transition-all duration-300"></i>
                 </button>
 
                 <!-- Separator -->
-                <div class="h-6 w-px bg-gray-200 dark:bg-gray-700 lg:hidden"></div>
+                <div class="h-6 w-px bg-gray-200 dark:bg-gray-700"></div>
 
                 <!-- Breadcrumbs -->
                 <div class="flex flex-1 gap-x-4 lg:gap-x-6">
@@ -1048,7 +1197,7 @@
                     <!-- Notifications -->
                     <div x-data="{ open: false }" class="relative">
                         <button @click="open = !open" type="button"
-                            class="relative -m-2.5 p-2.5 text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400">
+                            class="menu-button relative -m-2.5 p-2.5 text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400">
                             <span class="sr-only">Ver notificações</span>
                             <i class="fas fa-bell h-6 w-6"></i>
                             <span
@@ -1104,7 +1253,7 @@
                     <!-- Quick Actions -->
                     <div x-data="{ open: false }" class="relative">
                         <button @click="open = !open" type="button"
-                            class="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400">
+                            class="menu-button -m-2.5 p-2.5 text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400">
                             <span class="sr-only">Ações rápidas</span>
                             <i class="fas fa-plus h-6 w-6"></i>
                         </button>
@@ -1141,9 +1290,7 @@
                                 src="{% if user.funcionario.foto %}{{ user.funcionario.foto.url }}{% else %}{% load static %}{% static 'images/default-avatar.png' %}{% endif %}"
                                 alt="{{ user.get_full_name|default:user.username }}">
                             <span class="hidden lg:flex lg:items-center">
-                                <span class="ml-4 text-sm font-semibold leading-6 text-gray-900 dark:text-gray-100">
-                                    {{ user.get_full_name|default:user.username }}
-                                </span>
+                                <span class="ml-4 text-sm font-semibold leading-6 text-gray-900 dark:text-gray-100">{{ user.get_full_name|default:user.username }}</span>
                                 <i class="ml-2 h-5 w-5 text-gray-400 fas fa-chevron-down"></i>
                             </span>
                         </button>
@@ -1157,8 +1304,8 @@
                                     py-1 shadow-lg ring-1 ring-black ring-opacity-5">
 
                             <div class="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-                                <p class="text-sm text-gray-700 dark:text-gray-300">{{
-                                    user.get_full_name|default:user.username }}</p>
+                                <p class="text-sm text-gray-700 dark:text-gray-300">
+                                    {{ user.get_full_name|default:user.username }}</p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">{{ user.email }}</p>
                                 {% if user.funcionario.cargo %}
                                 <p class="text-xs text-gray-500 dark:text-gray-400">{{ user.funcionario.cargo.nome }}
@@ -1285,8 +1432,248 @@
 
     <!-- Scripts -->
     <script>
-        // Em templates/base.html, dentro do <script> no final
+        // Função principal do Alpine.js para gerenciar estado da aplicação
+        function appData(initialTheme = 'light') {
+            return {
+                // Estados da aplicação
+                loading: true,
+                darkMode: initialTheme === 'dark',
+                sidebarOpen: true, // Desktop: aberto por padrão
+                isMobile: false,
 
+                // Inicialização da aplicação
+                initApp() {
+                    // Detectar se é mobile
+                    this.checkIfMobile();
+                    
+                    // No mobile, sidebar começa fechado
+                    if (this.isMobile) {
+                        this.sidebarOpen = false;
+                    }
+
+                    // Listener para resize da janela
+                    window.addEventListener('resize', () => {
+                        const wasMobile = this.isMobile;
+                        this.checkIfMobile();
+                        
+                        // Se mudou de mobile para desktop e sidebar estava fechado, abrir
+                        if (wasMobile && !this.isMobile && !this.sidebarOpen) {
+                            this.sidebarOpen = true;
+                        }
+                        // Se mudou de desktop para mobile e sidebar estava aberto, fechar
+                        else if (!wasMobile && this.isMobile && this.sidebarOpen) {
+                            this.sidebarOpen = false;
+                        }
+                    });
+
+                    // Aplicar tema inicial
+                    this.applyTheme();
+
+                    // Simular carregamento
+                    setTimeout(() => {
+                        this.loading = false;
+                    }, 1000);
+
+                    // Carregar preferências do localStorage
+                    this.loadPreferences();
+                },
+
+                // Detectar se é dispositivo mobile
+                checkIfMobile() {
+                    this.isMobile = window.innerWidth < 1024; // lg breakpoint do Tailwind
+                },
+
+                // Toggle do sidebar com comportamento diferente para mobile/desktop
+                toggleSidebar() {
+                    this.sidebarOpen = !this.sidebarOpen;
+                    this.savePreferences();
+                },
+
+                // Fechar sidebar (usado principalmente no mobile)
+                closeSidebar() {
+                    this.sidebarOpen = false;
+                    this.savePreferences();
+                },
+
+                // Abrir sidebar
+                openSidebar() {
+                    this.sidebarOpen = true;
+                    this.savePreferences();
+                },
+
+                // Toggle do modo escuro
+                toggleDarkMode() {
+                    this.darkMode = !this.darkMode;
+                    this.applyTheme();
+                    this.savePreferences();
+                },
+
+                // Aplicar tema
+                applyTheme() {
+                    if (this.darkMode) {
+                        document.documentElement.classList.add('dark');
+                        document.documentElement.setAttribute('data-theme', 'dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                        document.documentElement.setAttribute('data-theme', 'light');
+                    }
+                },
+
+                // Salvar preferências no localStorage
+                savePreferences() {
+                    // No mobile, não salvar estado do sidebar pois sempre deve começar fechado
+                    const prefsToSave = {
+                        darkMode: this.darkMode,
+                    };
+                    
+                    // Só salvar estado do sidebar se for desktop
+                    if (!this.isMobile) {
+                        prefsToSave.sidebarOpen = this.sidebarOpen;
+                    }
+                    
+                    localStorage.setItem('app-preferences', JSON.stringify(prefsToSave));
+                },
+
+                // Carregar preferências do localStorage
+                loadPreferences() {
+                    try {
+                        const saved = localStorage.getItem('app-preferences');
+                        if (saved) {
+                            const preferences = JSON.parse(saved);
+                            this.darkMode = preferences.darkMode || false;
+                            
+                            // Só restaurar sidebar se não for mobile
+                            if (!this.isMobile && preferences.sidebarOpen !== undefined) {
+                                this.sidebarOpen = preferences.sidebarOpen;
+                            }
+                            
+                            this.applyTheme();
+                        }
+                    } catch (error) {
+                        console.warn('Erro ao carregar preferências:', error);
+                    }
+                },
+
+                // Utilitários para componentes
+                formatCurrency(value) {
+                    return new Intl.NumberFormat('pt-AO', {
+                        style: 'currency',
+                        currency: 'AOA'
+                    }).format(value);
+                },
+
+                formatDate(date) {
+                    return new Intl.DateTimeFormat('pt-AO').format(new Date(date));
+                },
+
+                // Navegação programática
+                navigateTo(url) {
+                    if (this.isMobile) {
+                        this.closeSidebar();
+                    }
+                    window.location.href = url;
+                },
+
+                // Funções de feedback visual
+                showSuccess(message) {
+                    this.showToast(message, 'success');
+                },
+
+                showError(message) {
+                    this.showToast(message, 'error');
+                },
+
+                showToast(message, type = 'info') {
+                    // Implementação básica de toast
+                    const toast = document.createElement('div');
+                    toast.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg transition-all duration-300 ${
+                        type === 'success' ? 'bg-green-500' : 
+                        type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                    } text-white`;
+                    toast.textContent = message;
+                    
+                    document.body.appendChild(toast);
+                    
+                    setTimeout(() => {
+                        toast.style.opacity = '0';
+                        toast.style.transform = 'translateX(100%)';
+                        setTimeout(() => toast.remove(), 300);
+                    }, 3000);
+                }
+            }
+        }
+
+        // Funções globais para compatibilidade
+        window.toggleSidebar = () => {
+            const appInstance = window.Alpine?.store?.('app');
+            if (appInstance) {
+                appInstance.toggleSidebar();
+            }
+        };
+
+        window.toggleDarkMode = () => {
+            const appInstance = window.Alpine?.store?.('app');
+            if (appInstance) {
+                appInstance.toggleDarkMode();
+            }
+        };
+
+        // Event listeners adicionais
+        document.addEventListener('DOMContentLoaded', function() {
+            // Fechar dropdowns ao clicar fora (fallback)
+            document.addEventListener('click', function(event) {
+                const dropdowns = document.querySelectorAll('[x-data*="open"]');
+                dropdowns.forEach(dropdown => {
+                    if (!dropdown.contains(event.target)) {
+                        // Despachar evento para fechar dropdown
+                        dropdown.dispatchEvent(new CustomEvent('click-away'));
+                    }
+                });
+            });
+
+            // Atalhos de teclado
+            document.addEventListener('keydown', function(event) {
+                // Ctrl/Cmd + B para toggle sidebar
+                if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
+                    event.preventDefault();
+                    window.toggleSidebar();
+                }
+
+                // Ctrl/Cmd + D para toggle dark mode
+                if ((event.ctrlKey || event.metaKey) && event.key === 'd') {
+                    event.preventDefault();
+                    window.toggleDarkMode();
+                }
+
+                // ESC para fechar sidebar no mobile
+                if (event.key === 'Escape') {
+                    // Acessar instância Alpine via evento customizado
+                    document.dispatchEvent(new CustomEvent('closeSidebar'));
+                }
+            });
+
+            // Listener para evento customizado de fechar sidebar
+            document.addEventListener('closeSidebar', function() {
+                const sidebarElements = document.querySelectorAll('[x-data*="appData"]');
+                sidebarElements.forEach(el => {
+                    const alpineData = el._x_dataStack?.[0];
+                    if (alpineData && alpineData.isMobile && alpineData.sidebarOpen) {
+                        alpineData.closeSidebar();
+                    }
+                });
+            });
+        });
+
+        // Interceptar navegação para fechar sidebar no mobile
+        document.addEventListener('click', function(event) {
+            const link = event.target.closest('a[href]');
+            if (link && link.getAttribute('href').startsWith('/')) {
+                // É um link interno - verificar se é mobile via mídia query
+                if (window.matchMedia('(max-width: 1023px)').matches) {
+                    document.dispatchEvent(new CustomEvent('closeSidebar'));
+                }
+            }
+        });
     </script>
 
     {% block extra_js %}{% endblock %}

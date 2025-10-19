@@ -114,7 +114,55 @@ class Cargo(TimeStampedModel):
     pode_acessar_rh = models.BooleanField(default=False)
     pode_acessar_financeiro = models.BooleanField(default=False)
     pode_acessar_fornecedores = models.BooleanField(default=False)
+    pode_alterar_dados_fiscais = models.BooleanField(default=False)
+    pode_eliminar_detalhes_fiscal = models.BooleanField(default=False)
+    
+    pode_acessar_detalhes_fiscal = models.BooleanField(default=False)
+    pode_fazer_backup_manual = models.BooleanField(default=False)
+    pode_ver_configuracoes = models.BooleanField(default=False)
+    pode_atualizar_backups = models.BooleanField(default=False)
+    pode_alterar_interface = models.BooleanField(default=False)
     pode_acessar_configuracoes = models.BooleanField(default=False)
+
+    pode_exportar_saft = models.BooleanField(default=False)
+    pode_ver_historico_saft = models.BooleanField(default=False)
+    pode_baixar_saft = models.BooleanField(default=False)
+    pode_validar_saft = models.BooleanField(default=False)
+    pode_visualizar_saft = models.BooleanField(default=False)
+    pode_ver_status_saft = models.BooleanField(default=False)
+    pode_criar_dados_bancarios = models.BooleanField(default=False)
+    pode_apagar_dados_bancarios = models.BooleanField(default=False)
+    pode_atualizar_dados_bancarios = models.BooleanField(default=False)
+
+    pode_ver_taxaiva_agt = models.BooleanField(default=False)
+    pode_gerir_assinatura_digital = models.BooleanField(default=False)
+    pode_gerir_retencoes_na_fonte = models.BooleanField(default=False)
+    pode_criar_retencoes_na_fonte = models.BooleanField(default=False)
+    pode_apagar_retencoes_na_fonte = models.BooleanField(default=False)
+    pode_acessar_dashboard_fiscal = models.BooleanField(default=False)
+    pode_validar_documentos_fiscais = models.BooleanField(default=False)
+    pode_verificar_integridade_hash = models.BooleanField(default=False)
+    pode_acessar_painel_principal_fiscal = models.BooleanField(default=False)
+    pode_ver_taxas_iva = models.BooleanField(default=False)
+    pode_criar_taxas_iva = models.BooleanField(default=False)
+    pode_apagar_taxas_iva = models.BooleanField(default=False)
+    pode_ver_status_atual_assinatura_digital = models.BooleanField(default=False)
+    pode_configurar_assinatura_digital = models.BooleanField(default=False)
+    pode_gerar_par_chave_publica_ou_privada = models.BooleanField(default=False)
+
+    pode_ver_relatorio_fiscal = models.BooleanField(default=False)
+    pode_ver_relatorio_retencoes = models.BooleanField(default=False)
+    pode_ver_relatorio_taxas_iva = models.BooleanField(default=False)
+    pode_acessar_dashboard_saft = models.BooleanField(default=False)
+    pode_baixar_chave_publica = models.BooleanField(default=False)
+    pode_baixar_retencoes = models.BooleanField(default=False)
+
+    pode_baixar_saft_backup_fiscal = models.BooleanField(default=False)
+    pode_baixar_relatorio_retencoes = models.BooleanField(default=False)
+    pode_acessar_configuracao_fiscal = models.BooleanField(default=False)
+    pode_verificar_integridade_cadeia_hash_fiscal = models.BooleanField(default=False)
+    
+
 
 
 
@@ -176,9 +224,6 @@ class Departamento(TimeStampedModel):
     def __str__(self):
         return f"{self.nome} - {self.loja.nome if self.loja else 'Global'}"
 
-
-
-
 class Funcionario(TimeStampedModel):
     """Funcionários da empresa"""
 
@@ -214,7 +259,12 @@ class Funcionario(TimeStampedModel):
     ]
 
     # Identificação
-    matricula = models.CharField(max_length=20, help_text="Matrícula do funcionário")
+    matricula = models.CharField(
+        max_length=20,
+        unique=True,  # garante unicidade
+        editable=False,
+        help_text="Gerada automaticamente no formato FUNC-00001"
+    )
     usuario = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -294,10 +344,7 @@ class Funcionario(TimeStampedModel):
     instituicao_ensino = models.CharField(max_length=200, blank=True)
     ano_conclusao = models.IntegerField(null=True, blank=True)
 
-    # Registros profissionais
-    numero_ofa = models.CharField(max_length=20, blank=True, help_text="Número do OFA")
-    data_validade_ofa = models.DateField(null=True, blank=True)
-    numero_ocpca = models.CharField(max_length=20, blank=True, help_text="Número do OCPCA")
+    
     outros_registros = models.TextField(blank=True, help_text="Outros registros profissionais")
 
     # Dados bancários
@@ -309,7 +356,6 @@ class Funcionario(TimeStampedModel):
         ('poupanca', 'Poupança'),
         ('salario', 'Conta Salário'),
     ], blank=True)
-    kwik_chave = models.CharField(max_length=100, blank=True)
 
     # Jornada
     carga_horaria_semanal = models.IntegerField(default=44, help_text="Horas semanais")
@@ -354,20 +400,22 @@ class Funcionario(TimeStampedModel):
         return f"{self.matricula} - {self.nome_exibicao}"
     
     def gerar_matricula(self):
-        """Gera matrícula sequencial"""
-        from django.db.models import Max
-        ultima_matricula = Funcionario.objects.filter(
-            empresa=self.empresa
-        ).aggregate(Max('matricula'))['matricula__max']
+        """Gera matrícula sequencial segura por empresa"""
+        from django.db import transaction
 
-        if ultima_matricula:
-            try:
-                numero = int(ultima_matricula.split('-')[-1]) + 1
-            except:
+        with transaction.atomic():
+            funcionarios = Funcionario.objects.select_for_update().filter(empresa=self.empresa)
+            ultima = funcionarios.order_by('-id').first()
+
+            if ultima and ultima.matricula:
+                try:
+                    numero = int(str(ultima.matricula).split('-')[-1]) + 1
+                except ValueError:
+                    numero = 1
+            else:
                 numero = 1
-        else:
-            numero = 1
-        return f"FUNC-{numero:05d}"
+
+            return f"FUNC-{numero:05d}"
 
 
 
@@ -384,8 +432,10 @@ class Funcionario(TimeStampedModel):
             self.usuario.save(update_fields=['empresa'])
 
         # ⚠️ 3️⃣ Antes de salvar, valida apenas se for criação e cargo estiver vazio
+        from django.core.exceptions import ValidationError
+
         if criando and not self.cargo:
-            raise ValueError("O campo 'cargo' é obrigatório ao criar o funcionário.")
+            raise ValidationError({"cargo": "O campo 'cargo' é obrigatório ao criar o funcionário."})
 
         # 4️⃣ Salva o funcionário (isso já garante que o cargo_id seja persistido)
         super().save(*args, **kwargs)
@@ -433,11 +483,11 @@ class Funcionario(TimeStampedModel):
     def tempo_empresa_anos(self):
         return self.tempo_empresa_dias / 365.25
 
-    @property
-    def ofa_vencido(self):
-        if self.data_validade_ofa:
-            return self.data_validade_ofa < date.today()
-        return False
+    #@property
+    #def ofa_vencido(self):
+    #    if self.data_validade_ofa:
+    #        return self.data_validade_ofa < date.today()
+    #    return False
 
     @property
     def endereco_completo(self):
@@ -464,10 +514,6 @@ class Funcionario(TimeStampedModel):
             return False
         atributo = f'pode_{acao}'
         return getattr(self.cargo, atributo, False)
-
-        
-
-
 
 class Equipe(models.Model):
     nome = models.CharField(max_length=100) 

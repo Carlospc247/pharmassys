@@ -6,10 +6,10 @@ from .api import viewsets
 
 # API Router (DRF) - Configuração para ViewSets
 router = DefaultRouter()
-router.register(r'vendas', viewsets.VendaViewSet)
+router.register(r'vendas', views.VendaViewSet, basename='vendas')
 router.register(r'itens', viewsets.ItemVendaViewSet)
 router.register(r'pagamentos', viewsets.PagamentoViewSet)
-router.register(r'vendas', views.VendaViewSet, basename='vendas')
+
 
 app_name = 'vendas'
 
@@ -33,7 +33,6 @@ urlpatterns = [
     path('pagamentos/<int:pk>/', views.PagamentoDetailView.as_view(), name='pagamento_detail'),
     path('pagamentos/<int:pk>/estornar/', views.EstornarPagamentoView.as_view(), name='pagamento_estornar'),
     # Tipos específicos de pagamento
-    path('pagamentos/kwik/', views.PagamentoKWIKView.as_view(), name='pagamento_kwik'),
     path('pagamentos/cartao/', views.PagamentoCartaoView.as_view(), name='pagamento_cartao'),
     path('pagamentos/convenio/', views.PagamentoConvenioView.as_view(), name='pagamento_convenio'),
     path('pagamentos/crediario/', views.PagamentoCrediarioView.as_view(), name='pagamento_crediario'),
@@ -83,8 +82,6 @@ urlpatterns = [
     path('comissoes/', views.ComissaoListView.as_view(), name='comissao_lista'),
     path('comissoes/calcular/', views.CalcularComissaoView.as_view(), name='calcular_comissao'),
     path('comissoes/pagar/', views.PagarComissaoView.as_view(), name='pagar_comissao'),
-    
-    path('v1/vendas/', VendaCreateAPIView.as_view(), name='venda-create-api'),
     
     # API de B.I. (NOVA)
     path('v1/relatorios/rentabilidade/', views.RentabilidadeAPIView.as_view(), name='rentabilidade-api'),
@@ -144,8 +141,8 @@ urlpatterns = [
     # Esta rota deve ser a ÚLTIMA API para evitar conflitos
     # =====================================
     path('api/', include(router.urls)),
-    path('', include('apps.vendas.urls_documentos')),
-    
+    #path('', include('apps.vendas.urls_documentos')),
+    path('', include('apps.vendas.urls_documentos', namespace='vendas_documentos')),
 ]
 
     

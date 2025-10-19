@@ -29,9 +29,7 @@ urlpatterns = [
     path('', include('apps.core.urls')),
     path('produtos/', include('apps.produtos.urls')),
     path('clientes/', include('apps.clientes.urls', namespace='clientes')), #Tenho que usar namespace='clientes' para possibilitar chamar qualquer url da app clientes no javascript. Ex: {% url 'clientes:api_buscar_clientes' %}
-    path('vendas/', include('apps.vendas.urls')),
-    path('', include('apps.vendas.urls_documentos')),
-    path('api/v1/', include('apps.vendas.urls')),
+
     path('estoque/', include('apps.estoque.urls')),
     path('fornecedores/', include('apps.fornecedores.urls')),
     path('funcionarios/', include('apps.funcionarios.urls')),
@@ -44,6 +42,10 @@ urlpatterns = [
     path('fiscal/', include('apps.fiscal.urls')),
     path('saft/', include('apps.saft.urls')),
     path('compras/', include('apps.compras.urls')),
+
+    path('vendas/', include('apps.vendas.urls')),
+    path('vendas-documentos/', include('apps.vendas.urls_documentos', namespace='vendas_documentos')),
+    path('api/v1/vendas/', include('apps.vendas.urls', namespace='vendas_api')),
 ]
 
 # Debug toolbar (apenas em desenvolvimento)

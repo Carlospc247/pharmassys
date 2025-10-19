@@ -341,8 +341,6 @@ class GeradorDocumentos:
         total = float(venda.total or 0)
         p.drawString(2*cm, y, f"A quantia de: AKZ {total:.2f}")
         
-        y -= 0.6*cm
-        p.drawString(2*cm, y, "Referente a: Compra de medicamentos e produtos farmacêuticos")
         
         y -= 0.6*cm
         p.drawString(2*cm, y, f"Data: {venda.data_venda.strftime('%d/%m/%Y')}")

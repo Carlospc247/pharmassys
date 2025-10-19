@@ -39,7 +39,6 @@ class CondicaoPagamento(TimeStampedModel):
     
     # Configurações adicionais
     permite_cartao = models.BooleanField(default=False)
-    permite_kwik = models.BooleanField(default=True)
 
     
     ativa = models.BooleanField(default=True)
@@ -154,7 +153,6 @@ class Fornecedor(TimeStampedModel):
     banco_principal = models.CharField(max_length=100, blank=True)
     agencia = models.CharField(max_length=20, blank=True)
     conta_corrente = models.CharField(max_length=30, blank=True)
-    kwik_chave = models.CharField(max_length=100, blank=True, help_text="Chave kwik")
     
     # Certificações e regulamentações #AGT
  

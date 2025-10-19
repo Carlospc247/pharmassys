@@ -1,0 +1,601 @@
+<!-- templates/fiscal/configuracoes_dashboard.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Configurações Fiscais{% endblock %}
+
+{% block breadcrumbs %}
+<li><a href="{% url 'core:dashboard' %}" class="text-gray-400 hover:text-gray-500">
+    <i class="fas fa-home h-5 w-5"></i>
+</a></li>
+<li class="flex items-center">
+    <i class="fas fa-chevron-right h-5 w-5 text-gray-400 mx-2"></i>
+    <a href="{% url 'fiscal:dashboard' %}" class="text-gray-500 dark:text-gray-400 hover:text-gray-700">Fiscal</a>
+</li>
+<li class="flex items-center">
+    <i class="fas fa-chevron-right h-5 w-5 text-gray-400 mx-2"></i>
+    <span class="text-gray-700 dark:text-gray-300 font-medium">Configurações</span>
+</li>
+{% endblock %}
+
+{% block page_title %}
+<div class="flex items-center">
+    <div class="flex-shrink-0">
+        <div class="flex items-center justify-center w-12 h-12 bg-gray-100 dark:bg-gray-900 rounded-lg">
+            <i class="fas fa-cogs text-gray-600 dark:text-gray-400 text-xl"></i>
+        </div>
+    </div>
+    <div class="ml-4">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Configurações Fiscais</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Gestão de parâmetros e definições fiscais</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_actions %}
+<div class="flex items-center space-x-3">
+    <a href="{% url 'fiscal:backup-fiscal' %}" 
+       class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+        <i class="fas fa-download mr-2"></i>
+        Backup Fiscal
+    </a>
+    <button @click="showImportModal = true" 
+            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+        <i class="fas fa-upload mr-2"></i>
+        Importar Configurações
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div x-data="configuracoesPanel()" class="space-y-6">
+
+    <!-- Informações da Empresa -->
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                <i class="fas fa-building mr-2 text-blue-500"></i>
+                Informações Fiscais da Empresa
+            </h3>
+            <a href="{% url 'fiscal:configuracao-empresa' %}" 
+               class="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-900">
+                Editar
+            </a>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Razão Social</label>
+                <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ empresa.nome }}</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">NIF</label>
+                <p class="mt-1 text-sm text-gray-900 dark:text-gray-100 font-mono">{{ empresa.nif }}</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Última Atualização</label>
+                <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ ultima_actualizacao }}</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Regime Fiscal</label>
+                <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">Regime Geral de IVA</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Actividade Principal</label>
+                <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ empresa.atividade_principal|default:"Não definida" }}</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Status Fiscal</label>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    <i class="fas fa-check mr-1"></i>
+                    Ativo
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configurações por Categoria -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Configurações de Assinatura Digital -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                    <i class="fas fa-shield-alt mr-2 text-green-500"></i>
+                    Assinatura Digital
+                </h3>
+                {% if assinatura_digital %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                        <i class="fas fa-check mr-1"></i>
+                        Configurada
+                    </span>
+                {% else %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                        <i class="fas fa-times mr-1"></i>
+                        Não Configurada
+                    </span>
+                {% endif %}
+            </div>
+            
+            <div class="space-y-4">
+                {% if assinatura_digital %}
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Certificado:</span>
+                        <span class="ml-2 text-gray-900 dark:text-gray-100">
+                            {% if assinatura_digital.certificado_digital %}Configurado{% else %}Pendente{% endif %}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Chaves:</span>
+                        <span class="ml-2 text-gray-900 dark:text-gray-100">
+                            {% if assinatura_digital.chave_publica %}Geradas{% else %}Pendentes{% endif %}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Validade:</span>
+                        <span class="ml-2 text-gray-900 dark:text-gray-100">
+                            {% if assinatura_digital.validade_certificado %}{{ assinatura_digital.validade_certificado|date:"d/m/Y" }}{% else %}N/A{% endif %}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Último Hash:</span>
+                        <span class="ml-2 text-gray-900 dark:text-gray-100 font-mono text-xs">
+                            {% if assinatura_digital.ultimo_hash %}{{ assinatura_digital.ultimo_hash|truncatechars:12 }}...{% else %}N/A{% endif %}
+                        </span>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="flex space-x-3">
+                    <a href="{% url 'fiscal:assinatura-digital' %}" 
+                       class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <i class="fas fa-cog mr-2"></i>
+                        {% if assinatura_digital %}Gerir{% else %}Configurar{% endif %}
+                    </a>
+                    {% if assinatura_digital %}
+                    <button @click="testarAssinatura()" 
+                            class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700">
+                        <i class="fas fa-vial mr-2"></i>
+                        Testar
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Configurações de Taxas -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                    <i class="fas fa-percentage mr-2 text-blue-500"></i>
+                    Taxas de IVA
+                </h3>
+                <span class="text-sm text-gray-500 dark:text-gray-400">{{ total_taxas }} configuradas</span>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Taxas Ativas:</span>
+                        <span class="ml-2 text-green-600 dark:text-green-400 font-medium" x-text="stats.taxasAtivas">{{ taxas_ativas|default:0 }}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Isenções:</span>
+                        <span class="ml-2 text-yellow-600 dark:text-yellow-400 font-medium" x-text="stats.isencoes">{{ isencoes|default:0 }}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Não Sujeitas:</span>
+                        <span class="ml-2 text-purple-600 dark:text-purple-400 font-medium" x-text="stats.naoSujeitas">{{ nao_sujeitas|default:0 }}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Taxa Padrão:</span>
+                        <span class="ml-2 text-gray-900 dark:text-gray-100 font-medium">14%</span>
+                    </div>
+                </div>
+                
+                <div class="flex space-x-3">
+                    <a href="{% url 'fiscal:taxas-iva-list' %}" 
+                       class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <i class="fas fa-list mr-2"></i>
+                        Ver Todas
+                    </a>
+                    <a href="{% url 'fiscal:taxas-iva-create' %}" 
+                       class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                        <i class="fas fa-plus mr-2"></i>
+                        Nova Taxa
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configurações SAF-T -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                    <i class="fas fa-file-export mr-2 text-purple-500"></i>
+                    SAF-T Angola
+                </h3>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    <i class="fas fa-check mr-1"></i>
+                    Pronto
+                </span>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Versão:</span>
+                        <span class="ml-2 text-gray-900 dark:text-gray-100 font-medium">v1.01_01</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Última Exportação:</span>
+                        <span class="ml-2 text-gray-900 dark:text-gray-100 font-medium" x-text="stats.ultimoSAFT">Nunca</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Auto-Export:</span>
+                        <span class="ml-2 text-red-600 dark:text-red-400 font-medium">Desabilitado</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Validação:</span>
+                        <span class="ml-2 text-green-600 dark:text-green-400 font-medium">Automática</span>
+                    </div>
+                </div>
+                
+                <div class="flex space-x-3">
+                    <a href="{% url 'fiscal:saft' %}" 
+                       class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <i class="fas fa-cog mr-2"></i>
+                        Configurar
+                    </a>
+                    <button @click="exportarSAFT()" 
+                            class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-purple-600 hover:bg-purple-700">
+                        <i class="fas fa-download mr-2"></i>
+                        Exportar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configurações de Backup -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                    <i class="fas fa-shield-check mr-2 text-orange-500"></i>
+                    Backup e Segurança
+                </h3>
+                <span class="text-sm text-gray-500 dark:text-gray-400">Última verificação: hoje</span>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Backup Auto:</span>
+                        <span class="ml-2 text-green-600 dark:text-green-400 font-medium">Ativo</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Frequência:</span>
+                        <span class="ml-2 text-gray-900 dark:text-gray-100 font-medium">Semanal</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Último Backup:</span>
+                        <span class="ml-2 text-gray-900 dark:text-gray-100 font-medium">15/12/2024</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400">Tamanho:</span>
+                        <span class="ml-2 text-gray-900 dark:text-gray-100 font-medium">2.4 MB</span>
+                    </div>
+                </div>
+                
+                <div class="flex space-x-3">
+                    <button @click="criarBackup()" 
+                            class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <i class="fas fa-save mr-2"></i>
+                        Backup Manual
+                    </button>
+                    <button @click="showImportModal = true" 
+                            class="flex-1 inline-flex justify-center items-center px-3 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-orange-600 hover:bg-orange-700">
+                        <i class="fas fa-upload mr-2"></i>
+                        Restaurar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configurações Avançadas -->
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-6">
+            <i class="fas fa-sliders-h mr-2 text-gray-500"></i>
+            Configurações Avançadas
+        </h3>
+        
+        <div class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Configurações de Validação -->
+                <div>
+                    <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Validação Automática</h4>
+                    <div class="space-y-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" 
+                                   x-model="settings.validacaoAutomatica"
+                                   class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Validar documentos automaticamente</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" 
+                                   x-model="settings.verificacaoIntegridade"
+                                   class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Verificação de integridade diária</span>
+                        </label>
+                        
+                        <label class="flex items-center">
+                            <input type="checkbox" 
+                                   x-model="settings.alertasEmail"
+                                   class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Alertas por email</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Configurações de Performance -->
+                <div>
+                    <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Performance</h4>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm text-gray-700 dark:text-gray-300 mb-1">Cache de Relatórios</label>
+                            <select x-model="settings.cacheRelatorios" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+                                <option value="1">1 hora</option>
+                                <option value="6">6 horas</option>
+                                <option value="24">24 horas</option>
+                                <option value="0">Desabilitado</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm text-gray-700 dark:text-gray-300 mb-1">Retenção de Logs</label>
+                            <select x-model="settings.retencaoLogs" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+                                <option value="30">30 dias</option>
+                                <option value="90">90 dias</option>
+                                <option value="365">1 ano</option>
+                                <option value="0">Indefinido</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button @click="salvarConfiguracoes()" 
+                        :disabled="saving"
+                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
+                    <div x-show="!saving" class="flex items-center">
+                        <i class="fas fa-save mr-2"></i>
+                        Salvar Configurações
+                    </div>
+                    <div x-show="saving" class="flex items-center">
+                        <svg class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Salvando...
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Importação -->
+    <div x-show="showImportModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" @click="showImportModal = false"></div>
+            
+            <div class="inline-block px-4 pt-5 pb-4 overflow-hidden text-left align-bottom transition-all transform bg-white dark:bg-gray-800 rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                <div class="sm:flex sm:items-start">
+                    <div class="flex items-center justify-center flex-shrink-0 w-12 h-12 mx-auto bg-blue-100 dark:bg-blue-900 rounded-full sm:mx-0 sm:h-10 sm:w-10">
+                        <i class="fas fa-upload text-blue-600 dark:text-blue-400"></i>
+                    </div>
+                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                        <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100">Importar Configurações</h3>
+                        <div class="mt-4">
+                            <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6">
+                                <input type="file" 
+                                       @change="handleFileSelect"
+                                       accept=".json,.zip"
+                                       class="hidden"
+                                       x-ref="fileInput">
+                                <div class="text-center">
+                                    <i class="fas fa-cloud-upload-alt text-gray-400 text-3xl mb-2"></i>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                                        Arraste um arquivo ou 
+                                        <button @click="$refs.fileInput.click()" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500">
+                                            clique para selecionar
+                                        </button>
+                                    </p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        Formatos suportados: JSON, ZIP
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+                    <button @click="importarConfiguracoes()" 
+                            :disabled="!selectedFile"
+                            class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 disabled:opacity-50 sm:ml-3 sm:w-auto sm:text-sm">
+                        Importar
+                    </button>
+                    <button @click="showImportModal = false" 
+                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 sm:mt-0 sm:w-auto sm:text-sm">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function configuracoesPanel() {
+    return {
+        stats: {
+            taxasAtivas: {{ taxas_ativas|default:0 }},
+            isencoes: {{ isencoes|default:0 }},
+            naoSujeitas: {{ nao_sujeitas|default:0 }},
+            ultimoSAFT: 'Nunca'
+        },
+        settings: {
+            validacaoAutomatica: true,
+            verificacaoIntegridade: true,
+            alertasEmail: false,
+            cacheRelatorios: '6',
+            retencaoLogs: '90'
+        },
+        showImportModal: false,
+        selectedFile: null,
+        saving: false,
+
+        init() {
+            this.loadSettings();
+        },
+
+        async loadSettings() {
+            // Carregar configurações salvas
+            try {
+                const saved = localStorage.getItem('fiscal-settings');
+                if (saved) {
+                    this.settings = { ...this.settings, ...JSON.parse(saved) };
+                }
+            } catch (error) {
+                console.error('Erro ao carregar configurações:', error);
+            }
+        },
+
+        async salvarConfiguracoes() {
+            this.saving = true;
+            
+            try {
+                // Salvar no localStorage (em produção seria uma API)
+                localStorage.setItem('fiscal-settings', JSON.stringify(this.settings));
+                
+                // Simular delay da API
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Mostrar mensagem de sucesso
+                this.showSuccessMessage('Configurações salvas com sucesso!');
+                
+            } catch (error) {
+                console.error('Erro ao salvar configurações:', error);
+                this.showErrorMessage('Erro ao salvar configurações');
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        async testarAssinatura() {
+            try {
+                const response = await fetch('{% url "fiscal:debug-testar-assinatura" %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.showSuccessMessage('Assinatura digital testada com sucesso!');
+                } else {
+                    this.showErrorMessage(data.message || 'Erro no teste de assinatura');
+                }
+            } catch (error) {
+                console.error('Erro ao testar assinatura:', error);
+                this.showErrorMessage('Erro de conexão no teste');
+            }
+        },
+
+        async exportarSAFT() {
+            // Redirecionar para a página de exportação SAF-T
+            window.location.href = '{% url "fiscal:saft" %}';
+        },
+
+        async criarBackup() {
+            try {
+                const response = await fetch('{% url "fiscal:backup-fiscal" %}');
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `backup_fiscal_{{ empresa.nif }}_${new Date().toISOString().split('T')[0]}.zip`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    
+                    this.showSuccessMessage('Backup criado e baixado com sucesso!');
+                } else {
+                    throw new Error('Erro ao criar backup');
+                }
+            } catch (error) {
+                console.error('Erro ao criar backup:', error);
+                this.showErrorMessage('Erro ao criar backup fiscal');
+            }
+        },
+
+        handleFileSelect(event) {
+            this.selectedFile = event.target.files[0];
+        },
+
+        async importarConfiguracoes() {
+            if (!this.selectedFile) return;
+
+            try {
+                // Aqui você implementaria o upload e processamento do arquivo
+                console.log('Importando arquivo:', this.selectedFile.name);
+                
+                this.showImportModal = false;
+                this.selectedFile = null;
+                this.showSuccessMessage('Configurações importadas com sucesso!');
+                
+                // Recarregar a página ou atualizar dados
+                setTimeout(() => window.location.reload(), 1500);
+                
+            } catch (error) {
+                console.error('Erro na importação:', error);
+                this.showErrorMessage('Erro ao importar configurações');
+            }
+        },
+
+        showSuccessMessage(message) {
+            // Implementar notificação de sucesso
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-4 right-4 z-50 p-4 rounded-md bg-green-500 text-white shadow-lg';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        },
+
+        showErrorMessage(message) {
+            // Implementar notificação de erro
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-4 right-4 z-50 p-4 rounded-md bg-red-500 text-white shadow-lg';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+    }
+}
+</script>
+{% endblock %}

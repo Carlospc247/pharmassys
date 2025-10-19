@@ -24,7 +24,33 @@ from .filters import FornecedorFilter, PedidoCompraFilter
 from .api.serializers import (
     FornecedorSerializer, PedidoCompraSerializer, AvaliacaoFornecedorSerializer, ProdutoSerializer
 )
+from django.contrib.auth.mixins import AccessMixin
 
+
+
+
+class PermissaoAcaoMixin(AccessMixin):
+    # CRÍTICO: Definir esta variável na View
+    acao_requerida = None 
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+
+        try:
+            # Tenta obter o Funcionario (ligação fundamental)
+            funcionario = request.user.funcionario 
+        except Exception:
+            messages.error(request, "Acesso negado. O seu usuário não está ligado a um registro de funcionário.")
+            return self.handle_no_permission()
+
+        if self.acao_requerida:
+            # Usa a lógica dinâmica do modelo Funcionario (que já criámos)
+            if not funcionario.pode_realizar_acao(self.acao_requerida):
+                messages.error(request, f"Acesso negado. O seu cargo não permite realizar a ação de '{self.acao_requerida}'.")
+                return redirect(reverse_lazy('core:dashboard'))
+
+        return super().dispatch(request, *args, **kwargs)
 
 
 
@@ -600,11 +626,6 @@ class ValidarNifView(View):
         valido = True  # lógica de validação
         return JsonResponse({"valido": valido})
 
-class ConsultarReceitaFederalView(View):
-    def get(self, request):
-        nif = request.GET.get("nif", "")
-        data = {"nif": nif, "status": "OK"}  # placeholder
-        return JsonResponse(data)
 
 class CalcularPrazoEntregaView(View):
     def get(self, request):
@@ -799,31 +820,6 @@ class ValidarNifView(View):
             
         return JsonResponse({"valido": valido, "mensagem": mensagem})
 
-class ConsultarReceitaFederalView(View):
-    """
-    Simula a consulta à Receita Federal (AGT em Angola) para preencher dados.
-    Esta é uma funcionalidade que exigiria integração com um serviço externo pago/autorizado.
-    """
-    def get(self, request):
-        nif = request.GET.get("nif", "").strip()
-        
-        if not nif:
-            return JsonResponse({"status": "ERRO", "mensagem": "NIF não fornecido."}, status=400)
-        
-        # SIMULAÇÃO de consulta externa
-        if nif == "5001304461":
-            data = {
-                "nif": nif, 
-                "status": "OK",
-                "razao_social": "FARMASSYS DISTRIBUIDORA SA",
-                "endereco": "Rua Principal, 123",
-                "cidade": "Luanda",
-                "provincia": "LUA"
-            }
-        else:
-            data = {"nif": nif, "status": "PENDENTE", "mensagem": "Dados não encontrados ou serviço AGT indisponível."}
-            
-        return JsonResponse(data)
 
 class CalcularPrazoEntregaView(View):
     """

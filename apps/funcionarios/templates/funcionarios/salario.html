@@ -37,9 +37,6 @@
                     <p><strong>Agência:</strong> {{ funcionario.agencia|default:"—" }}</p>
                     <p><strong>Conta:</strong> {{ funcionario.conta_corrente|default:"—" }}</p>
                     <p><strong>Tipo de Conta:</strong> {{ funcionario.get_tipo_conta_display|default:"—" }}</p>
-                    {% if funcionario.kwik_chave %}
-                    <p><strong>Kwik:</strong> {{ funcionario.kwik_chave }}</p>
-                    {% endif %}
                 </div>
             </div>
         </div>

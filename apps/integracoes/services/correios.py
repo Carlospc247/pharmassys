@@ -1,4 +1,5 @@
 # apps/integracoes/services/correios.py
+from django.conf import settings
 from .base import BaseIntegracaoService
 import requests
 import xml.etree.ElementTree as ET
@@ -243,7 +244,6 @@ class PagSeguroService(BaseIntegracaoService):
             'payment_methods': dados_cobranca.get('metodos_pagamento', [
                 {'type': 'CREDIT_CARD'},
                 {'type': 'DEBIT_CARD'},
-                {'type': 'KWIK'}
             ]),
             'customer': dados_cobranca['cliente'],
             'notification_urls': [

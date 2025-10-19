@@ -1,2 +1,19 @@
 __pycache__/
 *.pyc
+# Ambiente virtual
+venv/
+.env
+*.env
+
+# Configurações sensíveis
+*/settings.py
+settings.py
+
+# Arquivos temporários e caches
+__pycache__/
+*.pyc
+*.pyo
+*.log
+db.sqlite3
+.idea/
+.vscode/

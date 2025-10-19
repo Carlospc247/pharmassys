@@ -1,5 +1,6 @@
 # apps/licenca/models.py
 from django.db import models
+from django.http import JsonResponse
 from django.utils import timezone
 from datetime import timedelta
 import uuid
@@ -88,5 +89,4 @@ class HistoricoLicenca(TimeStampedModel):
     
     def __str__(self):
         return f"{self.licenca.empresa.nome} - {self.acao}"
-
 

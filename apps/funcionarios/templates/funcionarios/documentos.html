@@ -14,27 +14,13 @@
                     <h6 class="m-0 font-weight-bold text-primary">Registros Profissionais</h6>
                 </div>
                 <div class="card-body">
-                    {% if funcionario.numero_ofa %}
-                        <p><strong>Número OFA:</strong> {{ funcionario.numero_ofa }}</p>
-                        {% if funcionario.data_validade_ofa %}
-                            <p><strong>Validade OFA:</strong> {{ funcionario.data_validade_ofa|date:"d/m/Y" }}
-                                {% if funcionario.ofa_vencido %}
-                                    <span class="badge badge-danger ml-2">Vencido</span>
-                                {% endif %}
-                            </p>
-                        {% endif %}
-                    {% endif %}
-                    
-                    {% if funcionario.numero_ocpca %}
-                        <p><strong>Número OCPCA:</strong> {{ funcionario.numero_ocpca }}</p>
-                    {% endif %}
-                    
+                   
                     {% if funcionario.outros_registros %}
                         <p><strong>Outros Registros:</strong></p>
                         <p>{{ funcionario.outros_registros|linebreaks }}</p>
                     {% endif %}
                     
-                    {% if not funcionario.numero_ofa and not funcionario.numero_ocpca %}
+                    {% if not funcionario.outros_registros %}
                         <p class="text-muted">Nenhum registro profissional cadastrado</p>
                     {% endif %}
                 </div>
