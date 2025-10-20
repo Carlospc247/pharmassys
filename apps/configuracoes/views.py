@@ -160,7 +160,7 @@ class PersonalizacaoInterfaceUpdateView(ConfiguracoesBaseView, PermissaoAcaoMixi
         return context
 
 
-class SuporteView(LoginRequiredMixin, PermissaoAcaoMixin, FormView):
+class SuporteView(LoginRequiredMixin, FormView):
     template_name = 'configuracoes/suporte.html'
     form_class = ContactForm
     success_url = reverse_lazy('configuracoes:suporte')
