@@ -209,6 +209,8 @@ if not DEBUG:
     AWS_QUERYSTRING_AUTH = False
     AWS_DEFAULT_ACL = None
 
+STATICFILES_DIRS = [BASE_DIR / 'static']
+
 # =========================================
 # Segurança
 # =========================================
@@ -264,3 +266,4 @@ REST_FRAMEWORK = {
 # =========================================
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'core.Usuario'
+
