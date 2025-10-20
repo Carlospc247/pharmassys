@@ -1120,18 +1120,54 @@
                         </ul>
                     </li>
                     {% endif %}
-                    
-                    <li class="mt-auto">
-                        <a href="{% url 'fiscal:dashboard' %}" 
-                           @click="isMobile && closeSidebar()"
-                           class="menu-item {% if request.resolver_match.namespace == 'fiscal' %}menu-active{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800{% endif %} 
-                                  group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold">
-                            <i class="fas fa-university h-6 w-6 shrink-0 menu-icon"></i>
-                            AGT
-                        </a>
-                    </li>
-                    
 
+                    
+                    
+                    
+<li x-data="{ open: {% if 'fatura' in request.path or 'recibo' in request.path or 'proforma' in request.path or 'pdv' in request.path or 'documentos' in request.path %}true{% else %}false{% endif %} }">
+                        <button @click="open = !open"
+                            class="menu-item text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 
+                                                        group flex w-full items-center gap-x-3 rounded-md p-2 text-left text-sm leading-6 font-semibold">
+                            <i class="fas fa-university h-6 w-6 shrink-0 menu-icon"></i>
+                            AGT e documentos
+                            <i class="fas fa-chevron-right ml-auto h-5 w-5 shrink-0 transition-transform" :class="open ? 'rotate-90' : ''"></i>
+                        </button>
+                        <ul x-show="open" x-cloak x-transition class="mt-1 px-2">
+
+                            <!-- DASHBOARD AGT -->
+                            <li><a href="{% url 'fiscal:dashboard' %}" 
+                                   @click="isMobile && closeSidebar()"
+                                class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fa-solid fa-file-export h-6 w-6 shrink-0 menu-icon"></i>SAFT
+                            </a></li>
+                            <li><a href="{% url 'fiscal:retencoes-list' %}" 
+                                   @click="isMobile && closeSidebar()"
+                                class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-file-code h-6 w-6 shrink-0 menu-icon"></i>Retenções na Fonte
+                            </a></li>
+                            <li><a href="{% url 'fiscal:relatorios' %}" 
+                                   @click="isMobile && closeSidebar()"
+                                class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fa-solid fa-file-contract h-6 w-6 shrink-0 menu-icon"></i>Relatórios Fiscal
+                            </a></li>
+                            <li><a href="{% url 'fiscal:configuracoes' %}" 
+                                   @click="isMobile && closeSidebar()"
+                                class="block rounded-md py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <i class="fas fa-cog h-6 w-6 shrink-0 menu-icon"></i>Configurações
+                            </a></li>
+                            
+                            
+                            <li class="border-t border-gray-200 dark:border-gray-700 my-2"></li>
+                            
+                        </ul>
+                    </li>
+
+                    <!--usar como base para criar área de gerenciamento de licenças-->
+                    <!--
+                    {% if perms.relatorios.view_relatorio %}
+                    {% endif %}
+                    -->
+              
                     <!-- Configurações -->
                     {% if perms.configuracoes.view_personalizacaointerface %}
                     <li class="mt-auto">
