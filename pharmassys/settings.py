@@ -86,10 +86,13 @@ WSGI_APPLICATION = 'pharmassys.wsgi.application'
 # =========================================
 # Celery (tarefas agendadas)
 # =========================================
+# =========================================
+# Celery (tarefas agendadas)
+# =========================================
 CELERY_BEAT_SCHEDULE = {
     'backup_diario': {
         'task': 'apps.configuracoes.tasks.backup_automatico_diario',
-        'schedule': crontab(hour=2, minute=0),  # todos os dias às 2h
+        'schedule': crontab(hour=2, minute=0),
     },
     'check-critical-margin-daily': {
         'task': 'apps.vendas.tasks.verificar_margem_critica',
@@ -99,6 +102,7 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.vendas.tasks.verificar_stock_critico',
         'schedule': timedelta(hours=1),
     },
+}  # <-- fechamento do dicionário
 
 # =========================================
 # Redis / Cache / Celery
@@ -127,7 +131,7 @@ CACHES = {
 }
 
 CELERY_BROKER_URL = config('CELERY_BROKER_URL', default=f'{REDIS_URL_BASE}/0')
-CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default=f'{REDIS_URL_BA>
+CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default=f'{REDIS_URL_BASE}/0')
 
 # =========================================
 # Database
@@ -263,4 +267,5 @@ REST_FRAMEWORK = {
 # =========================================
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'core.Usuario'
+
 
