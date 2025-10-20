@@ -1,5 +1,4 @@
-
-import os
+mport os
 from pathlib import Path
 from decouple import config
 from datetime import timedelta
@@ -32,7 +31,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.sites',
     'django.contrib.humanize',
-    
+
     # Terceiros
     'rest_framework',
     'rest_framework.authtoken',
@@ -46,7 +45,7 @@ INSTALLED_APPS = [
     'widget_tweaks',
     'django_filters',
     'django_extensions',
-    
+
     # Apps internos
     'apps.core',
     'apps.produtos',
@@ -100,7 +99,6 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.vendas.tasks.verificar_stock_critico',
         'schedule': timedelta(hours=1),
     },
-}
 
 # =========================================
 # Redis / Cache / Celery
@@ -129,7 +127,7 @@ CACHES = {
 }
 
 CELERY_BROKER_URL = config('CELERY_BROKER_URL', default=f'{REDIS_URL_BASE}/0')
-CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default=f'{REDIS_URL_BASE}/0')
+CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default=f'{REDIS_URL_BA>
 
 # =========================================
 # Database
@@ -139,7 +137,7 @@ if config('DATABASE_URL', default=None):
 else:
     DATABASES = {
         'default': {
-            'ENGINE': config('DB_ENGINE', default='django.db.backends.postgresql'),
+            'ENGINE': config('DB_ENGINE', default='django.db.backends.postgresq>
             'NAME': config('DB_NAME'),
             'USER': config('DB_USER'),
             'PASSWORD': config('DB_PASSWORD'),
@@ -175,11 +173,12 @@ TEMPLATES = [
 # Password validation
 # =========================================
 AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 8}},
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityVa>
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', >
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'>
 ]
+
 
 # =========================================
 # Internacionalização
@@ -198,10 +197,11 @@ if not DEBUG:
     AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
     AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='us-east-1')
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
-    
+
     STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-    
+
+      GNU nano 7.2                       settings.py
     STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
 
@@ -252,7 +252,7 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
     ],
-    'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated'],
+    'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated'>
 }
 
 # =========================================
@@ -260,5 +260,3 @@ REST_FRAMEWORK = {
 # =========================================
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'core.Usuario'
-
-
