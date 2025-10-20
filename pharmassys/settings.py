@@ -66,6 +66,9 @@ INSTALLED_APPS = [
     'apps.compras',
 ]
 
+# =========================================
+# Middleware
+# =========================================
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -86,9 +89,6 @@ WSGI_APPLICATION = 'pharmassys.wsgi.application'
 # =========================================
 # Celery (tarefas agendadas)
 # =========================================
-# =========================================
-# Celery (tarefas agendadas)
-# =========================================
 CELERY_BEAT_SCHEDULE = {
     'backup_diario': {
         'task': 'apps.configuracoes.tasks.backup_automatico_diario',
@@ -102,14 +102,13 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.vendas.tasks.verificar_stock_critico',
         'schedule': timedelta(hours=1),
     },
-}  # <-- fechamento do dicionário
+}
 
 # =========================================
 # Redis / Cache / Celery
 # =========================================
 REDIS_HOST = config('REDIS_HOST', default='127.0.0.1')
 REDIS_PORT = config('REDIS_PORT', default=6379, cast=int)
-
 REDIS_URL_BASE = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 
 CACHES = {
@@ -141,7 +140,7 @@ if config('DATABASE_URL', default=None):
 else:
     DATABASES = {
         'default': {
-            'ENGINE': config('DB_ENGINE', default='django.db.backends.postgresq>
+            'ENGINE': config('DB_ENGINE', default='django.db.backends.postgresql'),
             'NAME': config('DB_NAME'),
             'USER': config('DB_USER'),
             'PASSWORD': config('DB_PASSWORD'),
@@ -177,12 +176,11 @@ TEMPLATES = [
 # Password validation
 # =========================================
 AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityVa>
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', >
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 8}},
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'>
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
-
 
 # =========================================
 # Internacionalização
@@ -211,7 +209,6 @@ if not DEBUG:
     AWS_QUERYSTRING_AUTH = False
     AWS_DEFAULT_ACL = None
 
-
 # =========================================
 # Segurança
 # =========================================
@@ -227,7 +224,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # =========================================
-# Email (Hostinger)
+# Email
 # =========================================
 EMAIL_BACKEND = config('EMAIL_BACKEND')
 EMAIL_HOST = config('EMAIL_HOST')
@@ -259,7 +256,7 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
     ],
-    'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated'>
+    'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated'],
 }
 
 # =========================================
@@ -267,5 +264,3 @@ REST_FRAMEWORK = {
 # =========================================
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'core.Usuario'
-
-
