@@ -10,6 +10,16 @@ from django.shortcuts import redirect
 def redirect_to_dashboard(request):
     return redirect('dashboard')
 
+
+# redireciona para a view namespaced
+#Criar um alias sem namespace no urls.py global
+#Para que qualquer reverse('suporte') funcione, mesmo que venha do admin:
+def redirect_to_suporte(request):
+    from django.urls import reverse
+    return redirect(reverse('configuracoes:suporte'))
+
+
+
 urlpatterns = [
     # Admin
     path('admin/', admin.site.urls),
@@ -24,7 +34,8 @@ urlpatterns = [
     
     # *** SOLUÇÃO PARA O ERRO 404 DE ACCOUNTS/PROFILE/ ***
     path('accounts/profile/', redirect_to_dashboard, name='profile'),
-    
+    path('suporte/', redirect_to_suporte),
+
     # Apps
     path('', include('apps.core.urls')),
     path('produtos/', include('apps.produtos.urls')),
