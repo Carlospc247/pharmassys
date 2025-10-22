@@ -11,8 +11,8 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from apps.core.models import TimeStampedModel, Empresa, Usuario, Loja
 from apps.fornecedores.models import Fornecedor
 from apps.clientes.models import Cliente
+from apps.vendas.models import Venda
 
-# IMPORTAÇÕES DIFERIDAS (para evitar circular import)
 from pharmassys import settings
 
 
