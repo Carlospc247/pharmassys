@@ -1,21 +1,19 @@
 # apps/financeiro/models.py
-from django.utils import timezone  
-from django.db import models
-from django.core.validators import MinValueValidator, MaxValueValidator
-from django.core.exceptions import ValidationError
-from apps.core.models import TimeStampedModel, Empresa, Usuario, Loja
-from apps.fornecedores.models import Fornecedor
-from apps.clientes.models import Cliente
-from apps.vendas.models import Venda
 from decimal import Decimal
 from datetime import date, datetime, timedelta
 import uuid
 
-from pharmassys import settings
 from django.db import models
+from django.utils import timezone
 from django.core.exceptions import ValidationError
-from django.utils.timezone import now
-from datetime import date
+from django.core.validators import MinValueValidator, MaxValueValidator
+
+from apps.core.models import TimeStampedModel, Empresa, Usuario, Loja
+from apps.fornecedores.models import Fornecedor
+from apps.clientes.models import Cliente
+
+# IMPORTAÇÕES DIFERIDAS (para evitar circular import)
+from pharmassys import settings
 
 
 
