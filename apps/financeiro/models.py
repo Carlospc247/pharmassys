@@ -1378,7 +1378,7 @@ class MovimentoCaixa(TimeStampedModel):
         return ultima_abertura.hora_movimento > ultimo_fechamento.hora_movimento
 
 
-class ImpostoTributoAngola(TimeStampedModel):
+class ImpostoTributo(TimeStampedModel):
     """
     Impostos e Tributos - Sistema Tributário de Angola
     Baseado nas tabelas oficiais da AGT (Administração Geral Tributária)
