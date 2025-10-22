@@ -464,12 +464,18 @@ class ContaPai(models.Model):
     @property
     def dias_vencimento(self):
         """Dias para vencimento (negativo se vencida)"""
+        if not self.data_vencimento:
+            return None  # ou 0, conforme sua regra de negócio
         return (self.data_vencimento - date.today()).days
+
 
     @property
     def esta_vencida(self):
         """Verifica se a conta está vencida"""
+        if not self.data_vencimento:
+            return False
         return self.data_vencimento < date.today() and self.status in ['aberta', 'vencida']
+
 
 
 class ContaPagar(TimeStampedModel):
@@ -569,11 +575,16 @@ class ContaPagar(TimeStampedModel):
     @property
     def dias_vencimento(self):
         """Dias para vencimento (negativo se vencida)"""
+        if not self.data_vencimento:
+            return None  # ou 0, conforme sua regra de negócio
         return (self.data_vencimento - date.today()).days
-    
+
+
     @property
     def esta_vencida(self):
         """Verifica se a conta está vencida"""
+        if not self.data_vencimento:
+            return False
         return self.data_vencimento < date.today() and self.status in ['aberta', 'vencida']
     
     def pagar(self, valor_pagamento, conta_bancaria, tipo_documento='transferencia', observacoes=""):
@@ -739,11 +750,16 @@ class ContaReceber(TimeStampedModel):
     @property
     def dias_vencimento(self):
         """Dias para vencimento (negativo se vencida)"""
+        if not self.data_vencimento:
+            return None  # ou 0, conforme sua regra de negócio
         return (self.data_vencimento - date.today()).days
-    
+
+
     @property
     def esta_vencida(self):
         """Verifica se a conta está vencida"""
+        if not self.data_vencimento:
+            return False
         return self.data_vencimento < date.today() and self.status in ['aberta', 'vencida']
     
     def receber(self, valor_recebimento, conta_bancaria, tipo_documento='transferencia', observacoes=""):
