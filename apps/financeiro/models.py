@@ -1378,7 +1378,741 @@ class MovimentoCaixa(TimeStampedModel):
         return ultima_abertura.hora_movimento > ultimo_fechamento.hora_movimento
 
 
-####Imposto
+class ImpostoTributoAngola(TimeStampedModel):
+    """
+    Impostos e Tributos - Sistema Tributário de Angola
+    Baseado nas tabelas oficiais da AGT (Administração Geral Tributária)
+    """
+    
+    # Tipos de Impostos baseados nos códigos oficiais da AGT
+    TIPO_IMPOSTO_CHOICES = [
+        # I - IMPOSTO SOBRE O VALOR ACRESCENTADO (IVA)
+        ('01I', '01I - IVA - Regime Geral'),
+        ('02I', '02I - IVA - Importação'),
+        ('03I', '03I - IVA - Regime Geral'),
+        ('04I', '04I - IVA - Regime Simplificado'),
+        ('05I', '05I - IVA - Regime Transitório'),
+        ('06I', '06I - IVA - Outros'),
+        
+        # A - IMPOSTO SOBRE APLICAÇÃO DE CAPITAIS
+        ('01A', '01A - IAC - Títulos do Banco Central'),
+        ('02A', '02A - IAC - Bilhetes e Obrigações do Tesouro'),
+        ('03A', '03A - IAC - Depósito à Ordem'),
+        ('04A', '04A - IAC - Depósito a Prazo'),
+        ('05A', '05A - IAC - Dividendos/Lucros'),
+        ('06A', '06A - IAC - Juros de Suprimentos'),
+        ('07A', '07A - IAC - Mais Valias'),
+        ('08A', '08A - IAC - Operações do Mercado Monetário'),
+        ('09A', '09A - IAC - Royalties'),
+        ('10A', '10A - IAC - Outros'),
+        
+        # B - IMPOSTO SOBRE RENDIMENTO DO TRABALHO
+        ('01B', '01B - IRT - Grupo A - Conta de Outrem'),
+        ('02B', '02B - IRT - Grupo B - Conta Própria'),
+        ('03B', '03B - IRT - Grupo C - Atividades Comerciais e Industriais'),
+        
+        # C - IMPOSTO INDUSTRIAL
+        ('01C', '01C - II - Regime Geral'),
+        ('02C', '02C - II - Regime Simplificado'),
+        ('03C', '03C - II - Retenção na Fonte - Residentes'),
+        ('04C', '04C - II - Retenção na Fonte - Não Residentes'),
+        ('05C', '05C - II - Diamantes'),
+        ('06C', '06C - II - Ouro'),
+        ('07C', '07C - II - Outros Minerais'),
+        
+        # D - IMPOSTOS ESPECIAIS DE JOGOS
+        ('01D', '01D - IEJ - Casino'),
+        ('02D', '02D - IEJ - Totobola'),
+        ('03D', '03D - IEJ - Totoloto'),
+        ('04D', '04D - IEJ - Angomilhões'),
+        ('05D', '05D - IEJ - Outros Tipos de Jogos Sociais'),
+        ('06D', '06D - IEJ - Apostas Hípicas'),
+        ('07D', '07D - IEJ - Rifas e Concursos'),
+        ('08D', '08D - IEJ - Combinações Aleatórias'),
+        ('09D', '09D - IEJ - Lotarias'),
+        ('10D', '10D - IEJ - Outros Jogos Presenciais'),
+        ('11D', '11D - IEJ - Prémios - Casino'),
+        ('12D', '12D - IEJ - Online - Receita Bruta'),
+        ('13D', '13D - IEJ - Online - Prémios'),
+        ('14D', '14D - IEJ - Prémios - Totobola'),
+        ('15D', '15D - IEJ - Prémios - Totoloto'),
+        ('16D', '16D - IEJ - Prémios - Angomilhões'),
+        ('17D', '17D - IEJ - Prémios Online'),
+        ('18D', '18D - IEJ - Prémios - Apostas Hípicas'),
+        ('19D', '19D - IEJ - Prémios - Apostas Hípicas'),
+        ('20D', '20D - IEJ - Prémios - Lotarias'),
+        
+        # E - IMPOSTOS PETROLÍFEROS
+        ('01E', '01E - IP - Rendimentos do Petróleo'),
+        ('02E', '02E - ITP - Transações de Petróleo'),
+        
+        # F - IMPOSTOS SOBRE BENS IMÓVEIS (PREDIAIS)
+        ('01F', '01F - IP - Predial sobre a Detenção'),
+        ('02F', '02F - IP - Predial sobre Transmissões Onerosas'),
+        ('03F', '03F - IP - Predial sobre Transmissões Gratuitas'),
+        ('04F', '04F - IP - Predial sobre a Renda'),
+        
+        # G - IMPOSTOS SOBRE BENS MÓVEIS
+        ('01G', '01G - IBM - Veículos Automotores - Ligeiros'),
+        ('02G', '02G - IBM - Veículos Automotores - Pesados'),
+        ('03G', '03G - IBM - Motociclos, Ciclomotores, Triciclos e Quadriciclos'),
+        ('04G', '04G - IBM - Veículos Automotores - Aeronaves'),
+        ('05G', '05G - IBM - Veículos Automotores - Embarcações'),
+        ('06G', '06G - IBM - Sucessões'),
+        ('07G', '07G - IBM - Doações'),
+        
+        # H - IMPOSTOS SOBRE A PRODUÇÃO
+        ('01H', '01H - IPD - Produção de Petróleo'),
+        ('02H', '02H - IPD - Produção de Diamantes - Royalty'),
+        ('03H', '03H - IPD - Produção de Ouro - Royalty'),
+        ('04H', '04H - IPD - Produção de Outros Minerais - Royalty'),
+        
+        # J - IMPOSTO ESPECIAL DE CONSUMO
+        ('01J', '01J - IEC - Aeronaves e Embarcações de Recreio'),
+        ('02J', '02J - IEC - Álcool e Outras Bebidas Alcoólicas'),
+        ('03J', '03J - IEC - Armas de Fogo'),
+        ('04J', '04J - IEC - Artefatos de Joalharia, Ourivesaria e Outros'),
+        ('05J', '05J - IEC - Bebidas Açucaradas'),
+        ('06J', '06J - IEC - Bebidas Energéticas'),
+        ('07J', '07J - IEC - Cerveja'),
+        ('08J', '08J - IEC - Fogo-de-artifício'),
+        ('09J', '09J - IEC - Objetos de Arte, Coleção e Antiguidades'),
+        ('10J', '10J - IEC - Produtos Derivados do Petróleo: Gasolina e Gasóleo'),
+        ('11J', '11J - IEC - Tabaco e seus Derivados'),
+        ('12J', '12J - IEC - Veículos Automóveis'),
+        ('13J', '13J - IEC - Produtos Derivados do Petróleo: Gás Natural, Butano, Propano'),
+        ('14J', '14J - IEC - Produtos Derivados do Petróleo - Outros'),
+        
+        # K - IMPOSTOS SOBRE O COMÉRCIO EXTERNO
+        ('01K', '01K - ICE - Exportação'),
+        ('02K', '02K - ICE - Importação'),
+        
+        # L - IMPOSTOS DE SELO
+        ('01L', '01L - IS - Contrato de Arrendamento'),
+        ('02L', '02L - IS - Operações Bancárias'),
+        ('03L', '03L - IS - Recibo de Quitação'),
+        ('04L', '04L - IS - Operações Isentas (Regime Geral)'),
+        ('05L', '05L - IS - Operações Isentas (Regime Simplificado)'),
+        ('06L', '06L - IS - Outros'),
+        
+        # P - MULTAS E JUROS
+        ('01P', '01P - Multas Fiscais pela não Entrega da Declaração'),
+        ('02P', '02P - Multas Fiscais pelo não Pagamento da Prestação da Dívida Tributária'),
+        ('03P', '03P - Multa Substitutiva de Confisco Aduaneiro'),
+        ('04P', '04P - Multas Fiscais'),
+        ('05P', '05P - Multas Aduaneiras'),
+        ('06P', '06P - Multas Institucionais'),
+        ('07P', '07P - Adicional de 10% sobre as Multas Fiscais'),
+        ('08P', '08P - Juros de Mora'),
+        ('09P', '09P - Juros Compensatórios'),
+        
+        # Q - CONTRIBUIÇÕES
+        ('01Q', '01Q - Contribuições para o Fundo de Desenvolvimento Mineiro'),
+        ('02Q', '02Q - Contribuições para Formação de Quadros Angolanos'),
+    ]
+    
+    REGIME_TRIBUTARIO_CHOICES = [
+        ('geral', 'Regime Geral'),
+        ('simplificado', 'Regime Simplificado'),
+        ('iva_geral', 'Regime do IVA - Geral'),
+        ('iva_simplificado', 'Regime do IVA - Simplificado'),
+        ('iva_transitorio', 'Regime Transitório do IVA'),
+        ('excluido_iva', 'Regime de Exclusão do IVA'),
+        ('especial_petrolifero_mineiro', 'Regime Especial do Sector Petrolífero e Mineiro'),
+        ('retencao_fonte', 'Regime de Retenção na Fonte'),
+        ('isencao', 'Regime de Isenção'),
+    ]
+    
+    PERIODICIDADE_CHOICES = [
+        ('mensal', 'Mensal'),
+        ('trimestral', 'Trimestral'),
+        ('semestral', 'Semestral'),
+        ('anual', 'Anual'),
+        ('eventual', 'Eventual'),
+    ]
+    
+    SITUACAO_CHOICES = [
+        ('pendente', 'Pendente de Cálculo'),
+        ('calculado', 'Calculado'),
+        ('declarado', 'Declarado à AGT'),
+        ('pago', 'Pago'),
+        ('parcelado', 'Parcelado'),
+        ('vencido', 'Vencido'),
+        ('isento', 'Isento'),
+        ('suspenso', 'Suspenso'),
+    ]
+    
+    METODO_CALCULO_CHOICES = [
+        ('percentual_receita', 'Percentual sobre Receita'),
+        ('percentual_lucro', 'Percentual sobre Lucro'),
+        ('valor_fixo', 'Valor Fixo'),
+        ('tabela_progressiva', 'Tabela Progressiva'),
+        ('por_unidade', 'Por Unidade'),
+        ('retencao_fonte', 'Retenção na Fonte'),
+        ('outros', 'Outros'),
+    ]
+    
+    # Identificação
+    codigo_receita_agt = models.CharField(
+        max_length=10,
+        choices=TIPO_IMPOSTO_CHOICES,
+        help_text="Código oficial da receita AGT"
+    )
+    codigo_imposto_interno = models.CharField(
+        max_length=30,
+        help_text="Código interno do sistema"
+    )
+    nome = models.CharField(max_length=200)
+    descricao = models.TextField(blank=True)
+    
+    # Regime e periodicidade
+    regime_tributario = models.CharField(
+        max_length=30, 
+        choices=REGIME_TRIBUTARIO_CHOICES,
+        help_text="Regime tributário aplicável"
+    )
+    periodicidade = models.CharField(
+        max_length=15, 
+        choices=PERIODICIDADE_CHOICES,
+        default='mensal'
+    )
+    
+    # Período de apuração
+    ano_referencia = models.IntegerField(
+        help_text="Ano de referência da apuração"
+    )
+    mes_referencia = models.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+        help_text="Mês de referência (1-12)"
+    )
+    data_inicio_periodo = models.DateField(
+        help_text="Início do período de apuração"
+    )
+    data_fim_periodo = models.DateField(
+        help_text="Fim do período de apuração"
+    )
+    
+    # Datas importantes
+    data_vencimento = models.DateField(
+        help_text="Data de vencimento do imposto"
+    )
+    data_pagamento = models.DateField(
+        null=True, 
+        blank=True,
+        help_text="Data efetiva do pagamento"
+    )
+    data_calculo = models.DateTimeField(
+        null=True, 
+        blank=True,
+        help_text="Data/hora do último cálculo"
+    )
+    data_declaracao = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Data de envio da declaração à AGT"
+    )
+    
+    # Método de cálculo
+    metodo_calculo = models.CharField(
+        max_length=20, 
+        choices=METODO_CALCULO_CHOICES,
+        default='percentual_receita'
+    )
+    
+    # Alíquotas específicas de Angola
+    aliquota_percentual = models.DecimalField(
+        max_digits=8, 
+        decimal_places=4, 
+        default=0,
+        help_text="Alíquota em percentual (ex: 7.0000 para IVA 7%)"
+    )
+    valor_fixo = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        default=0,
+        help_text="Valor fixo do imposto (se aplicável)",
+        validators=[MinValueValidator(0)]
+    )
+    
+    # Base de cálculo
+    base_calculo = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        default=0,
+        help_text="Base de cálculo do imposto"
+    )
+    receita_bruta = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        default=0,
+        help_text="Receita bruta do período"
+    )
+    deducoes_permitidas = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        default=0,
+        help_text="Deduções permitidas pela legislação angolana"
+    )
+    
+    # Valores em Kwanzas (AOA)
+    valor_calculado = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        default=0,
+        help_text="Valor calculado do imposto em AOA"
+    )
+    valor_devido = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        default=0,
+        help_text="Valor devido (após compensações) em AOA"
+    )
+    valor_pago = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        default=0,
+        help_text="Valor efetivamente pago em AOA"
+    )
+    
+    # Multas e juros segundo legislação angolana
+    valor_multa = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0,
+        help_text="Multa por atraso em AOA"
+    )
+    valor_juros = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0,
+        help_text="Juros por atraso em AOA"
+    )
+    total_agt = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        default=0,
+        help_text="Valor total a pagar à AGT em AOA"
+    )
+    
+    # Compensações e créditos
+    creditos_periodo_anterior = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        default=0,
+        help_text="Créditos do período anterior"
+    )
+    compensacoes_utilizadas = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        default=0,
+        help_text="Compensações utilizadas"
+    )
+    
+    # Situação
+    situacao = models.CharField(
+        max_length=15, 
+        choices=SITUACAO_CHOICES, 
+        default='pendente'
+    )
+    
+    # Dados da guia de pagamento AGT
+    numero_guia_agt = models.CharField(
+        max_length=50, 
+        blank=True,
+        help_text="Número da guia de recolhimento AGT"
+    )
+    numero_declaracao_agt = models.CharField(
+        max_length=50, 
+        blank=True,
+        help_text="Número da declaração na AGT"
+    )
+    
+    # Relacionamentos
+    conta_bancaria_pagamento = models.ForeignKey(
+        'ContaBancaria',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Conta utilizada para pagamento"
+    )
+    movimentacao_pagamento = models.ForeignKey(
+        'MovimentacaoFinanceira',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='impostos_angola_pagos',
+        help_text="Movimentação de pagamento do imposto"
+    )
+    
+    # Conta contábil
+    plano_contas = models.ForeignKey(
+        'PlanoContas',
+        on_delete=models.PROTECT,
+        help_text="Conta contábil do imposto"
+    )
+    centro_custo = models.ForeignKey(
+        'CentroCusto',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    
+    # Controle de automatização
+    calculo_automatico = models.BooleanField(
+        default=True,
+        help_text="Calcular automaticamente baseado nas vendas"
+    )
+    ultima_atualizacao_calculo = models.DateTimeField(
+        null=True, 
+        blank=True
+    )
+    
+    # Observações e anexos
+    observacoes = models.TextField(blank=True)
+    arquivo_declaracao_agt = models.FileField(
+        upload_to='impostos_angola/declaracoes/',
+        null=True,
+        blank=True,
+        help_text="Arquivo da declaração enviada à AGT"
+    )
+    arquivo_guia_pagamento = models.FileField(
+        upload_to='impostos_angola/guias/',
+        null=True,
+        blank=True,
+        help_text="Arquivo da guia de pagamento AGT"
+    )
+    arquivo_comprovante_pagamento = models.FileField(
+        upload_to='impostos_angola/comprovantes/',
+        null=True,
+        blank=True,
+        help_text="Comprovante de pagamento"
+    )
+    
+    # Controle
+    usuario_responsavel = models.ForeignKey(
+        'Usuario',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Usuário responsável pela apuração"
+    )
+    
+    empresa = models.ForeignKey('Empresa', on_delete=models.CASCADE)
+    
+    class Meta:
+        verbose_name = "Imposto/Tributo Angola"
+        verbose_name_plural = "Impostos/Tributos Angola"
+        unique_together = [
+            ['empresa', 'codigo_receita_agt', 'ano_referencia', 'mes_referencia']
+        ]
+        indexes = [
+            models.Index(fields=['codigo_receita_agt', 'situacao']),
+            models.Index(fields=['data_vencimento', 'situacao']),
+            models.Index(fields=['ano_referencia', 'mes_referencia']),
+            models.Index(fields=['regime_tributario', 'empresa']),
+        ]
+        ordering = ['-ano_referencia', '-mes_referencia', 'data_vencimento']
+    
+    def __str__(self):
+        return f"{self.get_codigo_receita_agt_display()} - {self.mes_referencia:02d}/{self.ano_referencia} - {self.valor_devido:,.2f} AOA"
+    
+    def save(self, *args, **kwargs):
+        # Calcular valor total
+        self.total_agt = self.valor_devido + self.valor_multa + self.valor_juros
+        
+        # Atualizar situação baseada no pagamento
+        if self.valor_pago >= self.total_agt and self.total_agt > 0:
+            self.situacao = 'pago'
+        elif self.data_vencimento < date.today() and self.situacao not in ['pago', 'isento']:
+            self.situacao = 'vencido'
+        
+        # Gerar código interno se não existir
+        if not self.codigo_imposto_interno:
+            self.codigo_imposto_interno = self._gerar_codigo_interno()
+        
+        super().save(*args, **kwargs)
+    
+    def _gerar_codigo_interno(self):
+        """Gera código único interno para o imposto"""
+        prefixo = self.codigo_receita_agt
+        sufixo = f"{self.ano_referencia}{self.mes_referencia:02d}"
+        
+        contador = ImpostoTributoAngola.objects.filter(
+            empresa=self.empresa,
+            codigo_imposto_interno__startswith=f"{prefixo}{sufixo}"
+        ).count() + 1
+        
+        return f"{prefixo}{sufixo}{contador:03d}"
+    
+    def calcular_imposto_angola(self, forcar_recalculo=False):
+        """Calcula o valor do imposto baseado na legislação angolana"""
+        if not forcar_recalculo and self.situacao in ['pago', 'calculado', 'declarado']:
+            return self.valor_calculado
+        
+        # Aplicar alíquotas específicas de Angola
+        if self.codigo_receita_agt.startswith('0') and self.codigo_receita_agt.endswith('I'):  # IVA
+            self._calcular_iva_angola()
+        elif self.codigo_receita_agt.startswith('0') and self.codigo_receita_agt.endswith('C'):  # Imposto Industrial
+            self._calcular_imposto_industrial_angola()
+        elif self.codigo_receita_agt.startswith('0') and self.codigo_receita_agt.endswith('A'):  # IAC
+            self._calcular_iac_angola()
+        elif self.metodo_calculo == 'valor_fixo':
+            self.valor_calculado = self.valor_fixo
+        else:
+            self._calcular_por_percentual_receita()
+        
+        # Aplicar deduções e compensações
+        self.valor_devido = max(
+            0, 
+            self.valor_calculado - self.deducoes_permitidas - self.compensacoes_utilizadas - self.creditos_periodo_anterior
+        )
+        
+        # Calcular multa e juros se vencido (legislação angolana)
+        if self.data_vencimento < date.today() and self.situacao != 'pago':
+            self._calcular_multa_juros_angola()
+        
+        self.data_calculo = timezone.now()
+        self.situacao = 'calculado'
+        self.save()
+        
+        return self.valor_calculado
+    
+    def _calcular_iva_angola(self):
+        """Calcula IVA segundo alíquotas de Angola"""
+        # Alíquotas vigentes em Angola (2024)
+        aliquota_iva = Decimal('7.0')  # Taxa geral de 7%
+        
+        # Verificar regimes especiais
+        if self.regime_tributario == 'iva_simplificado':
+            aliquota_iva = Decimal('5.0')  # 5% para produtos específicos
+        elif 'cabinda' in self.empresa.endereco.lower():
+            aliquota_iva = Decimal('1.0')  # 1% para Cabinda
+        
+        # Buscar receitas sujeitas ao IVA
+        receitas_iva = self._obter_receitas_periodo()
+        self.receita_bruta = receitas_iva
+        self.base_calculo = receitas_iva
+        self.aliquota_percentual = aliquota_iva
+        self.valor_calculado = self.base_calculo * (aliquota_iva / 100)
+    
+    def _calcular_imposto_industrial_angola(self):
+        """Calcula Imposto Industrial segundo legislação angolana"""
+        # Alíquotas do Imposto Industrial em Angola
+        if self.empresa.sector_atividade in ['bancario', 'seguros', 'telecomunicacoes', 'petroleo']:
+            aliquota = Decimal('35.0')  # 35% para setores específicos
+        else:
+            aliquota = Decimal('25.0')  # 25% taxa geral
+        
+        # Calcular lucro tributável
+        receitas = self._obter_receitas_periodo()
+        despesas_dedutiveis = self._obter_despesas_dedutiveis()
+        lucro_tributavel = receitas - despesas_dedutiveis
+        
+        self.receita_bruta = receitas
+        self.base_calculo = max(0, lucro_tributavel)
+        self.aliquota_percentual = aliquota
+        self.valor_calculado = self.base_calculo * (aliquota / 100)
+    
+    def _calcular_iac_angola(self):
+        """Calcula Imposto sobre Aplicação de Capitais"""
+        # Alíquotas IAC variam conforme o tipo
+        aliquotas_iac = {
+            '01A': Decimal('10.0'),  # Títulos do Banco Central
+            '02A': Decimal('15.0'),  # Bilhetes e Obrigações do Tesouro
+            '03A': Decimal('5.0'),   # Depósito à Ordem
+            '04A': Decimal('10.0'),  # Depósito a Prazo
+            '05A': Decimal('10.0'),  # Dividendos/Lucros
+        }
+        
+        aliquota = aliquotas_iac.get(self.codigo_receita_agt, Decimal('10.0'))
+        
+        # Base de cálculo são os rendimentos de capitais
+        base_rendimentos = self._obter_rendimentos_capitais()
+        
+        self.base_calculo = base_rendimentos
+        self.aliquota_percentual = aliquota
+        self.valor_calculado = self.base_calculo * (aliquota / 100)
+    
+    def _calcular_multa_juros_angola(self):
+        """Calcula multa e juros segundo legislação angolana"""
+        if self.data_vencimento >= date.today():
+            return
+        
+        dias_atraso = (date.today() - self.data_vencimento).days
+        
+        # Multa conforme legislação angolana (exemplo: 10% sobre valor devido)
+        self.valor_multa = self.valor_devido * Decimal('0.10')
+        
+        # Juros de mora: 1.5% ao mês (0.05% ao dia)
+        self.valor_juros = self.valor_devido * Decimal('0.0005') * dias_atraso
+    
+    def _obter_receitas_periodo(self):
+        """Obtém receitas do período para cálculo"""
+        receitas = MovimentacaoFinanceira.objects.filter(
+            empresa=self.empresa,
+            tipo_movimentacao='entrada',
+            data_movimentacao__range=[self.data_inicio_periodo, self.data_fim_periodo],
+            confirmada=True
+        ).aggregate(
+            total=models.Sum('valor')
+        )['total'] or Decimal('0.00')
+        
+        return receitas
+    
+    def _obter_despesas_dedutiveis(self):
+        """Obtém despesas dedutíveis para Imposto Industrial"""
+        despesas = MovimentacaoFinanceira.objects.filter(
+            empresa=self.empresa,
+            tipo_movimentacao='saida',
+            data_movimentacao__range=[self.data_inicio_periodo, self.data_fim_periodo],
+            confirmada=True,
+            # Filtrar apenas despesas dedutíveis conforme legislação
+            plano_contas__tipo_conta='despesa'
+        ).aggregate(
+            total=models.Sum('valor')
+        )['total'] or Decimal('0.00')
+        
+        return despesas
+    
+    def _obter_rendimentos_capitais(self):
+        """Obtém rendimentos de capitais para IAC"""
+        # Implementar lógica específica para cada tipo de rendimento
+        return Decimal('0.00')
+    
+    def pagar_imposto_agt(self, conta_bancaria, valor_pagamento=None, data_pagamento=None, numero_guia=None):
+        """Registra pagamento do imposto à AGT"""
+        if self.situacao == 'pago':
+            raise ValidationError("Imposto já foi pago")
+        
+        if valor_pagamento is None:
+            valor_pagamento = self.total_agt
+        
+        if data_pagamento is None:
+            data_pagamento = date.today()
+        
+        # Criar movimentação financeira
+        movimentacao = MovimentacaoFinanceira.objects.create(
+            tipo_movimentacao='saida',
+            tipo_documento='pagamento_imposto',
+            data_movimentacao=data_pagamento,
+            valor=valor_pagamento,
+            conta_bancaria=conta_bancaria,
+            plano_contas=self.plano_contas,
+            centro_custo=self.centro_custo,
+            descricao=f"Pagamento {self.get_codigo_receita_agt_display()} - {self.mes_referencia:02d}/{self.ano_referencia}",
+            observacoes=f"Código AGT: {self.codigo_receita_agt} | Guia: {numero_guia or 'N/A'}",
+            status='confirmada',
+            confirmada=True,
+            data_confirmacao=timezone.now(),
+            usuario_responsavel=self.usuario_responsavel,
+            empresa=self.empresa
+        )
+        
+        # Atualizar imposto
+        self.valor_pago += valor_pagamento
+        self.data_pagamento = data_pagamento
+        self.movimentacao_pagamento = movimentacao
+        self.conta_bancaria_pagamento = conta_bancaria
+        
+        if numero_guia:
+            self.numero_guia_agt = numero_guia
+        
+        if self.valor_pago >= self.total_agt:
+            self.situacao = 'pago'
+        
+        self.save()
+        
+        return movimentacao
+    
+    @property
+    def dias_para_vencimento(self):
+        """Dias para vencimento (negativo se vencido)"""
+        return (self.data_vencimento - date.today()).days
+    
+    @property
+    def esta_vencido(self):
+        """Verifica se o imposto está vencido"""
+        return self.data_vencimento < date.today() and self.situacao != 'pago'
+    
+    @property
+    def percentual_pago(self):
+        """Percentual pago do valor total"""
+        if self.total_agt > 0:
+            return (self.valor_pago / self.total_agt) * 100
+        return 0
+    
+    @classmethod
+    def gerar_impostos_periodo_angola(cls, empresa, ano, mes):
+        """Gera impostos do período automaticamente para empresa angolana"""
+        data_inicio = date(ano, mes, 1)
+        
+        if mes == 12:
+            data_fim = date(ano + 1, 1, 1) - timedelta(days=1)
+        else:
+            data_fim = date(ano, mes + 1, 1) - timedelta(days=1)
+        
+        # Data de vencimento: dia 15 do mês seguinte (padrão AGT)
+        if mes == 12:
+            data_vencimento = date(ano + 1, 1, 15)
+        else:
+            data_vencimento = date(ano, mes + 1, 15)
+        
+        impostos_criados = []
+        
+        # Impostos principais a gerar automaticamente
+        impostos_automaticos = [
+            ('03I', 'IVA - Regime Geral', 'iva_geral'),
+            ('01C', 'Imposto Industrial - Regime Geral', 'geral'),
+            ('01A', 'IAC - Títulos do Banco Central', 'geral'),
+        ]
+        
+        for codigo_agt, nome_imposto, regime in impostos_automaticos:
+            # Verificar se já existe
+            existe = cls.objects.filter(
+                empresa=empresa,
+                codigo_receita_agt=codigo_agt,
+                ano_referencia=ano,
+                mes_referencia=mes
+            ).exists()
+            
+            if not existe:
+                # Buscar ou criar plano de contas
+                plano_contas = PlanoContas.objects.filter(
+                    empresa=empresa,
+                    tipo_conta='despesa',
+                    nome__icontains=nome_imposto
+                ).first()
+                
+                if not plano_contas:
+                    plano_contas = PlanoContas.objects.create(
+                        empresa=empresa,
+                        codigo=f"DESP{codigo_agt}",
+                        nome=f"Impostos - {nome_imposto}",
+                        tipo_conta='despesa',
+                        natureza='debito'
+                    )
+                
+                imposto = cls.objects.create(
+                    empresa=empresa,
+                    codigo_receita_agt=codigo_agt,
+                    nome=nome_imposto,
+                    regime_tributario=regime,
+                    ano_referencia=ano,
+                    mes_referencia=mes,
+                    data_inicio_periodo=data_inicio,
+                    data_fim_periodo=data_fim,
+                    data_vencimento=data_vencimento,
+                    plano_contas=plano_contas,
+                    metodo_calculo='percentual_receita',
+                    calculo_automatico=True
+                )
+                
+                # Calcular automaticamente
+                imposto.calcular_imposto_angola()
+                impostos_criados.append(imposto)
+        
+        return impostos_criados
+        
 
 class ConfiguracaoImposto(TimeStampedModel):
     """Configurações de impostos por empresa"""
