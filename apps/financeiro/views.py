@@ -17,6 +17,7 @@ import csv
 from rest_framework import viewsets
 from jsonschema import ValidationError
 from apps.clientes.models import Cliente
+from apps.core.models import Empresa
 from apps.core.views import BaseMPAView
 from apps.financeiro.api.serializers import CategoriaFinanceiraSerializer, LancamentoFinanceiroSerializer
 from apps.fornecedores.models import Fornecedor
@@ -27,10 +28,21 @@ from .models import (
     ImpostoTributo, OrcamentoFinanceiro, PlanoContas
 )
 from .forms import (
-    ContaReceberForm, ContaPagarForm, LancamentoFinanceiroForm,
+    ContaReceberForm, ContaPagarForm, ImpostoTributoForm, LancamentoFinanceiroForm,
     CategoriaFinanceiraForm, CentroCustoForm, MovimentoCaixaForm
 )
 from django.contrib.auth.mixins import AccessMixin
+from django.urls import reverse_lazy
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View
+from django.shortcuts import get_object_or_404, redirect, render
+from django.db import transaction
+from django.http import JsonResponse
+import logging
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from .models import PlanoContas
+from .forms import PlanoContasForm
 
 
 
@@ -1921,19 +1933,171 @@ class CenariosFinanceirosView(LoginRequiredMixin, TemplateView):
 class MetasFinanceirasView(LoginRequiredMixin, TemplateView):
     template_name = 'financeiro/planejamento/metas.html'
 
-# =====================================
-# OUTRAS VIEWS (Implementação básica)
-# =====================================
 
-# Impostos
-class ImpostoListView(LoginRequiredMixin, TemplateView):
-    template_name = 'financeiro/impostos/lista.html'
 
-class CalcularImpostosView(LoginRequiredMixin, TemplateView):
-    template_name = 'financeiro/impostos/calcular.html'
+class ImpostoTributoListView(LoginRequiredMixin, ListView):
+    model = ImpostoTributo
+    template_name = 'tributacao/imposto_list.html'
+    context_object_name = 'impostos'
+    paginate_by = 20
 
-class ApurarImpostosView(LoginRequiredMixin, TemplateView):
-    template_name = 'financeiro/impostos/apurar.html'
+    def get_queryset(self):
+        empresa = self.request.user.empresa
+        return ImpostoTributo.objects.filter(empresa=empresa).order_by('-ano_referencia', '-mes_referencia')
+
+
+class ImpostoTributoDetailView(LoginRequiredMixin, DetailView):
+    model = ImpostoTributo
+    template_name = 'tributacao/imposto_detail.html'
+    context_object_name = 'imposto'
+
+
+class ImpostoTributoCreateView(LoginRequiredMixin, CreateView):
+    model = ImpostoTributo
+    form_class = ImpostoTributoForm
+    template_name = 'tributacao/imposto_form.html'
+    success_url = reverse_lazy('tributacao:imposto_list')
+
+    def form_valid(self, form):
+        imposto = form.save(commit=False)
+        imposto.usuario_responsavel = self.request.user
+        imposto.empresa = self.request.user.empresa
+        imposto.save()
+        messages.success(self.request, 'Imposto/Tributo criado com sucesso.')
+        return super().form_valid(form)
+
+
+class ImpostoTributoUpdateView(LoginRequiredMixin, UpdateView):
+    model = ImpostoTributo
+    form_class = ImpostoTributoForm
+    template_name = 'tributacao/imposto_form.html'
+    success_url = reverse_lazy('tributacao:imposto_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Imposto/Tributo atualizado com sucesso.')
+        return super().form_valid(form)
+
+
+class ImpostoTributoDeleteView(LoginRequiredMixin, DeleteView):
+    model = ImpostoTributo
+    template_name = 'tributacao/imposto_confirm_delete.html'
+    success_url = reverse_lazy('tributacao:imposto_list')
+
+    def delete(self, request, *args, **kwargs):
+        messages.warning(self.request, 'Imposto/Tributo excluído permanentemente.')
+        return super().delete(request, *args, **kwargs)
+
+
+class ImpostoCalcularView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        imposto = get_object_or_404(ImpostoTributo, pk=pk, empresa=request.user.empresa)
+        try:
+            imposto.calcular_imposto_angola(forcar_recalculo=True)
+            messages.success(request, 'Cálculo do imposto efetuado com sucesso.')
+        except Exception as e:
+            messages.error(request, f'Erro ao calcular imposto: {e}')
+        return redirect('tributacao:imposto_detail', pk=imposto.pk)
+
+
+
+
+logger = logging.getLogger(__name__)
+
+
+class ImpostoPagarView(LoginRequiredMixin, View):
+    """
+    View para efetuar o pagamento de um imposto via função pagar_imposto_agt().
+    Integra com o módulo financeiro (movimentação de caixa ou pagamentos).
+    """
+
+    def post(self, request, pk):
+        imposto = get_object_or_404(ImpostoTributo, pk=pk, empresa=request.user.empresa)
+        try:
+            with transaction.atomic():
+                resultado = imposto.pagar_imposto_agt()
+                # Aqui você pode adicionar integração real com o módulo financeiro:
+                # exemplo:
+                MovimentacaoFinanceira.objects.create(
+                    empresa=request.user.empresa,
+                    valor=imposto.valor_devido,
+                    descricao=f"Pagamento do imposto {imposto.nome}",
+                    tipo='saída',
+                    categoria='imposto',
+                    usuario=request.user,
+                )
+
+                messages.success(request, resultado["mensagem"])
+                logger.info(f"Pagamento AGT concluído: {imposto.nome} ({imposto.id}) - {resultado['mensagem']}")
+        except Exception as e:
+            logger.error(f"Erro ao pagar imposto {imposto.id}: {str(e)}", exc_info=True)
+            messages.error(request, f"Falha ao pagar imposto: {e}")
+
+        return redirect('tributacao:imposto_detail', pk=imposto.pk)
+    
+
+
+def pagar_imposto(request, empresa_id):
+    empresa = get_object_or_404('core.Empresa', id=empresa_id)
+    impostos = empresa.impostos_angola.all()
+    total = 0
+
+    for imposto in impostos:
+        if hasattr(imposto, 'pagar_imposto_agt'):
+            imposto.pagar_imposto_agt()
+            total += 1
+
+    messages.success(request, f'{total} impostos pagos à AGT com sucesso.')
+    return redirect('financeiro:detalhe_empresa', empresa_id=empresa_id)
+
+
+
+
+
+
+@login_required
+def estornar_imposto_view(request, pk):
+    """View pública para usuários solicitarem estorno de imposto"""
+    imposto = get_object_or_404(ImpostoTributo, pk=pk, empresa=request.user.empresa)
+
+    if imposto.situacao != "pago":
+        messages.error(request, "⚠️ Este imposto não está pago, portanto não pode ser estornado.")
+        return redirect("financeiro:detalhe_imposto", pk=imposto.pk)
+
+    try:
+        resultado = imposto.estornar_imposto_agt(usuario=request.user)
+        if resultado["status"] == "sucesso":
+            messages.success(request, resultado["mensagem"])
+        else:
+            messages.error(request, resultado["mensagem"])
+    except Exception as e:
+        messages.error(request, f"❌ Erro ao estornar imposto: {e}")
+
+    return redirect("financeiro:detalhe_imposto", pk=imposto.pk)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # Conciliação
@@ -2115,11 +2279,7 @@ class CategoriaFinanceiraViewSet(viewsets.ModelViewSet):
     serializer_class = CategoriaFinanceiraSerializer
 
 
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from .models import PlanoContas
-from .forms import PlanoContasForm
+
 
 @login_required
 def lista_planos(request):

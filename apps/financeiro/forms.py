@@ -7,7 +7,7 @@ from crispy_forms.bootstrap import FormActions
 from decimal import Decimal
 from datetime import date, timedelta
 from .models import (
-    ContaReceber, ContaPagar, LancamentoFinanceiro, CategoriaFinanceira,
+    ContaReceber, ContaPagar, ImpostoTributo, LancamentoFinanceiro, CategoriaFinanceira,
     CentroCusto, MovimentoCaixa, PlanoContas, ContaBancaria,
     MovimentacaoFinanceira
 )
@@ -824,6 +824,20 @@ class PlanoContasForm(forms.ModelForm):
             'conta_pai': forms.Select(attrs={'class': 'select'}),
         }
 
+
+class ImpostoTributoForm(forms.ModelForm):
+    class Meta:
+        model = ImpostoTributo
+        exclude = ('codigo_imposto_interno', 'valor_calculado', 'valor_devido',
+                   'valor_pago', 'valor_multa', 'valor_juros', 'total_agt',
+                   'movimentacao_pagamento', 'usuario_responsavel', 
+                   'ultima_atualizacao_calculo', 'situacao')
+        widgets = {
+            'data_inicio_periodo': forms.DateInput(attrs={'type': 'date'}),
+            'data_fim_periodo': forms.DateInput(attrs={'type': 'date'}),
+            'data_vencimento': forms.DateInput(attrs={'type': 'date'}),
+            'data_pagamento': forms.DateInput(attrs={'type': 'date'}),
+        }
 
 
 

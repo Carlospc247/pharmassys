@@ -131,10 +131,20 @@ urlpatterns = [
     # =====================================
     # IMPOSTOS E TRIBUTOS
     # =====================================
-    path('impostos/', views.ImpostoListView.as_view(), name='imposto_lista'),
-    path('impostos/calcular/', views.CalcularImpostosView.as_view(), name='calcular_impostos'),
-    path('impostos/apurar/', views.ApurarImpostosView.as_view(), name='apurar_impostos'),
     
+    path('', views.ImpostoTributoListView.as_view(), name='imposto_list'),
+    path('<int:pk>/', views.ImpostoTributoDetailView.as_view(), name='imposto_detail'),
+    path('novo/', views.ImpostoTributoCreateView.as_view(), name='imposto_create'),
+    path('<int:pk>/editar/', views.ImpostoTributoUpdateView.as_view(), name='imposto_update'),
+    path('<int:pk>/excluir/', views.ImpostoTributoDeleteView.as_view(), name='imposto_delete'),
+    path('<int:pk>/calcular/', views.ImpostoCalcularView.as_view(), name='imposto_calcular'),
+
+    path('<int:pk>/pagar/', views.ImpostoPagarView.as_view(), name='imposto_pagar'),
+
+    path("impostos/<int:pk>/estornar/", views.estornar_imposto_view, name="estornar_imposto"),
+
+
+
     
     # =====================================
     # CONCILIAÇÃO E FECHAMENTO

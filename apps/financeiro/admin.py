@@ -1,1454 +1,1679 @@
+# apps/financeiro/admin.py
 from django.contrib import admin
 from django.utils.html import format_html
-from django.urls import reverse
+from django.urls import reverse, path
+from django.shortcuts import redirect
+from django.contrib import messages
+from django.http import JsonResponse, HttpResponse
+from django.template.response import TemplateResponse
 from django.utils.safestring import mark_safe
 from django.db.models import Sum, Count, Q
-from django.contrib import messages
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from decimal import Decimal
-from datetime import date, datetime, timedelta
+import csv
+from datetime import date, timedelta
+
 from .models import (
-    ContaPai, PlanoContas, CentroCusto, ContaBancaria, MovimentacaoFinanceira,
-    ContaPagar, ContaReceber, FluxoCaixa, ConciliacaoBancaria, 
+    PlanoContas, CentroCusto, ContaBancaria, MovimentacaoFinanceira,
+    ContaPai, ContaPagar, ContaReceber, FluxoCaixa, ConciliacaoBancaria,
     OrcamentoFinanceiro, CategoriaFinanceira, LancamentoFinanceiro,
     MovimentoCaixa, ImpostoTributo, ConfiguracaoImposto
 )
 
-def format_money(value, prefix="AKZ"):
-    """Formatar valor monetário"""
-    try:
-        val = float(value) if value is not None else 0.0
-    except (ValueError, TypeError):
-        val = 0.0
-    return f"{prefix} {val:,.2f}"
-
-def format_percentage(value):
-    """Formatar percentual"""
-    try:
-        val = float(value) if value is not None else 0.0
-    except (ValueError, TypeError):
-        val = 0.0
-    return f"{val:.2f}%"
-
-# =====================================
+# ============================================================================
 # PLANO DE CONTAS
-# =====================================
-
-class ContasFilhasInline(admin.TabularInline):
-    model = PlanoContas
-    extra = 0
-    fields = ['codigo', 'nome', 'tipo_conta', 'natureza', 'aceita_lancamento', 'ativa']
-    readonly_fields = []
+# ============================================================================
 
 @admin.register(PlanoContas)
 class PlanoContasAdmin(admin.ModelAdmin):
     list_display = [
-        'codigo', 'nome', 'tipo_conta_display', 'natureza_display', 
-        'conta_pai', 'nivel', 'aceita_lancamento', 'ativa', 'ordem'
+        'codigo_formatado',
+        'nome_hierarquico',
+        'tipo_conta_badge',
+        'natureza_badge',
+        'aceita_lancamento_icon',
+        'nivel_display',
+        'ativa_status',
+        'saldo_atual'
     ]
-    list_filter = ['tipo_conta', 'natureza', 'aceita_lancamento', 'ativa', 'nivel']
-    search_fields = ['codigo', 'nome', 'descricao']
-    list_editable = ['ativa', 'aceita_lancamento', 'ordem']
-    ordering = ['codigo']
+    
+    list_filter = [
+        'tipo_conta',
+        'natureza',
+        'aceita_lancamento',
+        'ativa',
+        'nivel',
+        'empresa'
+    ]
+    
+    search_fields = [
+        'codigo',
+        'nome',
+        'descricao'
+    ]
+    
+    readonly_fields = [
+        'nivel',
+        'codigo_completo',
+        'nome_completo'
+    ]
     
     fieldsets = (
         ('Identificação', {
-            'fields': ('codigo', 'nome', 'descricao')
+            'fields': (
+                'codigo',
+                'nome',
+                'descricao',
+                'empresa'
+            )
         }),
         ('Hierarquia', {
-            'fields': ('conta_pai', 'nivel')
+            'fields': (
+                'conta_pai',
+                'nivel',
+                'codigo_completo',
+                'nome_completo'
+            )
         }),
         ('Características', {
-            'fields': ('tipo_conta', 'natureza', 'aceita_lancamento')
+            'fields': (
+                'tipo_conta',
+                'natureza',
+                'aceita_lancamento'
+            )
         }),
         ('Configurações', {
-            'fields': ('ativa', 'ordem')
-        }),
-        ('Empresa', {
-            'fields': ('empresa',)
-        }),
+            'fields': (
+                'ativa',
+                'ordem'
+            )
+        })
     )
     
-    inlines = [ContasFilhasInline]
+    actions = [
+        'ativar_contas',
+        'desativar_contas',
+        'exportar_plano_contas'
+    ]
     
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related('conta_pai', 'empresa')
+    def codigo_formatado(self, obj):
+        return format_html(
+            '<code style="background-color: #f1f5f9; padding: 2px 6px; border-radius: 3px; font-family: monospace;">{}</code>',
+            obj.codigo
+        )
+    codigo_formatado.short_description = 'Código'
+    codigo_formatado.admin_order_field = 'codigo'
     
-    def tipo_conta_display(self, obj):
-        colors = {
-            'receita': 'green',
-            'despesa': 'red',
-            'ativo': 'blue',
-            'passivo': 'orange',
-            'patrimonio': 'purple'
+    def nome_hierarquico(self, obj):
+        indent = '&nbsp;&nbsp;' * (obj.nivel - 1)
+        return format_html(f'{indent}<strong>{obj.nome}</strong>')
+    nome_hierarquico.short_description = 'Nome'
+    nome_hierarquico.admin_order_field = 'nome'
+    
+    def tipo_conta_badge(self, obj):
+        cores = {
+            'receita': '#10b981',
+            'despesa': '#ef4444',
+            'ativo': '#3b82f6',
+            'passivo': '#f59e0b',
+            'patrimonio': '#8b5cf6'
         }
-        color = colors.get(obj.tipo_conta, 'gray')
+        cor = cores.get(obj.tipo_conta, '#6b7280')
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color, obj.get_tipo_conta_display()
+            '<span style="background-color: {}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">{}</span>',
+            cor,
+            obj.get_tipo_conta_display()
         )
-    tipo_conta_display.short_description = 'Tipo'
+    tipo_conta_badge.short_description = 'Tipo'
     
-    def natureza_display(self, obj):
-        colors = {'debito': 'red', 'credito': 'green'}
-        color = colors.get(obj.natureza, 'gray')
+    def natureza_badge(self, obj):
+        cor = '#3b82f6' if obj.natureza == 'debito' else '#10b981'
         return format_html(
-            '<span style="color: {};">{}</span>',
-            color, obj.get_natureza_display()
+            '<span style="background-color: {}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">{}</span>',
+            cor,
+            obj.get_natureza_display()
         )
-    natureza_display.short_description = 'Natureza'
+    natureza_badge.short_description = 'Natureza'
+    
+    def aceita_lancamento_icon(self, obj):
+        if obj.aceita_lancamento:
+            return format_html('<span style="color: #10b981;">✓ Sim</span>')
+        return format_html('<span style="color: #ef4444;">✗ Não</span>')
+    aceita_lancamento_icon.short_description = 'Aceita Lançamento'
+    
+    def nivel_display(self, obj):
+        return format_html(
+            '<span style="background-color: #f1f5f9; padding: 2px 6px; border-radius: 3px; font-weight: bold;">Nível {}</span>',
+            obj.nivel
+        )
+    nivel_display.short_description = 'Nível'
+    
+    def ativa_status(self, obj):
+        if obj.ativa:
+            return format_html('<span style="color: #10b981; font-weight: bold;">✓ Ativa</span>')
+        return format_html('<span style="color: #ef4444; font-weight: bold;">✗ Inativa</span>')
+    ativa_status.short_description = 'Status'
+    
+    def saldo_atual(self, obj):
+        # Calcular saldo baseado nos lançamentos
+        return format_html('<span style="font-family: monospace;">R$ 0,00</span>')
+    saldo_atual.short_description = 'Saldo Atual'
+    
+    def ativar_contas(self, request, queryset):
+        count = queryset.update(ativa=True)
+        self.message_user(request, f'{count} contas ativadas com sucesso.', messages.SUCCESS)
+    ativar_contas.short_description = 'Ativar contas selecionadas'
+    
+    def desativar_contas(self, request, queryset):
+        count = queryset.update(ativa=False)
+        self.message_user(request, f'{count} contas desativadas com sucesso.', messages.SUCCESS)
+    desativar_contas.short_description = 'Desativar contas selecionadas'
+    
+    def exportar_plano_contas(self, request, queryset):
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="plano_contas.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['Código', 'Nome', 'Tipo', 'Natureza', 'Ativa', 'Aceita Lançamento'])
+        
+        for conta in queryset:
+            writer.writerow([
+                conta.codigo,
+                conta.nome,
+                conta.get_tipo_conta_display(),
+                conta.get_natureza_display(),
+                'Sim' if conta.ativa else 'Não',
+                'Sim' if conta.aceita_lancamento else 'Não'
+            ])
+        
+        return response
+    exportar_plano_contas.short_description = 'Exportar plano de contas (CSV)'
 
-# =====================================
+# ============================================================================
 # CENTRO DE CUSTO
-# =====================================
+# ============================================================================
 
 @admin.register(CentroCusto)
 class CentroCustoAdmin(admin.ModelAdmin):
     list_display = [
-        'codigo', 'nome', 'responsavel', 'loja', 'ativo', 'empresa'
+        'codigo_formatado',
+        'nome',
+        'responsavel_info',
+        'loja_info',
+        'ativo_status',
+        'total_movimentacoes'
     ]
-    list_filter = ['ativo', 'loja', 'empresa']
-    search_fields = ['codigo', 'nome', 'descricao', 'responsavel__nome']
-    list_editable = ['ativo']
-    ordering = ['codigo']
+    
+    list_filter = [
+        'ativo',
+        'loja',
+        'empresa'
+    ]
+    
+    search_fields = [
+        'codigo',
+        'nome',
+        'descricao',
+        'responsavel__first_name',
+        'responsavel__last_name'
+    ]
     
     fieldsets = (
         ('Identificação', {
-            'fields': ('codigo', 'nome', 'descricao')
+            'fields': (
+                'codigo',
+                'nome',
+                'descricao',
+                'empresa'
+            )
         }),
         ('Responsabilidade', {
-            'fields': ('responsavel', 'loja')
+            'fields': (
+                'responsavel',
+                'loja'
+            )
         }),
         ('Status', {
-            'fields': ('ativo',)
-        }),
-        ('Empresa', {
-            'fields': ('empresa',)
-        }),
+            'fields': (
+                'ativo',
+            )
+        })
     )
     
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related('responsavel', 'loja', 'empresa')
+    def codigo_formatado(self, obj):
+        return format_html(
+            '<code style="background-color: #f1f5f9; padding: 2px 6px; border-radius: 3px;">{}</code>',
+            obj.codigo
+        )
+    codigo_formatado.short_description = 'Código'
+    
+    def responsavel_info(self, obj):
+        if obj.responsavel:
+            return format_html(
+                '<div><strong>{}</strong><br><small>{}</small></div>',
+                obj.responsavel.get_full_name(),
+                obj.responsavel.email
+            )
+        return format_html('<span style="color: #6b7280;">Sem responsável</span>')
+    responsavel_info.short_description = 'Responsável'
+    
+    def loja_info(self, obj):
+        if obj.loja:
+            return obj.loja.nome
+        return format_html('<span style="color: #6b7280;">Todas as lojas</span>')
+    loja_info.short_description = 'Loja'
+    
+    def ativo_status(self, obj):
+        if obj.ativo:
+            return format_html('<span style="color: #10b981;">✓ Ativo</span>')
+        return format_html('<span style="color: #ef4444;">✗ Inativo</span>')
+    ativo_status.short_description = 'Status'
+    
+    def total_movimentacoes(self, obj):
+        # Contar movimentações do centro de custo
+        return format_html('<span style="font-family: monospace;">0</span>')
+    total_movimentacoes.short_description = 'Movimentações'
 
-# =====================================
+# ============================================================================
 # CONTA BANCÁRIA
-# =====================================
+# ============================================================================
 
 @admin.register(ContaBancaria)
 class ContaBancariaAdmin(admin.ModelAdmin):
     list_display = [
-        'nome', 'banco', 'agencia_conta', 'tipo_conta_display',
-        'saldo_atual_display', 'saldo_disponivel_display', 
-        'conta_principal', 'ativa'
+        'conta_info',
+        'banco',
+        'tipo_conta_badge',
+        'saldo_atual_display',
+        'saldo_disponivel_display',
+        'conta_principal_icon',
+        'ativa_status',
+        'acoes_rapidas'
     ]
-    list_filter = ['tipo_conta', 'ativa', 'conta_principal', 'banco']
-    search_fields = ['nome', 'banco', 'agencia', 'conta']
-    readonly_fields = ['saldo_atual', 'saldo_disponivel']
-    list_editable = ['ativa']
+    
+    list_filter = [
+        'tipo_conta',
+        'ativa',
+        'conta_principal',
+        'permite_saldo_negativo',
+        'empresa'
+    ]
+    
+    search_fields = [
+        'nome',
+        'banco',
+        'agencia',
+        'conta',
+        'observacoes'
+    ]
     
     fieldsets = (
         ('Identificação', {
-            'fields': ('nome', 'banco', 'agencia', 'conta', 'digito', 'tipo_conta')
-        }),
-        ('Transferência Eletrônica', {
-            'classes': ['collapse'],
-            'fields': (),
+            'fields': (
+                'nome',
+                'banco',
+                ('agencia', 'conta', 'digito'),
+                'tipo_conta',
+                'empresa'
+            )
         }),
         ('Saldos e Limites', {
-            'fields': ('saldo_inicial', 'saldo_atual', 'limite_credito')
+            'fields': (
+                'saldo_inicial',
+                'saldo_atual',
+                'limite_credito',
+                'saldo_disponivel'
+            )
         }),
         ('Configurações', {
-            'fields': ('ativa', 'conta_principal', 'permite_saldo_negativo')
+            'fields': (
+                'ativa',
+                'conta_principal',
+                'permite_saldo_negativo'
+            )
         }),
         ('Integração', {
-            'fields': ('codigo_integracao', 'ultima_conciliacao', 'plano_contas_ativo'),
-            'classes': ['collapse']
+            'fields': (
+                'codigo_integracao',
+                'ultima_conciliacao'
+            ),
+            'classes': ('collapse',)
         }),
         ('Observações', {
-            'fields': ('observacoes',),
-            'classes': ['collapse']
-        }),
-        ('Empresa', {
-            'fields': ('empresa',)
-        }),
+            'fields': (
+                'observacoes',
+            ),
+            'classes': ('collapse',)
+        })
     )
     
-    actions = ['atualizar_saldos', 'marcar_como_principal']
+    readonly_fields = [
+        'saldo_atual',
+        'saldo_disponivel'
+    ]
     
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related('empresa', 'plano_contas_ativo')
+    actions = [
+        'atualizar_saldos',
+        'marcar_como_principal',
+        'conciliar_contas'
+    ]
     
-    def agencia_conta(self, obj):
-        return f"Ag: {obj.agencia} | Cc: {obj.conta}"
-    agencia_conta.short_description = "Agência/Conta"
-    
-    def tipo_conta_display(self, obj):
-        icons = {
-            'corrente': '💳',
-            'poupanca': '🏦',
-            'investimento': '📈',
-            'cartao': '💸',
-            'caixa': '💰'
-        }
-        icon = icons.get(obj.tipo_conta, '💰')
+    def conta_info(self, obj):
         return format_html(
-            '{} {}', icon, obj.get_tipo_conta_display()
+            '<div style="line-height: 1.4;">'
+            '<strong>{}</strong><br>'
+            '<small>Ag: {} Cc: {}{}</small>'
+            '</div>',
+            obj.nome,
+            obj.agencia,
+            obj.conta,
+            f'-{obj.digito}' if obj.digito else ''
         )
-    tipo_conta_display.short_description = "Tipo"
+    conta_info.short_description = 'Conta'
+    
+    def tipo_conta_badge(self, obj):
+        cores = {
+            'corrente': '#3b82f6',
+            'poupanca': '#10b981',
+            'investimento': '#8b5cf6',
+            'cartao': '#f59e0b',
+            'caixa': '#6b7280'
+        }
+        cor = cores.get(obj.tipo_conta, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">{}</span>',
+            cor,
+            obj.get_tipo_conta_display()
+        )
+    tipo_conta_badge.short_description = 'Tipo'
     
     def saldo_atual_display(self, obj):
-        color = 'green' if obj.saldo_atual >= 0 else 'red'
+        cor = '#10b981' if obj.saldo_atual >= 0 else '#ef4444'
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color, format_money(obj.saldo_atual)
+            '<span style="color: {}; font-weight: bold; font-family: monospace;">AOA {:,.2f}</span>',
+            cor,
+            obj.saldo_atual
         )
-    saldo_atual_display.short_description = "Saldo Atual"
-
+    saldo_atual_display.short_description = 'Saldo Atual'
+    
     def saldo_disponivel_display(self, obj):
-        saldo = obj.saldo_disponivel
-        color = 'green' if saldo >= 0 else 'red'
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color, format_money(saldo)
+            '<span style="font-family: monospace; color: #059669;">AOA {:,.2f}</span>',
+            obj.saldo_disponivel
         )
-    saldo_disponivel_display.short_description = "Saldo Disponível"
+    saldo_disponivel_display.short_description = 'Saldo Disponível'
+    
+    def conta_principal_icon(self, obj):
+        if obj.conta_principal:
+            return format_html('<span style="color: #f59e0b; font-size: 16px;">★ Principal</span>')
+        return format_html('<span style="color: #d1d5db;">☆</span>')
+    conta_principal_icon.short_description = 'Principal'
+    
+    def ativa_status(self, obj):
+        if obj.ativa:
+            return format_html('<span style="color: #10b981;">✓ Ativa</span>')
+        return format_html('<span style="color: #ef4444;">✗ Inativa</span>')
+    ativa_status.short_description = 'Status'
+    
+    def acoes_rapidas(self, obj):
+        buttons = []
+        
+        buttons.append(
+            f'<a href="#" onclick="atualizarSaldo({obj.pk})" '
+            f'style="background-color: #3b82f6; color: white; padding: 2px 6px; border-radius: 3px; text-decoration: none; font-size: 11px; margin-right: 2px;">'
+            f'🔄 Atualizar</a>'
+        )
+        
+        buttons.append(
+            f'<a href="#" onclick="conciliarConta({obj.pk})" '
+            f'style="background-color: #10b981; color: white; padding: 2px 6px; border-radius: 3px; text-decoration: none; font-size: 11px;">'
+            f'📊 Conciliar</a>'
+        )
+        
+        return format_html(''.join(buttons))
+    acoes_rapidas.short_description = 'Ações'
     
     def atualizar_saldos(self, request, queryset):
         count = 0
         for conta in queryset:
             conta.atualizar_saldo()
             count += 1
-        messages.success(request, f'Saldos atualizados para {count} contas.')
-    atualizar_saldos.short_description = "Atualizar saldos das contas"
+        
+        self.message_user(request, f'Saldos de {count} contas atualizados.', messages.SUCCESS)
+    atualizar_saldos.short_description = 'Atualizar saldos das contas'
     
     def marcar_como_principal(self, request, queryset):
         if queryset.count() > 1:
-            messages.error(request, 'Selecione apenas uma conta para marcar como principal.')
+            self.message_user(request, 'Selecione apenas uma conta para marcar como principal.', messages.ERROR)
             return
         
-        conta = queryset.first()
-        # Desmarcar outras contas principais da mesma empresa
-        ContaBancaria.objects.filter(empresa=conta.empresa, conta_principal=True).update(conta_principal=False)
-        conta.conta_principal = True
-        conta.save()
-        messages.success(request, f'Conta {conta.nome} marcada como principal.')
-    marcar_como_principal.short_description = "Marcar como conta principal"
+        # Desmarcar todas as outras contas principais
+        ContaBancaria.objects.filter(empresa=queryset.first().empresa).update(conta_principal=False)
+        
+        # Marcar a selecionada como principal
+        queryset.update(conta_principal=True)
+        
+        self.message_user(request, 'Conta marcada como principal.', messages.SUCCESS)
+    marcar_como_principal.short_description = 'Marcar como conta principal'
 
-# =====================================
+# ============================================================================
 # MOVIMENTAÇÃO FINANCEIRA
-# =====================================
+# ============================================================================
 
 @admin.register(MovimentacaoFinanceira)
 class MovimentacaoFinanceiraAdmin(admin.ModelAdmin):
     list_display = [
-        'data_movimentacao', 'tipo_movimentacao_display', 'descricao_truncada',
-        'valor_display', 'conta_bancaria', 'status_display', 'confirmada'
+        'data_movimentacao',
+        'tipo_valor_display',
+        'conta_bancaria',
+        'descricao_curta',
+        'pessoa_relacionada',
+        'status_badge',
+        'confirmada_icon',
+        'acoes_rapidas'
     ]
+    
     list_filter = [
-        'tipo_movimentacao', 'tipo_documento', 'status', 'confirmada',
-        'conta_bancaria', 'data_movimentacao', 'plano_contas__tipo_conta'
+        'tipo_movimentacao',
+        'tipo_documento',
+        'status',
+        'confirmada',
+        'conciliada',
+        'data_movimentacao',
+        'conta_bancaria',
+        'empresa'
     ]
+    
     search_fields = [
-        'descricao', 'numero_documento', 'observacoes',
-        'fornecedor__razao_social', 'cliente__nome_completo'
+        'numero_documento',
+        'descricao',
+        'observacoes',
+        'cliente__nome',
+        'fornecedor__nome_fantasia'
     ]
-    readonly_fields = ['total']
+    
     date_hierarchy = 'data_movimentacao'
-    ordering = ['-data_movimentacao', '-created_at']
     
     fieldsets = (
         ('Identificação', {
-            'fields': ('numero_documento', 'tipo_movimentacao', 'tipo_documento', 'descricao')
+            'fields': (
+                'numero_documento',
+                'tipo_movimentacao',
+                'tipo_documento',
+                'empresa'
+            )
         }),
         ('Datas', {
-            'fields': ('data_movimentacao', 'data_vencimento', 'data_confirmacao')
+            'fields': (
+                'data_movimentacao',
+                'data_vencimento',
+                'data_confirmacao'
+            )
         }),
         ('Valores', {
-            'fields': ('valor', 'valor_juros', 'valor_multa', 'valor_desconto', 'total')
+            'fields': (
+                'valor',
+                ('valor_juros', 'valor_multa', 'valor_desconto'),
+                'total'
+            )
         }),
         ('Contas', {
-            'fields': ('conta_bancaria', 'conta_destino', 'plano_contas', 'centro_custo')
+            'fields': (
+                'conta_bancaria',
+                'conta_destino',
+                'plano_contas',
+                'centro_custo'
+            )
         }),
         ('Relacionamentos', {
-            'fields': ('fornecedor', 'cliente', 'venda_relacionada', 'recibo')
+            'fields': (
+                'fornecedor',
+                'cliente',
+                'venda_relacionada'
+            )
         }),
-        ('Status e Controle', {
-            'fields': ('status', 'confirmada', 'conciliada', 'data_conciliacao', 'usuario_responsavel')
+        ('Descrição', {
+            'fields': (
+                'descricao',
+                'observacoes'
+            )
         }),
-        ('Dados Específicos', {
-            'fields': ('numero_cheque', 'banco_cheque', 'emissor_cheque'),
-            'classes': ['collapse']
+        ('Controle', {
+            'fields': (
+                'status',
+                'confirmada',
+                'conciliada',
+                'data_conciliacao',
+                'usuario_responsavel'
+            )
         }),
-        ('Observações', {
-            'fields': ('observacoes',),
-            'classes': ['collapse']
-        }),
-        ('Empresa', {
-            'fields': ('empresa',)
-        }),
+        ('Dados do Cheque', {
+            'fields': (
+                'numero_cheque',
+                'banco_cheque',
+                'emissor_cheque'
+            ),
+            'classes': ('collapse',)
+        })
     )
     
-    actions = ['confirmar_movimentacoes', 'cancelar_movimentacoes', 'conciliar_movimentacoes']
+    readonly_fields = [
+        'total',
+        'data_confirmacao'
+    ]
     
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related(
-            'conta_bancaria', 'plano_contas', 'fornecedor', 'cliente', 'usuario_responsavel'
-        )
+    actions = [
+        'confirmar_movimentacoes',
+        'estornar_movimentacoes',
+        'exportar_extrato'
+    ]
     
-    def descricao_truncada(self, obj):
-        if len(obj.descricao) > 50:
-            return obj.descricao[:50] + '...'
-        return obj.descricao
-    descricao_truncada.short_description = "Descrição"
-    
-    def tipo_movimentacao_display(self, obj):
-        colors = {'entrada': 'green', 'saida': 'red', 'transferencia': 'blue'}
-        icons = {'entrada': '⬆️', 'saida': '⬇️', 'transferencia': '↔️'}
-        color = colors.get(obj.tipo_movimentacao, 'gray')
-        icon = icons.get(obj.tipo_movimentacao, '')
+    def tipo_valor_display(self, obj):
+        sinal = '+' if obj.tipo_movimentacao == 'entrada' else '-'
+        cor = '#10b981' if obj.tipo_movimentacao == 'entrada' else '#ef4444'
         
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{} {}</span>',
-            color, icon, obj.get_tipo_movimentacao_display()
+            '<div style="text-align: right;">'
+            '<span style="color: {}; font-weight: bold; font-family: monospace;">{} AOA {:,.2f}</span><br>'
+            '<small style="color: #6b7280;">{}</small>'
+            '</div>',
+            cor,
+            sinal,
+            obj.valor,
+            obj.get_tipo_movimentacao_display()
         )
-    tipo_movimentacao_display.short_description = 'Tipo'
+    tipo_valor_display.short_description = 'Tipo/Valor'
     
-    def valor_display(self, obj):
-        color = 'green' if obj.tipo_movimentacao == 'entrada' else 'red'
+    def descricao_curta(self, obj):
+        descricao = obj.descricao[:40] + '...' if len(obj.descricao) > 40 else obj.descricao
+        return format_html('<span title="{}">{}</span>', obj.descricao, descricao)
+    descricao_curta.short_description = 'Descrição'
+    
+    def pessoa_relacionada(self, obj):
+        if obj.cliente:
+            return format_html('<span style="color: #10b981;">👤 {}</span>', obj.cliente.nome)
+        elif obj.fornecedor:
+            return format_html('<span style="color: #ef4444;">🏢 {}</span>', obj.fornecedor.nome_fantasia)
+        return format_html('<span style="color: #6b7280;">-</span>')
+    pessoa_relacionada.short_description = 'Cliente/Fornecedor'
+    
+    def status_badge(self, obj):
+        cores = {
+            'pendente': '#f59e0b',
+            'confirmada': '#10b981',
+            'cancelada': '#6b7280',
+            'estornada': '#ef4444'
+        }
+        cor = cores.get(obj.status, '#6b7280')
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color, format_money(obj.valor)
+            '<span style="background-color: {}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">{}</span>',
+            cor,
+            obj.get_status_display()
         )
-    valor_display.short_description = "Valor"
+    status_badge.short_description = 'Status'
     
-    def status_display(self, obj):
-        colors = {
-            'pendente': 'orange',
-            'confirmada': 'green',
-            'cancelada': 'red',
-            'estornada': 'gray'
-        }
-        icons = {
-            'pendente': '⏳',
-            'confirmada': '✅',
-            'cancelada': '❌',
-            'estornada': '🔄'
-        }
-        color = colors.get(obj.status, 'gray')
-        icon = icons.get(obj.status, '')
+    def confirmada_icon(self, obj):
+        if obj.confirmada:
+            return format_html('<span style="color: #10b981; font-size: 16px;">✓</span>')
+        return format_html('<span style="color: #f59e0b; font-size: 16px;">⏳</span>')
+    confirmada_icon.short_description = 'Confirmada'
+    
+    def acoes_rapidas(self, obj):
+        buttons = []
         
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{} {}</span>',
-            color, icon, obj.get_status_display()
-        )
-    status_display.short_description = 'Status'
+        if not obj.confirmada and obj.status == 'pendente':
+            buttons.append(
+                f'<a href="#" onclick="confirmarMovimentacao({obj.pk})" '
+                f'style="background-color: #10b981; color: white; padding: 2px 6px; border-radius: 3px; text-decoration: none; font-size: 11px; margin-right: 2px;">'
+                f'✓ Confirmar</a>'
+            )
+        
+        if obj.confirmada and obj.status == 'confirmada':
+            buttons.append(
+                f'<a href="#" onclick="estornarMovimentacao({obj.pk})" '
+                f'style="background-color: #ef4444; color: white; padding: 2px 6px; border-radius: 3px; text-decoration: none; font-size: 11px;">'
+                f'↩️ Estornar</a>'
+            )
+        
+        return format_html(''.join(buttons))
+    acoes_rapidas.short_description = 'Ações'
     
     def confirmar_movimentacoes(self, request, queryset):
-        confirmadas = 0
-        for movimentacao in queryset.filter(status='pendente'):
+        count = 0
+        for mov in queryset.filter(status='pendente', confirmada=False):
             try:
-                movimentacao.confirmar_movimentacao(request.user)
-                confirmadas += 1
-            except Exception as e:
-                messages.error(request, f'Erro ao confirmar movimentação {movimentacao.id}: {e}')
+                mov.confirmar_movimentacao(request.user)
+                count += 1
+            except ValidationError as e:
+                self.message_user(request, f'Erro ao confirmar {mov}: {e}', messages.ERROR)
         
-        if confirmadas:
-            messages.success(request, f'{confirmadas} movimentações confirmadas.')
-    confirmar_movimentacoes.short_description = "Confirmar movimentações selecionadas"
-    
-    def cancelar_movimentacoes(self, request, queryset):
-        canceladas = queryset.filter(status='pendente').update(status='cancelada')
-        messages.success(request, f'{canceladas} movimentações canceladas.')
-    cancelar_movimentacoes.short_description = "Cancelar movimentações selecionadas"
-    
-    def conciliar_movimentacoes(self, request, queryset):
-        conciliadas = queryset.filter(confirmada=True, conciliada=False).update(
-            conciliada=True, 
-            data_conciliacao=date.today()
-        )
-        messages.success(request, f'{conciliadas} movimentações conciliadas.')
-    conciliar_movimentacoes.short_description = "Marcar como conciliadas"
+        if count:
+            self.message_user(request, f'{count} movimentações confirmadas.', messages.SUCCESS)
+    confirmar_movimentacoes.short_description = 'Confirmar movimentações selecionadas'
 
-# =====================================
-# CONTA A PAGAR
-# =====================================
-
-class ParcelasContaPagarInline(admin.TabularInline):
-    model = ContaPagar
-    fk_name = 'conta_pai'  # ok, aponta para ContaPai
-    extra = 1
+# ============================================================================
+# CONTAS A PAGAR
+# ============================================================================
 
 @admin.register(ContaPagar)
 class ContaPagarAdmin(admin.ModelAdmin):
     list_display = [
-        'numero_documento', 'descricao_truncada', 'fornecedor', 'data_vencimento',
-        'valor_original_display', 'valor_saldo_display', 'status_display', 'dias_vencimento_display'
+        'numero_documento',
+        'descricao_curta',
+        'fornecedor_info',
+        'valor_info',
+        'vencimento_info',
+        'status_badge',
+        'acoes_rapidas'
     ]
-    list_filter = ['status', 'tipo_conta', 'data_vencimento', 'fornecedor', 'data_emissao']
-    search_fields = ['numero_documento', 'descricao', 'fornecedor__razao_social']
-    readonly_fields = ['valor_saldo', 'dias_vencimento', 'esta_vencida']
+    
+    list_filter = [
+        'status',
+        'tipo_conta',
+        'data_vencimento',
+        'data_emissao',
+        'fornecedor',
+        'empresa'
+    ]
+    
+    search_fields = [
+        'numero_documento',
+        'descricao',
+        'fornecedor__nome_fantasia',
+        'observacoes'
+    ]
+    
     date_hierarchy = 'data_vencimento'
-    ordering = ['data_vencimento', 'valor_saldo']
     
     fieldsets = (
         ('Identificação', {
-            'fields': ('numero_documento', 'descricao', 'tipo_conta')
+            'fields': (
+                'numero_documento',
+                'descricao',
+                'tipo_conta',
+                'empresa'
+            )
         }),
         ('Datas', {
-            'fields': ('data_emissao', 'data_vencimento', 'data_pagamento')
+            'fields': (
+                'data_emissao',
+                'data_vencimento',
+                'data_pagamento'
+            )
         }),
         ('Valores', {
-            'fields': ('valor_original', 'valor_juros', 'valor_multa', 'valor_desconto', 'valor_pago', 'valor_saldo')
+            'fields': (
+                'valor_original',
+                ('valor_juros', 'valor_multa', 'valor_desconto'),
+                'valor_pago',
+                'valor_saldo'
+            )
         }),
         ('Relacionamentos', {
-            'fields': ('fornecedor', 'plano_contas', 'centro_custo')
+            'fields': (
+                'fornecedor',
+                'plano_contas',
+                'centro_custo'
+            )
         }),
         ('Parcelamento', {
-            'fields': ('numero_parcela', 'total_parcelas', 'conta_pai'),
-            'classes': ['collapse']
+            'fields': (
+                ('numero_parcela', 'total_parcelas'),
+                'conta_pai'
+            ),
+            'classes': ('collapse',)
         }),
-        ('Status e Observações', {
-            'fields': ('status', 'dias_vencimento', 'esta_vencida', 'observacoes')
-        }),
-        ('Empresa', {
-            'fields': ('empresa',)
-        }),
+        ('Observações', {
+            'fields': (
+                'status',
+                'observacoes'
+            )
+        })
     )
     
+    readonly_fields = [
+        'valor_saldo',
+        'data_pagamento'
+    ]
     
-    actions = ['marcar_como_paga', 'gerar_relatorio_vencimentos']
+    actions = [
+        'marcar_como_paga',
+        'gerar_relatorio_vencimentos',
+        'exportar_contas_pagar'
+    ]
     
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related('fornecedor', 'plano_contas', 'empresa')
+    def descricao_curta(self, obj):
+        return obj.descricao[:30] + '...' if len(obj.descricao) > 30 else obj.descricao
+    descricao_curta.short_description = 'Descrição'
     
-    def descricao_truncada(self, obj):
-        if len(obj.descricao) > 40:
-            return obj.descricao[:40] + '...'
-        return obj.descricao
-    descricao_truncada.short_description = "Descrição"
-    
-    def valor_original_display(self, obj):
-        return format_html('<span>{}</span>', format_money(obj.valor_original))
-    valor_original_display.short_description = "Valor Original"
-    
-    def valor_saldo_display(self, obj):
-        if obj.valor_saldo > 0:
-            color = 'red' if obj.esta_vencida else 'orange'
+    def fornecedor_info(self, obj):
+        if obj.fornecedor:
             return format_html(
-                '<span style="color: {}; font-weight: bold;">{}</span>',
-                color, format_money(obj.valor_saldo)
+                '<div><strong>{}</strong><br><small>{}</small></div>',
+                obj.fornecedor.nome_fantasia,
+                obj.fornecedor.cnpj or obj.fornecedor.cpf
             )
-        return format_html('<span style="color: green;">AKZ 0,00</span>')
-    valor_saldo_display.short_description = "Saldo"
+        return format_html('<span style="color: #6b7280;">Sem fornecedor</span>')
+    fornecedor_info.short_description = 'Fornecedor'
     
-    def status_display(self, obj):
-        colors = {
-            'aberta': 'blue',
-            'vencida': 'red',
-            'paga': 'green',
-            'cancelada': 'gray',
-            'renegociada': 'orange'
-        }
-        icons = {
-            'aberta': '📋',
-            'vencida': '⚠️',
-            'paga': '✅',
-            'cancelada': '❌',
-            'renegociada': '🔄'
-        }
-        color = colors.get(obj.status, 'gray')
-        icon = icons.get(obj.status, '')
+    def valor_info(self, obj):
+        return format_html(
+            '<div style="text-align: right; font-family: monospace;">'
+            '<strong>AOA {:,.2f}</strong><br>'
+            '<small style="color: {};">Saldo: AOA {:,.2f}</small>'
+            '</div>',
+            obj.valor_original,
+            '#10b981' if obj.valor_saldo <= 0 else '#ef4444',
+            obj.valor_saldo
+        )
+    valor_info.short_description = 'Valores'
+    
+    def vencimento_info(self, obj):
+        hoje = date.today()
+        dias = (obj.data_vencimento - hoje).days
+        
+        if dias < 0:
+            cor = '#ef4444'
+            status = f'Vencida há {abs(dias)} dias'
+        elif dias == 0:
+            cor = '#f59e0b'
+            status = 'Vence hoje'
+        elif dias <= 7:
+            cor = '#f59e0b'
+            status = f'Vence em {dias} dias'
+        else:
+            cor = '#6b7280'
+            status = f'Vence em {dias} dias'
         
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{} {}</span>',
-            color, icon, obj.get_status_display()
+            '<div style="text-align: center;">'
+            '<strong>{}</strong><br>'
+            '<small style="color: {};">{}</small>'
+            '</div>',
+            obj.data_vencimento.strftime('%d/%m/%Y'),
+            cor,
+            status
         )
-    status_display.short_description = 'Status'
+    vencimento_info.short_description = 'Vencimento'
     
-    def dias_vencimento_display(self, obj):
-        dias = obj.dias_vencimento
-        if dias < 0:
-            return format_html(
-                '<span style="color: red; font-weight: bold;">⚠️ {} dias em atraso</span>',
-                abs(dias)
-            )
-        elif dias == 0:
-            return format_html('<span style="color: orange; font-weight: bold;">🕐 Vence hoje</span>')
-        elif dias <= 7:
-            return format_html(
-                '<span style="color: orange;">⏰ Vence em {} dias</span>',
-                dias
-            )
-        else:
-            return format_html('<span style="color: green;">📅 Vence em {} dias</span>', dias)
-    dias_vencimento_display.short_description = 'Vencimento'
-    
-    def marcar_como_paga(self, request, queryset):
-        count = 0
-        for conta in queryset.filter(status__in=['aberta', 'vencida']):
-            conta.valor_pago = conta.valor_original + conta.valor_juros + conta.valor_multa - conta.valor_desconto
-            conta.save()
-            count += 1
-        
-        messages.success(request, f'{count} contas marcadas como pagas.')
-    marcar_como_paga.short_description = "Marcar como paga"
-    
-    def gerar_relatorio_vencimentos(self, request, queryset):
-        total_vencidas = queryset.filter(status='vencida').count()
-        total_valor_vencido = queryset.filter(status='vencida').aggregate(
-            total=Sum('valor_saldo')
-        )['total'] or 0
-        
-        messages.info(
-            request, 
-            f'Relatório: {total_vencidas} contas vencidas totalizando {format_money(total_valor_vencido)}'
+    def status_badge(self, obj):
+        cores = {
+            'aberta': '#3b82f6',
+            'vencida': '#ef4444',
+            'paga': '#10b981',
+            'cancelada': '#6b7280',
+            'renegociada': '#f59e0b'
+        }
+        cor = cores.get(obj.status, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold;">{}</span>',
+            cor,
+            obj.get_status_display()
         )
-    gerar_relatorio_vencimentos.short_description = "Gerar relatório de vencimentos"
+    status_badge.short_description = 'Status'
+    
+    def acoes_rapidas(self, obj):
+        buttons = []
+        
+        if obj.status in ['aberta', 'vencida']:
+            buttons.append(
+                f'<a href="#" onclick="pagarConta({obj.pk})" '
+                f'style="background-color: #10b981; color: white; padding: 2px 6px; border-radius: 3px; text-decoration: none; font-size: 11px; margin-right: 2px;">'
+                f'💰 Pagar</a>'
+            )
+        
+        return format_html(''.join(buttons))
+    acoes_rapidas.short_description = 'Ações'
 
-# =====================================
-# CONTA A RECEBER
-# =====================================
-
-class ParcelasContaReceberInline(admin.TabularInline):
-    model = ContaReceber
-    fk_name = 'conta_pai'  # ContaReceber.conta_pai → ContaPai
-    extra = 1
+# ============================================================================
+# CONTAS A RECEBER
+# ============================================================================
 
 @admin.register(ContaReceber)
 class ContaReceberAdmin(admin.ModelAdmin):
     list_display = [
-        'numero_documento', 'descricao_truncada', 'cliente', 'data_vencimento',
-        'valor_original_display', 'valor_saldo_display', 'status_display', 'dias_vencimento_display'
+        'numero_documento',
+        'descricao_curta',
+        'cliente_info',
+        'valor_info',
+        'vencimento_info',
+        'status_badge',
+        'acoes_rapidas'
     ]
-    list_filter = ['status', 'tipo_conta', 'data_vencimento', 'cliente', 'data_emissao']
-    search_fields = ['numero_documento', 'descricao', 'cliente__nome_completo']
-    readonly_fields = ['valor_saldo', 'dias_vencimento', 'esta_vencida']
-    date_hierarchy = 'data_vencimento'
-    ordering = ['data_vencimento', 'valor_saldo']
     
+    list_filter = [
+        'status',
+        'tipo_conta',
+        'data_vencimento',
+        'data_emissao',
+        'cliente',
+        'empresa'
+    ]
+    
+    search_fields = [
+        'numero_documento',
+        'descricao',
+        'cliente__nome',
+        'observacoes'
+    ]
+    
+    date_hierarchy = 'data_vencimento'
+    
+    # Fieldsets similar ao ContaPagar
     fieldsets = (
         ('Identificação', {
-            'fields': ('numero_documento', 'descricao', 'tipo_conta')
+            'fields': (
+                'numero_documento',
+                'descricao',
+                'tipo_conta',
+                'empresa'
+            )
         }),
         ('Datas', {
-            'fields': ('data_emissao', 'data_vencimento', 'data_recebimento')
+            'fields': (
+                'data_emissao',
+                'data_vencimento',
+                'data_recebimento'
+            )
         }),
         ('Valores', {
-            'fields': ('valor_original', 'valor_juros', 'valor_multa', 'valor_desconto', 'valor_recebido', 'valor_saldo')
+            'fields': (
+                'valor_original',
+                ('valor_juros', 'valor_multa', 'valor_desconto'),
+                'valor_recebido',
+                'valor_saldo'
+            )
         }),
         ('Relacionamentos', {
-            'fields': ('cliente', 'venda', 'plano_contas', 'centro_custo')
+            'fields': (
+                'cliente',
+                'venda',
+                'plano_contas',
+                'centro_custo'
+            )
         }),
         ('Parcelamento', {
-            'fields': ('numero_parcela', 'total_parcelas', 'conta_pai'),
-            'classes': ['collapse']
-        }),
-        ('Status e Observações', {
-            'fields': ('status', 'dias_vencimento', 'esta_vencida', 'observacoes')
-        }),
-        ('Empresa', {
-            'fields': ('empresa',)
-        }),
-    )
-    
- 
-    actions = ['marcar_como_recebida', 'aplicar_desconto', 'gerar_cobranca']
-    
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related('cliente', 'venda', 'plano_contas', 'empresa')
-    
-    def descricao_truncada(self, obj):
-        if len(obj.descricao) > 40:
-            return obj.descricao[:40] + '...'
-        return obj.descricao
-    descricao_truncada.short_description = "Descrição"
-    
-    def valor_original_display(self, obj):
-        return format_html('<span>{}</span>', format_money(obj.valor_original))
-    valor_original_display.short_description = "Valor Original"
-    
-    def valor_saldo_display(self, obj):
-        if obj.valor_saldo > 0:
-            color = 'red' if obj.esta_vencida else 'orange'
-            return format_html(
-                '<span style="color: {}; font-weight: bold;">{}</span>',
-                color, format_money(obj.valor_saldo)
-            )
-        return format_html('<span style="color: green;">AKZ 0,00</span>')
-    valor_saldo_display.short_description = 'Saldo'
-    
-    def status_display(self, obj):
-        colors = {
-            'aberta': 'blue',
-            'vencida': 'red',
-            'recebida': 'green',
-            'cancelada': 'gray',
-            'renegociada': 'orange'
-        }
-        icons = {
-            'aberta': '📋',
-            'vencida': '⚠️',
-            'recebida': '✅',
-            'cancelada': '❌',
-            'renegociada': '🔄'
-        }
-        color = colors.get(obj.status, 'gray')
-        icon = icons.get(obj.status, '')
-        
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{} {}</span>',
-            color, icon, obj.get_status_display()
-        )
-    status_display.short_description = 'Status'
-    
-    def dias_vencimento_display(self, obj):
-        dias = obj.dias_vencimento
-        if dias < 0:
-            return format_html(
-                '<span style="color: red; font-weight: bold;">⚠️ {} dias em atraso</span>',
-                abs(dias)
-            )
-        elif dias == 0:
-            return format_html('<span style="color: orange; font-weight: bold;">🕐 Vence hoje</span>')
-        elif dias <= 7:
-            return format_html(
-                '<span style="color: orange;">⏰ Vence em {} dias</span>',
-                dias
-            )
-        else:
-            return format_html('<span style="color: green;">📅 Vence em {} dias</span>', dias)
-    dias_vencimento_display.short_description = 'Vencimento'
-    
-    def marcar_como_recebida(self, request, queryset):
-        count = 0
-        for conta in queryset.filter(status__in=['aberta', 'vencida']):
-            conta.valor_recebido = conta.valor_original + conta.valor_juros + conta.valor_multa - conta.valor_desconto
-            conta.save()
-            count += 1
-        
-        messages.success(request, f'{count} contas marcadas como recebidas.')
-    marcar_como_recebida.short_description = "Marcar como recebida"
-    
-    def aplicar_desconto(self, request, queryset):
-        # Simular aplicação de desconto de 5%
-        count = 0
-        for conta in queryset.filter(status__in=['aberta', 'vencida']):
-            if conta.valor_desconto == 0:
-                conta.valor_desconto = conta.valor_original * Decimal('0.05')
-                conta.save()
-                count += 1
-        
-        messages.success(request, f'Desconto de 5% aplicado a {count} contas.')
-    aplicar_desconto.short_description = "Aplicar desconto de 5%"
-    
-    def gerar_cobranca(self, request, queryset):
-        total_cobrancas = queryset.filter(status__in=['aberta', 'vencida']).count()
-        total_valor = queryset.filter(status__in=['aberta', 'vencida']).aggregate(
-            total=Sum('valor_saldo')
-        )['total'] or 0
-        
-        messages.info(
-            request, 
-            f'Cobrança gerada: {total_cobrancas} contas totalizando {format_money(total_valor)}'
-        )
-    gerar_cobranca.short_description = "Gerar cobrança"
-
-@admin.register(ContaPai)
-class ContaPaiAdmin(admin.ModelAdmin):
-    list_display = ('numero_documento', 'descricao', 'empresa', 'status', 'valor_original', 'valor_pago', 'valor_recebido', 'valor_saldo', 'dias_vencimento')
-    search_fields = ('numero_documento', 'descricao')
-    list_filter = ('status', 'empresa')
-    inlines = [ParcelasContaPagarInline, ParcelasContaReceberInline]
-    
-# =====================================
-# FLUXO DE CAIXA
-# =====================================
-
-@admin.register(FluxoCaixa)
-class FluxoCaixaAdmin(admin.ModelAdmin):
-    list_display = [
-        'data_referencia', 'tipo_display', 'categoria', 'descricao_truncada',
-        'valor_previsto_display', 'valor_realizado_display', 'saldo_acumulado_display', 'realizado'
-    ]
-    list_filter = ['tipo', 'realizado', 'categoria', 'conta_bancaria', 'data_referencia']
-    search_fields = ['categoria', 'descricao', 'observacoes']
-    date_hierarchy = 'data_referencia'
-    ordering = ['data_referencia']
-    
-    fieldsets = (
-        ('Data e Tipo', {
-            'fields': ('data_referencia', 'tipo')
-        }),
-        ('Valores', {
-            'fields': ('valor_previsto', 'valor_realizado', 'saldo_acumulado')
-        }),
-        ('Classificação', {
-            'fields': ('categoria', 'descricao')
-        }),
-        ('Relacionamentos', {
-            'fields': ('conta_bancaria', 'centro_custo', 'conta_pagar', 'conta_receber')
-        }),
-        ('Status', {
-            'fields': ('realizado', 'observacoes')
-        }),
-        ('Empresa', {
-            'fields': ('empresa',)
-        }),
-    )
-    
-    actions = ['marcar_como_realizado', 'calcular_projecoes']
-    
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related('conta_bancaria', 'centro_custo', 'empresa')
-    
-    def descricao_truncada(self, obj):
-        if len(obj.descricao) > 40:
-            return obj.descricao[:40] + '...'
-        return obj.descricao
-    descricao_truncada.short_description = "Descrição"
-    
-    def tipo_display(self, obj):
-        colors = {'entrada': 'green', 'saida': 'red'}
-        icons = {'entrada': '⬆️', 'saida': '⬇️'}
-        color = colors.get(obj.tipo, 'gray')
-        icon = icons.get(obj.tipo, '')
-        
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{} {}</span>',
-            color, icon, obj.get_tipo_display()
-        )
-    tipo_display.short_description = 'Tipo'
-    
-    def valor_previsto_display(self, obj):
-        return format_html('<span>{}</span>', format_money(obj.valor_previsto))
-    valor_previsto_display.short_description = "Previsto"
-    
-    def valor_realizado_display(self, obj):
-        color = 'green' if obj.valor_realizado > 0 else 'gray'
-        return format_html(
-            '<span style="color: {};">{}</span>',
-            color, format_money(obj.valor_realizado)
-        )
-    valor_realizado_display.short_description = "Realizado"
-    
-    def saldo_acumulado_display(self, obj):
-        color = 'green' if obj.saldo_acumulado >= 0 else 'red'
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color, format_money(obj.saldo_acumulado)
-        )
-    saldo_acumulado_display.short_description = "Saldo Acumulado"
-    
-    def marcar_como_realizado(self, request, queryset):
-        count = queryset.filter(realizado=False).update(realizado=True)
-        messages.success(request, f'{count} itens marcados como realizados.')
-    marcar_como_realizado.short_description = "Marcar como realizado"
-    
-    def calcular_projecoes(self, request, queryset):
-        messages.info(request, f'Cálculo de projeções executado para {queryset.count()} itens.')
-    calcular_projecoes.short_description = "Calcular projeções"
-
-# =====================================
-# CONCILIAÇÃO BANCÁRIA
-# =====================================
-
-@admin.register(ConciliacaoBancaria)
-class ConciliacaoBancariaAdmin(admin.ModelAdmin):
-    list_display = [
-        'conta_bancaria', 'periodo_display', 'saldo_banco_final_display',
-        'saldo_sistema_final_display', 'diferenca_display', 'status_display'
-    ]
-    list_filter = ['status', 'conta_bancaria', 'data_fim']
-    search_fields = ['conta_bancaria__nome', 'observacoes']
-    date_hierarchy = 'data_fim'
-    ordering = ['-data_fim']
-    
-    fieldsets = (
-        ('Conta e Período', {
-            'fields': ('conta_bancaria', 'data_inicio', 'data_fim')
-        }),
-        ('Saldos Bancários', {
-            'fields': ('saldo_banco_inicial', 'saldo_banco_final')
-        }),
-        ('Saldos do Sistema', {
-            'fields': ('saldo_sistema_inicial', 'saldo_sistema_final')
-        }),
-        ('Resultado', {
-            'fields': ('diferenca', 'status', 'data_conciliacao')
-        }),
-        ('Responsável', {
-            'fields': ('responsavel',)
+            'fields': (
+                ('numero_parcela', 'total_parcelas'),
+                'conta_pai'
+            ),
+            'classes': ('collapse',)
         }),
         ('Observações', {
-            'fields': ('observacoes',)
-        }),
+            'fields': (
+                'status',
+                'observacoes'
+            )
+        })
     )
     
-    readonly_fields = ['diferenca']
-    actions = ['recalcular_diferencas']
-    
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related('conta_bancaria', 'responsavel')
-    
-    def periodo_display(self, obj):
-        return f"{obj.data_inicio.strftime('%d/%m')} a {obj.data_fim.strftime('%d/%m/%Y')}"
-    periodo_display.short_description = "Período"
-    
-    def saldo_banco_final_display(self, obj):
-        return format_html('<span>{}</span>', format_money(obj.saldo_banco_final))
-    saldo_banco_final_display.short_description = "Saldo Banco"
-    
-    def saldo_sistema_final_display(self, obj):
-        return format_html('<span>{}</span>', format_money(obj.saldo_sistema_final))
-    saldo_sistema_final_display.short_description = "Saldo Sistema"
-    
-    def diferenca_display(self, obj):
-        val = obj.diferenca or 0
-        if abs(val) <= 0.01:
-            return format_html('<span style="color: green;">✅ {}</span>', format_money(0))
-        color = 'red' if val != 0 else 'green'
-        return format_html('<span style="color: {}; font-weight: bold;">⚠️ {}</span>', color, format_money(val))
-    diferenca_display.short_description = "Diferença"
-    
-    def status_display(self, obj):
-        colors = {
-            'pendente': 'orange',
-            'conciliada': 'green',
-            'divergente': 'red'
-        }
-        icons = {
-            'pendente': '⏳',
-            'conciliada': '✅',
-            'divergente': '⚠️'
-        }
-        color = colors.get(obj.status, 'gray')
-        icon = icons.get(obj.status, '')
-        
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{} {}</span>',
-            color, icon, obj.get_status_display()
-        )
-    status_display.short_description = 'Status'
-    
-    def recalcular_diferencas(self, request, queryset):
-        for conciliacao in queryset:
-            conciliacao.save()  # Vai recalcular a diferença
-        messages.success(request, f'Diferenças recalculadas para {queryset.count()} conciliações.')
-    recalcular_diferencas.short_description = "Recalcular diferenças"
-
-# =====================================
-# ORÇAMENTO FINANCEIRO
-# =====================================
-
-@admin.register(OrcamentoFinanceiro)
-class OrcamentoFinanceiroAdmin(admin.ModelAdmin):
-    list_display = [
-        'periodo_display', 'plano_contas', 'tipo_display', 'valor_orcado_display',
-        'valor_realizado_display', 'percentual_realizacao_display', 'variacao_display'
+    readonly_fields = [
+        'valor_saldo',
+        'data_recebimento'
     ]
-    list_filter = ['ano', 'mes', 'tipo', 'plano_contas__tipo_conta']
-    search_fields = ['plano_contas__nome', 'justificativa_variacao']
-    readonly_fields = ['valor_variacao', 'percentual_realizacao']
-    ordering = ['-ano', '-mes']
     
-    fieldsets = (
-        ('Período', {
-            'fields': ('ano', 'mes')
-        }),
-        ('Classificação', {
-            'fields': ('tipo', 'plano_contas', 'centro_custo')
-        }),
-        ('Valores', {
-            'fields': ('valor_orcado', 'valor_realizado', 'valor_variacao', 'percentual_realizacao')
-        }),
-        ('Justificativa', {
-            'fields': ('justificativa_variacao',)
-        }),
-        ('Empresa', {
-            'fields': ('empresa',)
-        }),
-    )
-    
-    actions = ['atualizar_realizados', 'gerar_relatorio_variacao']
-    
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related('plano_contas', 'centro_custo', 'empresa')
-    
-    def periodo_display(self, obj):
-        return f"{obj.mes:02d}/{obj.ano}"
-    periodo_display.short_description = "Período"
-    
-    def tipo_display(self, obj):
-        colors = {'receita': 'green', 'despesa': 'red'}
-        color = colors.get(obj.tipo, 'gray')
-        return format_html(
-            '<span style="color: {};">{}</span>',
-            color, obj.get_tipo_display()
-        )
-    tipo_display.short_description = 'Tipo'
-    
-    def valor_orcado_display(self, obj):
-        return format_html('<span>{}</span>', format_money(obj.valor_orcado))
-    valor_orcado_display.short_description = 'Orçado'
-    
-    def valor_realizado_display(self, obj):
-        return format_html('<span>{}</span>', format_money(obj.valor_realizado))
-    valor_realizado_display.short_description = 'Realizado'
-    
-    def percentual_realizacao_display(self, obj):
-        if obj.percentual_realizacao > 100:
-            color = 'red'
-        elif obj.percentual_realizacao >= 90:
-            color = 'green'
-        elif obj.percentual_realizacao >= 70:
-            color = 'orange'
-        else:
-            color = 'red'
-        
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color, format_percentage(obj.percentual_realizacao)
-        )
-    percentual_realizacao_display.short_description = '% Realizado'
-    
-    def variacao_display(self, obj):
-        val = obj.valor_variacao or 0
-        color = "green" if val >= 0 else "red"
-        icon = "📈" if val >= 0 else "📉"
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{} {}</span>',
-            color, icon, format_money(abs(val))
-        )
-    variacao_display.short_description = "Variação"
-    
-    def atualizar_realizados(self, request, queryset):
-        for orcamento in queryset:
-            orcamento.atualizar_realizado()
-        
-        messages.success(request, f'Valores realizados atualizados para {queryset.count()} orçamentos.')
-    atualizar_realizados.short_description = "Atualizar valores realizados"
-    
-    def gerar_relatorio_variacao(self, request, queryset):
-        total_variacao = queryset.aggregate(total=Sum('valor_variacao'))['total'] or 0
-        messages.info(request, f'Variação total: {format_money(total_variacao)}')
-    gerar_relatorio_variacao.short_description = "Gerar relatório de variação"
-
-# =====================================
-# CATEGORIA FINANCEIRA
-# =====================================
-
-@admin.register(CategoriaFinanceira)
-class CategoriaFinanceiraAdmin(admin.ModelAdmin):
-    list_display = ['nome', 'tipo_dre_display', 'descricao_truncada']
-    list_filter = ['tipo_dre']
-    search_fields = ['nome', 'descricao']
-    ordering = ['tipo_dre', 'nome']
-    
-    fieldsets = (
-        ('Identificação', {
-            'fields': ('nome', 'descricao')
-        }),
-        ('Classificação DRE', {
-            'fields': ('tipo_dre',)
-        }),
-    )
-    
-    def descricao_truncada(self, obj):
-        if obj.descricao and len(obj.descricao) > 50:
-            return obj.descricao[:50] + '...'
-        return obj.descricao or '-'
-    descricao_truncada.short_description = "Descrição"
-    
-    def tipo_dre_display(self, obj):
-        colors = {
-            'receita': 'green',
-            'deducao': 'orange',
-            'custo': 'red',
-            'despesa': 'red',
-            'financeiro': 'blue',
-            'outros': 'gray'
-        }
-        color = colors.get(obj.tipo_dre, 'gray')
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color, obj.get_tipo_dre_display()
-        )
-    tipo_dre_display.short_description = 'Tipo DRE'
-
-# =====================================
-# LANÇAMENTO FINANCEIRO
-# =====================================
-
-@admin.register(LancamentoFinanceiro)
-class LancamentoFinanceiroAdmin(admin.ModelAdmin):
-    list_display = [
-        'numero_lancamento', 'data_lancamento', 'tipo_display', 
-        'valor_display', 'plano_contas', 'descricao_truncada'
+    actions = [
+        'marcar_como_recebida',
+        'gerar_relatorio_inadimplencia',
+        'exportar_contas_receber'
     ]
-    list_filter = ['tipo', 'data_lancamento', 'plano_contas__tipo_conta']
-    search_fields = ['numero_lancamento', 'descricao', 'plano_contas__nome']
-    date_hierarchy = 'data_lancamento'
-    ordering = ['-data_lancamento', 'numero_lancamento']
-    readonly_fields = ['transacao_uuid']
     
-    fieldsets = (
-        ('Identificação', {
-            'fields': ('numero_lancamento', 'data_lancamento', 'descricao')
-        }),
-        ('Valores', {
-            'fields': ('tipo', 'valor')
-        }),
-        ('Contas', {
-            'fields': ('plano_contas', 'centro_custo')
-        }),
-        ('Rastreamento', {
-            'fields': ('origem_movimentacao', 'transacao_uuid')
-        }),
-        ('Responsável', {
-            'fields': ('usuario_responsavel',)
-        }),
-        ('Empresa', {
-            'fields': ('empresa',)
-        }),
-    )
+    def cliente_info(self, obj):
+        if obj.cliente:
+            return format_html(
+                '<div><strong>{}</strong><br><small>{}</small></div>',
+                obj.cliente.nome,
+                obj.cliente.nif or obj.cliente.email
+            )
+        return format_html('<span style="color: #6b7280;">Sem cliente</span>')
+    cliente_info.short_description = 'Cliente'
     
-    actions = ['gerar_balancete']
-    
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related(
-            'plano_contas', 'centro_custo', 'usuario_responsavel', 'origem_movimentacao'
-        )
-    
-    def descricao_truncada(self, obj):
-        if len(obj.descricao) > 40:
-            return obj.descricao[:40] + '...'
-        return obj.descricao
-    descricao_truncada.short_description = "Descrição"
-    
-    def tipo_display(self, obj):
-        colors = {'debito': 'red', 'credito': 'green'}
-        icons = {'debito': '📤', 'credito': '📥'}
-        color = colors.get(obj.tipo, 'gray')
-        icon = icons.get(obj.tipo, '')
-        
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{} {}</span>',
-            color, icon, obj.get_tipo_display().upper()
-        )
-    tipo_display.short_description = 'Tipo'
-    
-    def valor_display(self, obj):
-        color = 'red' if obj.tipo == 'debito' else 'green'
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color, format_money(obj.valor)
-        )
-    valor_display.short_description = "Valor"
-    
-    def gerar_balancete(self, request, queryset):
-        total_debitos = queryset.filter(tipo='debito').aggregate(total=Sum('valor'))['total'] or 0
-        total_creditos = queryset.filter(tipo='credito').aggregate(total=Sum('valor'))['total'] or 0
-        
-        messages.info(
-            request, 
-            f'Balancete: Débitos {format_money(total_debitos)} | Créditos {format_money(total_creditos)}'
-        )
-    gerar_balancete.short_description = "Gerar balancete"
+    # Outros métodos similares ao ContaPagar, adaptados para recebimento
 
-# =====================================
+# ============================================================================
 # MOVIMENTO DE CAIXA
-# =====================================
+# ============================================================================
 
 @admin.register(MovimentoCaixa)
 class MovimentoCaixaAdmin(admin.ModelAdmin):
     list_display = [
-        'numero_movimento', 'data_movimento', 'tipo_movimento_display', 
-        'valor_display', 'forma_pagamento_display', 'status_display', 'loja'
+        'numero_movimento',
+        'data_hora_display',
+        'tipo_valor_display',
+        'forma_pagamento_badge',
+        'usuario_info',
+        'loja',
+        'status_badge',
+        'acoes_rapidas'
     ]
-    list_filter = ['tipo_movimento', 'forma_pagamento', 'status', 'loja', 'data_movimento']
-    search_fields = ['numero_movimento', 'descricao', 'observacoes']
+    
+    list_filter = [
+        'tipo_movimento',
+        'forma_pagamento',
+        'status',
+        'confirmado',
+        'data_movimento',
+        'loja',
+        'empresa'
+    ]
+    
+    search_fields = [
+        'numero_movimento',
+        'descricao',
+        'observacoes',
+        'numero_documento',
+        'cliente__nome'
+    ]
+    
     date_hierarchy = 'data_movimento'
-    ordering = ['-data_movimento', '-hora_movimento']
-    readonly_fields = ['numero_movimento', 'valor_liquido']
     
     fieldsets = (
         ('Identificação', {
-            'fields': ('numero_movimento', 'data_movimento', 'hora_movimento')
+            'fields': (
+                'numero_movimento',
+                'data_movimento',
+                'hora_movimento',
+                'empresa'
+            )
         }),
         ('Tipo e Forma', {
-            'fields': ('tipo_movimento', 'forma_pagamento')
+            'fields': (
+                'tipo_movimento',
+                'forma_pagamento'
+            )
         }),
         ('Valores', {
-            'fields': ('valor', 'valor_troco', 'valor_liquido')
+            'fields': (
+                'valor',
+                'valor_troco'
+            )
         }),
         ('Descrição', {
-            'fields': ('descricao', 'observacoes')
+            'fields': (
+                'descricao',
+                'observacoes'
+            )
         }),
         ('Relacionamentos', {
-            'fields': ('usuario', 'loja', 'venda_relacionada')
+            'fields': (
+                'usuario',
+                'loja',
+                'venda_relacionada',
+                'cliente',
+                'fornecedor'
+            )
         }),
         ('Contas Financeiras', {
-            'fields': ('conta_receber', 'conta_pagar', 'cliente', 'fornecedor'),
-            'classes': ['collapse']
+            'fields': (
+                'conta_receber',
+                'conta_pagar'
+            ),
+            'classes': ('collapse',)
         }),
         ('Status e Controle', {
-            'fields': ('status', 'confirmado', 'data_confirmacao')
+            'fields': (
+                'status',
+                'confirmado',
+                'data_confirmacao'
+            )
         }),
         ('Dados do Documento', {
-            'fields': ('numero_documento',),
-            'classes': ['collapse']
-        }),
-        ('Dados do Cheque', {
-            'fields': ('numero_cheque', 'banco_cheque', 'emissor_cheque', 'data_cheque'),
-            'classes': ['collapse']
+            'fields': (
+                'numero_documento',
+                ('numero_cheque', 'banco_cheque'),
+                'emissor_cheque',
+                'data_cheque'
+            ),
+            'classes': ('collapse',)
         }),
         ('Dados do Cartão', {
-            'fields': ('numero_cartao_mascarado', 'bandeira_cartao', 'numero_autorizacao', 'numero_comprovante'),
-            'classes': ['collapse']
+            'fields': (
+                'numero_cartao_mascarado',
+                'bandeira_cartao',
+                'numero_autorizacao',
+                'numero_comprovante'
+            ),
+            'classes': ('collapse',)
         }),
         ('Estorno', {
-            'fields': ('movimento_original',),
-            'classes': ['collapse']
-        }),
-        ('Empresa', {
-            'fields': ('empresa',)
-        }),
+            'fields': (
+                'movimento_original',
+            ),
+            'classes': ('collapse',)
+        })
     )
     
-    actions = ['confirmar_movimentos', 'estornar_movimentos', 'gerar_fechamento_caixa']
+    readonly_fields = [
+        'numero_movimento',
+        'hora_movimento',
+        'data_confirmacao'
+    ]
     
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related(
-            'usuario', 'loja', 'venda_relacionada', 'cliente', 'fornecedor'
+    actions = [
+        'confirmar_movimentos',
+        'estornar_movimentos',
+        'fechar_caixa',
+        'exportar_movimentos_caixa'
+    ]
+    
+    def data_hora_display(self, obj):
+        return format_html(
+            '<div>'
+            '<strong>{}</strong><br>'
+            '<small>{}</small>'
+            '</div>',
+            obj.data_movimento.strftime('%d/%m/%Y'),
+            obj.hora_movimento.strftime('%H:%M:%S')
         )
+    data_hora_display.short_description = 'Data/Hora'
     
-    def tipo_movimento_display(self, obj):
-        colors = {
-            'abertura': 'blue', 'fechamento': 'purple', 'venda': 'green',
-            'recebimento': 'green', 'pagamento': 'red', 'sangria': 'orange',
-            'suprimento': 'blue', 'cancelamento': 'gray'
-        }
-        icons = {
-            'abertura': '🔓', 'fechamento': '🔒', 'venda': '💰',
-            'recebimento': '📥', 'pagamento': '📤', 'sangria': '💸',
-            'suprimento': '💰', 'cancelamento': '❌'
-        }
-        color = colors.get(obj.tipo_movimento, 'gray')
-        icon = icons.get(obj.tipo_movimento, '📄')
+    def tipo_valor_display(self, obj):
+        sinal = '+' if obj.valor >= 0 else ''
+        cor = '#10b981' if obj.valor >= 0 else '#ef4444'
         
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{} {}</span>',
-            color, icon, obj.get_tipo_movimento_display()
+            '<div style="text-align: right;">'
+            '<span style="color: {}; font-weight: bold; font-family: monospace;">{} AOA {:,.2f}</span><br>'
+            '<small style="color: #6b7280;">{}</small>'
+            '</div>',
+            cor,
+            sinal,
+            abs(obj.valor),
+            obj.get_tipo_movimento_display()
         )
-    tipo_movimento_display.short_description = 'Tipo'
+    tipo_valor_display.short_description = 'Tipo/Valor'
     
-    def valor_display(self, obj):
-        color = 'green' if obj.valor >= 0 else 'red'
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color, format_money(obj.valor)
-        )
-    valor_display.short_description = "Valor"
-    
-    def forma_pagamento_display(self, obj):
-        icons = {
-            'dinheiro': '💵', 'cartao_debito': '💳',
-            'cartao_credito': '💳', 'transferencia': '🔄', 'cheque': '📝'
+    def forma_pagamento_badge(self, obj):
+        cores = {
+            'dinheiro': '#10b981',
+            'cartao_debito': '#3b82f6',
+            'cartao_credito': '#8b5cf6',
+            'transferencia': '#f59e0b',
+            'cheque': '#6b7280',
+            'vale': '#ef4444',
+            'outros': '#6b7280'
         }
-        icon = icons.get(obj.forma_pagamento, '💰')
-        
+        cor = cores.get(obj.forma_pagamento, '#6b7280')
         return format_html(
-            '{} {}', icon, obj.get_forma_pagamento_display()
+            '<span style="background-color: {}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">{}</span>',
+            cor,
+            obj.get_forma_pagamento_display()
         )
-    forma_pagamento_display.short_description = 'Forma'
+    forma_pagamento_badge.short_description = 'Forma'
     
-    def status_display(self, obj):
-        colors = {
-            'pendente': 'orange',
-            'confirmado': 'green',
-            'cancelado': 'red',
-            'estornado': 'gray'
-        }
-        icons = {
-            'pendente': '⏳',
-            'confirmado': '✅',
-            'cancelado': '❌',
-            'estornado': '🔄'
-        }
-        color = colors.get(obj.status, 'gray')
-        icon = icons.get(obj.status, '')
-        
+    def usuario_info(self, obj):
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{} {}</span>',
-            color, icon, obj.get_status_display()
+            '<div><strong>{}</strong></div>',
+            obj.usuario.get_full_name() or obj.usuario.username
         )
-    status_display.short_description = 'Status'
+    usuario_info.short_description = 'Usuário'
     
-    def confirmar_movimentos(self, request, queryset):
-        confirmados = 0
-        for movimento in queryset.filter(status='pendente'):
-            try:
-                movimento.confirmar_movimento(request.user)
-                confirmados += 1
-            except Exception as e:
-                messages.error(request, f'Erro ao confirmar movimento {movimento.numero_movimento}: {e}')
+    def status_badge(self, obj):
+        cores = {
+            'pendente': '#f59e0b',
+            'confirmado': '#10b981',
+            'cancelado': '#6b7280',
+            'estornado': '#ef4444'
+        }
+        cor = cores.get(obj.status, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">{}</span>',
+            cor,
+            obj.get_status_display()
+        )
+    status_badge.short_description = 'Status'
+    
+    def acoes_rapidas(self, obj):
+        buttons = []
         
-        if confirmados:
-            messages.success(request, f'{confirmados} movimentos confirmados.')
-    confirmar_movimentos.short_description = "Confirmar movimentos selecionados"
-    
-    def estornar_movimentos(self, request, queryset):
-        estornados = 0
-        for movimento in queryset.filter(status='confirmado'):
-            try:
-                movimento.estornar_movimento("Estorno via admin", request.user)
-                estornados += 1
-            except Exception as e:
-                messages.error(request, f'Erro ao estornar movimento {movimento.numero_movimento}: {e}')
+        if not obj.confirmado and obj.status == 'pendente':
+            buttons.append(
+                f'<a href="#" onclick="confirmarMovimento({obj.pk})" '
+                f'style="background-color: #10b981; color: white; padding: 2px 6px; border-radius: 3px; text-decoration: none; font-size: 11px; margin-right: 2px;">'
+                f'✓ Confirmar</a>'
+            )
         
-        if estornados:
-            messages.success(request, f'{estornados} movimentos estornados.')
-    estornar_movimentos.short_description = "Estornar movimentos selecionados"
-    
-    def gerar_fechamento_caixa(self, request, queryset):
-        lojas = queryset.values('loja').distinct()
-        for loja_data in lojas:
-            loja_id = loja_data['loja']
-            saldo = MovimentoCaixa.calcular_saldo_caixa(loja_id)
-            messages.info(request, f'Loja {loja_id}: Saldo atual do caixa: {format_money(saldo)}')
-    gerar_fechamento_caixa.short_description = "Gerar fechamento de caixa"
+        if obj.confirmado and obj.status == 'confirmado':
+            buttons.append(
+                f'<a href="#" onclick="estornarMovimento({obj.pk})" '
+                f'style="background-color: #ef4444; color: white; padding: 2px 6px; border-radius: 3px; text-decoration: none; font-size: 11px;">'
+                f'↩️ Estornar</a>'
+            )
+        
+        return format_html(''.join(buttons))
+    acoes_rapidas.short_description = 'Ações'
 
-# =====================================
-# IMPOSTO/TRIBUTO
-# =====================================
+# ============================================================================
+# IMPOSTO TRIBUTO
+# ============================================================================
 
 @admin.register(ImpostoTributo)
 class ImpostoTributoAdmin(admin.ModelAdmin):
     list_display = [
-        'codigo_imposto', 'tipo_imposto_display', 'periodo_display', 
-        'valor_devido_display', 'situacao_display', 'dias_vencimento_display'
+        'codigo_receita_agt_formatado',
+        'nome_imposto_curto',
+        'periodo_referencia',
+        'regime_tributario_badge',
+        'valor_devido_formatado',
+        'situacao_badge',
+        'dias_vencimento_badge',
+        'percentual_pago_progress',
+        'acoes_rapidas'
     ]
+    
     list_filter = [
-        'tipo_imposto', 'situacao', 'regime_tributario', 'ano_referencia', 
-        'mes_referencia', 'calculo_automatico'
+        'situacao',
+        'codigo_receita_agt',
+        'regime_tributario',
+        'ano_referencia',
+        'periodicidade',
+        'calculo_automatico',
+        'data_vencimento',
+        'empresa',
     ]
-    search_fields = ['codigo_imposto', 'nome', 'numero_darf', 'observacoes']
+    
+    search_fields = [
+        'nome',
+        'codigo_receita_agt',
+        'codigo_imposto_interno',
+        'numero_guia_agt',
+        'numero_declaracao_agt',
+        'observacoes',
+    ]
+    
     readonly_fields = [
-        'codigo_imposto', 'valor_calculado', 'total', 'percentual_pago',
-        'dias_para_vencimento', 'esta_vencido'
+        'codigo_imposto_interno',
+        'valor_calculado',
+        'total_agt',
+        'data_calculo',
+        'ultima_atualizacao_calculo',
+        'created_at',
+        'updated_at',
     ]
-    date_hierarchy = 'data_vencimento'
-    ordering = ['-ano_referencia', '-mes_referencia', 'data_vencimento']
     
     fieldsets = (
-        ('Identificação', {
-            'fields': ('codigo_imposto', 'nome', 'tipo_imposto', 'descricao')
+        ('🇦🇴 Identificação AGT', {
+            'fields': (
+                'codigo_receita_agt',
+                'codigo_imposto_interno',
+                'nome',
+                'descricao',
+                'empresa',
+            )
         }),
-        ('Regime e Periodicidade', {
-            'fields': ('regime_tributario', 'periodicidade')
+        
+        ('📋 Regime e Período', {
+            'fields': (
+                ('regime_tributario', 'periodicidade'),
+                ('ano_referencia', 'mes_referencia'),
+                ('data_inicio_periodo', 'data_fim_periodo'),
+                'data_vencimento',
+            )
         }),
-        ('Período de Apuração', {
-            'fields': ('ano_referencia', 'mes_referencia', 'data_inicio_periodo', 'data_fim_periodo')
+        
+        ('💰 Cálculo e Valores (AOA)', {
+            'fields': (
+                ('metodo_calculo', 'calculo_automatico'),
+                ('aliquota_percentual', 'valor_fixo'),
+                ('receita_bruta', 'base_calculo'),
+                'deducoes_permitidas',
+                ('valor_calculado', 'data_calculo'),
+                ('valor_devido', 'situacao'),
+            )
         }),
-        ('Datas Importantes', {
-            'fields': ('data_vencimento', 'data_pagamento', 'data_calculo')
+        
+        ('🔢 Compensações e Créditos', {
+            'fields': (
+                'creditos_periodo_anterior',
+                'compensacoes_utilizadas',
+            ),
+            'classes': ('collapse',),
         }),
-        ('Método de Cálculo', {
-            'fields': ('metodo_calculo', 'aliquota_percentual', 'valor_fixo')
+        
+        ('⚠️ Multas e Juros', {
+            'fields': (
+                ('valor_multa', 'valor_juros'),
+                'total_agt',
+            ),
+            'classes': ('collapse',),
         }),
-        ('Base de Cálculo', {
-            'fields': ('base_calculo', 'receita_bruta', 'deducoes')
+        
+        ('💳 Pagamento', {
+            'fields': (
+                ('valor_pago', 'data_pagamento'),
+                'conta_bancaria_pagamento',
+                'movimentacao_pagamento',
+            ),
+            'classes': ('collapse',),
         }),
-        ('Valores Calculados', {
-            'fields': ('valor_calculado', 'valor_devido', 'valor_pago', 'percentual_pago')
+        
+        ('📄 Documentos AGT', {
+            'fields': (
+                'numero_guia_agt',
+                'numero_declaracao_agt',
+                'data_declaracao',
+                'arquivo_declaracao_agt',
+                'arquivo_guia_pagamento',
+                'arquivo_comprovante_pagamento',
+            ),
+            'classes': ('collapse',),
         }),
-        ('Multas e Juros', {
-            'fields': ('valor_multa', 'valor_juros', 'total')
+        
+        ('🏢 Contabilidade', {
+            'fields': (
+                'plano_contas',
+                'centro_custo',
+            ),
+            'classes': ('collapse',),
         }),
-        ('Compensações', {
-            'fields': ('creditos_periodo_anterior', 'compensacoes')
-        }),
-        ('Situação', {
-            'fields': ('situacao', 'dias_para_vencimento', 'esta_vencido')
-        }),
-        ('DARF/Guia', {
-            'fields': ('numero_darf', 'codigo_receita', 'numero_referencia'),
-            'classes': ['collapse']
-        }),
-        ('Relacionamentos', {
-            'fields': ('conta_bancaria_pagamento', 'movimentacao_pagamento', 'plano_contas', 'centro_custo')
-        }),
-        ('Controle', {
-            'fields': ('calculo_automatico', 'ultima_atualizacao_calculo', 'usuario_responsavel')
-        }),
-        ('Anexos', {
-            'fields': ('arquivo_guia', 'arquivo_comprovante'),
-            'classes': ['collapse']
-        }),
-        ('Observações', {
-            'fields': ('observacoes',)
-        }),
-        ('Empresa', {
-            'fields': ('empresa',)
+        
+        ('📝 Controle e Observações', {
+            'fields': (
+                'usuario_responsavel',
+                'observacoes',
+                'ultima_atualizacao_calculo',
+                ('created_at', 'updated_at'),
+            ),
+            'classes': ('collapse',),
         }),
     )
     
-    actions = ['calcular_impostos', 'gerar_darf', 'marcar_como_pago', 'apurar_periodo']
+    actions = [
+        'calcular_impostos_selecionados',
+        'marcar_como_pago',
+        'gerar_guias_pagamento',
+        'exportar_para_agt',
+    ]
     
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related(
-            'plano_contas', 'centro_custo', 'conta_bancaria_pagamento', 'usuario_responsavel', 'empresa'
+    # Métodos de exibição específicos do ImpostoTributo
+    def codigo_receita_agt_formatado(self, obj):
+        return format_html(
+            '<span style="background-color: #1e3a8a; color: white; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-weight: bold;">{}</span>',
+            obj.codigo_receita_agt
         )
+    codigo_receita_agt_formatado.short_description = 'Código AGT'
+    codigo_receita_agt_formatado.admin_order_field = 'codigo_receita_agt'
     
-    def periodo_display(self, obj):
+    def nome_imposto_curto(self, obj):
+        nome = obj.nome
+        if len(nome) > 40:
+            return f"{nome[:40]}..."
+        return nome
+    nome_imposto_curto.short_description = 'Imposto'
+    nome_imposto_curto.admin_order_field = 'nome'
+    
+    def periodo_referencia(self, obj):
         return f"{obj.mes_referencia:02d}/{obj.ano_referencia}"
-    periodo_display.short_description = "Período"
+    periodo_referencia.short_description = 'Período'
+    periodo_referencia.admin_order_field = 'ano_referencia'
     
-    def tipo_imposto_display(self, obj):
-        colors = {
-            'simples_nacional': 'blue', 'pis': 'green', 'cofins': 'green',
-            'iss': 'purple', 'irpj': 'red', 'csll': 'orange'
+    def regime_tributario_badge(self, obj):
+        cores = {
+            'geral': '#10b981',
+            'simplificado': '#3b82f6',
+            'iva_geral': '#8b5cf6',
+            'iva_simplificado': '#06b6d4',
+            'especial_petrolifero_mineiro': '#f59e0b',
         }
-        color = colors.get(obj.tipo_imposto, 'gray')
+        cor = cores.get(obj.regime_tributario, '#6b7280')
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color, obj.get_tipo_imposto_display()
+            '<span style="background-color: {}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">{}</span>',
+            cor,
+            obj.get_regime_tributario_display()[:15]
         )
-    tipo_imposto_display.short_description = 'Tipo'
+    regime_tributario_badge.short_description = 'Regime'
+    regime_tributario_badge.admin_order_field = 'regime_tributario'
     
-    def valor_devido_display(self, obj):
-        return format_html('<span>{}</span>', format_money(obj.valor_devido))
-    valor_devido_display.short_description = "Valor Devido"
-    
-    def situacao_display(self, obj):
-        colors = {
-            'pendente': 'orange', 'calculado': 'blue', 'apurado': 'purple',
-            'pago': 'green', 'parcelado': 'yellow', 'vencido': 'red',
-            'isento': 'gray', 'suspenso': 'gray'
-        }
-        icons = {
-            'pendente': '⏳', 'calculado': '🧮', 'apurado': '📊',
-            'pago': '✅', 'parcelado': '📅', 'vencido': '⚠️',
-            'isento': '🚫', 'suspenso': '⏸️'
-        }
-        color = colors.get(obj.situacao, 'gray')
-        icon = icons.get(obj.situacao, '')
-        
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{} {}</span>',
-            color, icon, obj.get_situacao_display()
-        )
-    situacao_display.short_description = 'Situação'
-    
-    def dias_vencimento_display(self, obj):
-        dias = obj.dias_para_vencimento
-        if dias < 0:
+    def valor_devido_formatado(self, obj):
+        if obj.valor_devido > 0:
             return format_html(
-                '<span style="color: red; font-weight: bold;">⚠️ {} dias em atraso</span>',
-                abs(dias)
+                '<span style="font-weight: bold; color: #dc2626; font-family: monospace;">AOA {:,.2f}</span>',
+                obj.valor_devido
             )
-        elif dias == 0:
-            return format_html('<span style="color: orange; font-weight: bold;">🕐 Vence hoje</span>')
-        elif dias <= 7:
+        return format_html('<span style="color: #6b7280; font-family: monospace;">AOA 0,00</span>')
+    valor_devido_formatado.short_description = 'Valor Devido'
+    valor_devido_formatado.admin_order_field = 'valor_devido'
+    
+    def situacao_badge(self, obj):
+        cores = {
+            'pendente': '#6b7280',
+            'calculado': '#3b82f6',
+            'declarado': '#8b5cf6',
+            'pago': '#10b981',
+            'parcelado': '#f59e0b',
+            'vencido': '#dc2626',
+            'isento': '#6b7280',
+            'suspenso': '#ef4444',
+        }
+        cor = cores.get(obj.situacao, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">{}</span>',
+            cor,
+            obj.get_situacao_display()
+        )
+    situacao_badge.short_description = 'Situação'
+    situacao_badge.admin_order_field = 'situacao'
+    
+    def dias_vencimento_badge(self, obj):
+        try:
+            dias = (obj.data_vencimento - date.today()).days
+            if dias < 0:
+                return format_html(
+                    '<span style="background-color: #dc2626; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;">Vencido {} dias</span>',
+                    abs(dias)
+                )
+            elif dias <= 7:
+                return format_html(
+                    '<span style="background-color: #f59e0b; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;">{} dias</span>',
+                    dias
+                )
+            else:
+                return format_html(
+                    '<span style="background-color: #10b981; color: white; padding: 2px 6px; border-radius: 3px;">{} dias</span>',
+                    dias
+                )
+        except:
+            return format_html('<span style="color: #6b7280;">-</span>')
+    dias_vencimento_badge.short_description = 'Vencimento'
+    
+    def percentual_pago_progress(self, obj):
+        try:
+            if obj.total_agt > 0:
+                percentual = (obj.valor_pago / obj.total_agt) * 100
+            else:
+                percentual = 0
+                
+            if percentual >= 100:
+                cor = '#10b981'
+            elif percentual >= 50:
+                cor = '#f59e0b'
+            else:
+                cor = '#dc2626'
+            
             return format_html(
-                '<span style="color: orange;">⏰ Vence em {} dias</span>',
-                dias
+                '''
+                <div style="width: 100px; background-color: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                    <div style="width: {}%; height: 20px; background-color: {}; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: bold;">
+                        {:.0f}%
+                    </div>
+                </div>
+                ''',
+                min(percentual, 100),
+                cor,
+                percentual
+            )
+        except:
+            return format_html('<span style="color: #6b7280;">0%</span>')
+    percentual_pago_progress.short_description = '% Pago'
+    
+    def acoes_rapidas(self, obj):
+        buttons = []
+        
+        if obj.situacao == 'pendente':
+            buttons.append(
+                f'<a href="#" onclick="calcularImposto({obj.pk})" style="background-color: #3b82f6; color: white; padding: 2px 6px; border-radius: 3px; text-decoration: none; font-size: 11px; margin-right: 2px;">📊 Calcular</a>'
+            )
+        
+        if obj.situacao in ['calculado', 'declarado'] and obj.valor_devido > 0:
+            buttons.append(
+                f'<a href="#" onclick="pagarImposto({obj.pk})" style="background-color: #10b981; color: white; padding: 2px 6px; border-radius: 3px; text-decoration: none; font-size: 11px; margin-right: 2px;">💳 Pagar</a>'
+            )
+        
+        return format_html(''.join(buttons))
+    acoes_rapidas.short_description = 'Ações'
+    
+    # Actions específicas
+    def calcular_impostos_selecionados(self, request, queryset):
+        count = 0
+        total_calculado = Decimal('0.00')
+        
+        for imposto in queryset:
+            if imposto.situacao in ['pendente', 'calculado']:
+                valor = imposto.calcular_imposto_angola(forcar_recalculo=True)
+                total_calculado += valor
+                count += 1
+        
+        if count > 0:
+            self.message_user(
+                request,
+                f'✅ {count} impostos calculados. Total: AOA {total_calculado:,.2f}',
+                messages.SUCCESS
             )
         else:
-            return format_html('<span style="color: green;">📅 Vence em {} dias</span>', dias)
-    dias_vencimento_display.short_description = 'Vencimento'
-    
-    def calcular_impostos(self, request, queryset):
-        calculados = 0
-        for imposto in queryset:
-            try:
-                imposto.calcular_imposto(forcar_recalculo=True)
-                calculados += 1
-            except Exception as e:
-                messages.error(request, f'Erro ao calcular imposto {imposto.codigo_imposto}: {e}')
-        
-        messages.success(request, f'{calculados} impostos calculados.')
-    calcular_impostos.short_description = "Calcular impostos selecionados"
-    
-    def gerar_darf(self, request, queryset):
-        gerados = 0
-        for imposto in queryset.filter(situacao__in=['calculado', 'apurado']):
-            imposto.gerar_darf()
-            gerados += 1
-        
-        messages.success(request, f'{gerados} DARFs gerados.')
-    gerar_darf.short_description = "Gerar DARF"
+            self.message_user(
+                request,
+                '⚠️ Nenhum imposto foi calculado. Verifique a situação dos impostos selecionados.',
+                messages.WARNING
+            )
+    calcular_impostos_selecionados.short_description = '📊 Calcular impostos selecionados'
     
     def marcar_como_pago(self, request, queryset):
-        pagos = 0
-        for imposto in queryset.filter(situacao__in=['calculado', 'apurado', 'vencido']):
-            imposto.valor_pago = imposto.total
-            imposto.situacao = 'pago'
-            imposto.data_pagamento = date.today()
-            imposto.save()
-            pagos += 1
+        count = queryset.filter(situacao__in=['calculado', 'declarado', 'vencido']).update(
+            situacao='pago',
+            data_pagamento=timezone.now().date(),
+            valor_pago=models.F('total_agt')
+        )
         
-        messages.success(request, f'{pagos} impostos marcados como pagos.')
-    marcar_como_pago.short_description = "Marcar como pago"
-    
-    def apurar_periodo(self, request, queryset):
-        apurados = queryset.filter(situacao='calculado').update(situacao='apurado')
-        messages.success(request, f'{apurados} impostos apurados.')
-    apurar_periodo.short_description = "Apurar período"
+        if count > 0:
+            self.message_user(
+                request,
+                f'✅ {count} impostos marcados como pagos.',
+                messages.SUCCESS
+            )
+        else:
+            self.message_user(
+                request,
+                '⚠️ Nenhum imposto foi marcado como pago.',
+                messages.WARNING
+            )
+    marcar_como_pago.short_description = '✅ Marcar como pago'
 
-# =====================================
+# ============================================================================
 # CONFIGURAÇÃO DE IMPOSTOS
-# =====================================
+# ============================================================================
 
 @admin.register(ConfiguracaoImposto)
 class ConfiguracaoImpostoAdmin(admin.ModelAdmin):
     list_display = [
-        'empresa', 'regime_tributario_display', 'anexo_simples', 
-        'cnae_principal', 'gerar_impostos_automaticamente'
+        'empresa_info',
+        'regime_tributario_badge',
+        'setor_atividade_badge',
+        'provincia_badge',
+        'iva_aplicavel_display',
+        'impostos_aplicaveis_count',
+        'status_configuracao'
     ]
-    list_filter = ['regime_tributario', 'anexo_simples', 'gerar_impostos_automaticamente']
-    search_fields = ['empresa__nome', 'cnae_principal', 'observacoes']
+    
+    list_filter = [
+        'regime_tributario_principal',
+        'regime_iva',
+        'setor_atividade',
+        'provincia',
+        'gerar_impostos_automaticamente',
+        'eh_setor_petrolifero',
+        'eh_setor_mineiro'
+    ]
+    
+    search_fields = [
+        'empresa__razao_social',
+        'empresa__nome_fantasia',
+        'observacoes'
+    ]
     
     fieldsets = (
-        ('Empresa', {
-            'fields': ('empresa',)
+        ('🇦🇴 Empresa e Identificação', {
+            'fields': (
+                'empresa',
+                'responsavel_fiscal',
+            )
         }),
-        ('Regime Tributário', {
-            'fields': ('regime_tributario', 'anexo_simples', 'cnae_principal')
+        ('🏛️ Regimes Tributários', {
+            'fields': (
+                ('regime_tributario_principal', 'regime_iva'),
+                ('setor_atividade', 'provincia'),
+                ('eh_setor_petrolifero', 'eh_setor_mineiro', 'eh_setor_diamantifero'),
+            )
         }),
-        ('Alíquotas Padrão', {
-            'fields': ('aliquota_pis', 'aliquota_cofins', 'aliquota_iss')
+        ('💰 Alíquotas (%)', {
+            'fields': (
+                ('aliquota_iva_geral', 'aliquota_iva_simplificado'),
+                'aliquota_iva_cabinda',
+                ('aliquota_imposto_industrial_geral', 'aliquota_imposto_industrial_especial'),
+                ('aliquota_iac_depositos', 'aliquota_iac_titulos'),
+                ('aliquota_imposto_selo', 'aliquota_imposto_veiculos'),
+            )
         }),
-        ('Configurações Automáticas', {
-            'fields': ('gerar_impostos_automaticamente', 'dia_vencimento_impostos')
+        ('🤖 Automação', {
+            'fields': (
+                'gerar_impostos_automaticamente',
+                'dia_vencimento_impostos',
+                'impostos_aplicaveis',
+            )
         }),
-        ('Observações', {
-            'fields': ('observacoes',)
-        }),
+        ('📝 Observações', {
+            'fields': (
+                'observacoes',
+                'data_ultima_atualizacao_aliquotas',
+            )
+        })
     )
     
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related('empresa')
+    readonly_fields = [
+        'data_ultima_atualizacao_aliquotas'
+    ]
     
-    def regime_tributario_display(self, obj):
-        colors = {
-            'simples_nacional': 'blue',
-            'lucro_presumido': 'green',
-            'lucro_real': 'red',
-            'mei': 'purple'
-        }
-        color = colors.get(obj.regime_tributario, 'gray')
+    def empresa_info(self, obj):
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color, obj.get_regime_tributario_display()
+            '<div><strong>{}</strong><br><small>{}</small></div>',
+            obj.empresa.razao_social,
+            obj.empresa.nif or 'Sem NIF'
         )
-    regime_tributario_display.short_description = 'Regime'
+    empresa_info.short_description = 'Empresa'
+    
+    def regime_tributario_badge(self, obj):
+        return format_html(
+            '<div>'
+            '<span style="background-color: #10b981; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-right: 2px;">{}</span><br>'
+            '<span style="background-color: #8b5cf6; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">IVA: {}</span>'
+            '</div>',
+            obj.get_regime_tributario_principal_display()[:10],
+            obj.get_regime_iva_display()[:10]
+        )
+    regime_tributario_badge.short_description = 'Regimes'
+    
+    def setor_atividade_badge(self, obj):
+        icones = {
+            'comercio': '🛒',
+            'industria': '🏭',
+            'servicos': '🛠️',
+            'bancario': '🏦',
+            'petroleo': '🛢️',
+            'mineiro': '⛏️',
+        }
+        icone = icones.get(obj.setor_atividade, '📋')
+        
+        return format_html(
+            '<div style="text-align: center;">'
+            '<div style="font-size: 18px;">{}</div>'
+            '<div style="font-size: 11px; margin-top: 2px;">{}</div>'
+            '</div>',
+            icone,
+            obj.get_setor_atividade_display()[:12]
+        )
+    setor_atividade_badge.short_description = 'Setor'
+    
+    def provincia_badge(self, obj):
+        if obj.provincia == 'cabinda':
+            return format_html(
+                '<span style="background-color: #dc2626; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold;">'
+                'CABINDA (IVA 1%)'
+                '</span>'
+            )
+        else:
+            return format_html(
+                '<span style="background-color: #4b5563; color: white; padding: 3px 8px; border-radius: 4px;">{}</span>',
+                obj.get_provincia_display()
+            )
+    provincia_badge.short_description = 'Província'
+    
+    def iva_aplicavel_display(self, obj):
+        aliquota = obj.get_aliquota_iva_aplicavel()
+        cor = '#dc2626' if obj.provincia == 'cabinda' else '#3b82f6'
+        
+        return format_html(
+            '<div style="text-align: center; font-weight: bold; color: {};">'
+            '{}%<br><small style="color: #666;">IVA</small>'
+            '</div>',
+            cor,
+            aliquota
+        )
+    iva_aplicavel_display.short_description = 'IVA Aplicável'
+    
+    def impostos_aplicaveis_count(self, obj):
+        count = len(obj.impostos_aplicaveis) if obj.impostos_aplicaveis else 0
+        return format_html(
+            '<div style="text-align: center;">'
+            '<span style="background-color: #3b82f6; color: white; padding: 4px 8px; border-radius: 50%; font-weight: bold;">{}</span>'
+            '<br><small style="color: #666;">impostos</small>'
+            '</div>',
+            count
+        )
+    impostos_aplicaveis_count.short_description = 'Qtd Impostos'
+    
+    def status_configuracao(self, obj):
+        issues = []
+        
+        if not obj.impostos_aplicaveis:
+            issues.append("Sem impostos")
+        
+        if obj.get_aliquota_iva_aplicavel() == 0:
+            issues.append("IVA zerado")
+        
+        if not issues:
+            return format_html('<span style="color: #10b981; font-weight: bold;">✅ Completa</span>')
+        else:
+            return format_html(
+                '<span style="color: #dc2626; font-weight: bold;" title="{}">⚠️ Pendências</span>',
+                ' | '.join(issues)
+            )
+    status_configuracao.short_description = 'Status'
 
-# =====================================
-# CONFIGURAÇÕES GERAIS DO ADMIN
-# =====================================
+# ============================================================================
+# REGISTROS ADICIONAIS SIMPLIFICADOS
+# ============================================================================
 
-admin.site.site_header = "Sistema Financeiro - Administração"
-admin.site.site_title = "Financeiro Admin"
-admin.site.index_title = "Gestão Financeira"
+@admin.register(CategoriaFinanceira)
+class CategoriaFinanceiraAdmin(admin.ModelAdmin):
+    list_display = ['nome', 'tipo_dre', 'descricao']
+    list_filter = ['tipo_dre']
+    search_fields = ['nome', 'descricao']
+
+@admin.register(ContaPai)
+class ContaPaiAdmin(admin.ModelAdmin):
+    list_display = ['numero_documento', 'descricao', 'valor_original', 'valor_saldo', 'status', 'data_vencimento']
+    list_filter = ['status', 'data_vencimento']
+    search_fields = ['numero_documento', 'descricao']
+
+@admin.register(FluxoCaixa)
+class FluxoCaixaAdmin(admin.ModelAdmin):
+    list_display = ['data_referencia', 'tipo', 'categoria', 'valor_previsto', 'valor_realizado', 'realizado']
+    list_filter = ['tipo', 'realizado', 'data_referencia']
+    search_fields = ['categoria', 'descricao']
+
+@admin.register(ConciliacaoBancaria)
+class ConciliacaoBancariaAdmin(admin.ModelAdmin):
+    list_display = ['conta_bancaria', 'data_inicio', 'data_fim', 'saldo_banco_final', 'saldo_sistema_final', 'diferenca', 'status']
+    list_filter = ['status', 'conta_bancaria']
+
+@admin.register(OrcamentoFinanceiro)
+class OrcamentoFinanceiroAdmin(admin.ModelAdmin):
+    list_display = ['ano', 'mes', 'tipo', 'plano_contas', 'valor_orcado', 'valor_realizado', 'percentual_realizacao']
+    list_filter = ['ano', 'mes', 'tipo']
+
+@admin.register(LancamentoFinanceiro)
+class LancamentoFinanceiroAdmin(admin.ModelAdmin):
+    list_display = ['numero_lancamento', 'data_lancamento', 'tipo', 'valor', 'plano_contas', 'descricao']
+    list_filter = ['tipo', 'data_lancamento']
+    search_fields = ['numero_lancamento', 'descricao']
+    

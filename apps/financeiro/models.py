@@ -1,19 +1,24 @@
 # apps/financeiro/models.py
-from decimal import Decimal
-from datetime import date, datetime, timedelta
-import uuid
-
+from django.utils import timezone  
 from django.db import models
-from django.utils import timezone
-from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
-
+from django.core.exceptions import ValidationError
 from apps.core.models import TimeStampedModel, Empresa, Usuario, Loja
 from apps.fornecedores.models import Fornecedor
 from apps.clientes.models import Cliente
 from apps.vendas.models import Venda
+from decimal import Decimal
+from datetime import date, datetime, timedelta
+import uuid
 
 from pharmassys import settings
+from django.db import models
+from django.core.exceptions import ValidationError
+from django.utils.timezone import now
+from datetime import date
+from django.db import transaction
+from django.utils import timezone
+from decimal import Decimal
 
 
 
@@ -464,18 +469,12 @@ class ContaPai(models.Model):
     @property
     def dias_vencimento(self):
         """Dias para vencimento (negativo se vencida)"""
-        if not self.data_vencimento:
-            return None  # ou 0, conforme sua regra de negócio
         return (self.data_vencimento - date.today()).days
-
 
     @property
     def esta_vencida(self):
         """Verifica se a conta está vencida"""
-        if not self.data_vencimento:
-            return False
         return self.data_vencimento < date.today() and self.status in ['aberta', 'vencida']
-
 
 
 class ContaPagar(TimeStampedModel):
@@ -575,16 +574,11 @@ class ContaPagar(TimeStampedModel):
     @property
     def dias_vencimento(self):
         """Dias para vencimento (negativo se vencida)"""
-        if not self.data_vencimento:
-            return None  # ou 0, conforme sua regra de negócio
         return (self.data_vencimento - date.today()).days
-
-
+    
     @property
     def esta_vencida(self):
         """Verifica se a conta está vencida"""
-        if not self.data_vencimento:
-            return False
         return self.data_vencimento < date.today() and self.status in ['aberta', 'vencida']
     
     def pagar(self, valor_pagamento, conta_bancaria, tipo_documento='transferencia', observacoes=""):
@@ -750,16 +744,11 @@ class ContaReceber(TimeStampedModel):
     @property
     def dias_vencimento(self):
         """Dias para vencimento (negativo se vencida)"""
-        if not self.data_vencimento:
-            return None  # ou 0, conforme sua regra de negócio
         return (self.data_vencimento - date.today()).days
-
-
+    
     @property
     def esta_vencida(self):
         """Verifica se a conta está vencida"""
-        if not self.data_vencimento:
-            return False
         return self.data_vencimento < date.today() and self.status in ['aberta', 'vencida']
     
     def receber(self, valor_recebimento, conta_bancaria, tipo_documento='transferencia', observacoes=""):
@@ -1729,14 +1718,14 @@ class ImpostoTributo(TimeStampedModel):
     
     # Relacionamentos
     conta_bancaria_pagamento = models.ForeignKey(
-        'ContaBancaria',
+        ContaBancaria,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         help_text="Conta utilizada para pagamento"
     )
     movimentacao_pagamento = models.ForeignKey(
-        'MovimentacaoFinanceira',
+        MovimentacaoFinanceira,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -1746,12 +1735,12 @@ class ImpostoTributo(TimeStampedModel):
     
     # Conta contábil
     plano_contas = models.ForeignKey(
-        'PlanoContas',
+        PlanoContas,
         on_delete=models.PROTECT,
         help_text="Conta contábil do imposto"
     )
     centro_custo = models.ForeignKey(
-        'CentroCusto',
+        CentroCusto,
         on_delete=models.SET_NULL,
         null=True,
         blank=True
@@ -1770,19 +1759,19 @@ class ImpostoTributo(TimeStampedModel):
     # Observações e anexos
     observacoes = models.TextField(blank=True)
     arquivo_declaracao_agt = models.FileField(
-        upload_to='impostos_angola/declaracoes/',
+        upload_to='impostos/declaracoes/',
         null=True,
         blank=True,
         help_text="Arquivo da declaração enviada à AGT"
     )
     arquivo_guia_pagamento = models.FileField(
-        upload_to='impostos_angola/guias/',
+        upload_to='impostos/guias/',
         null=True,
         blank=True,
         help_text="Arquivo da guia de pagamento AGT"
     )
     arquivo_comprovante_pagamento = models.FileField(
-        upload_to='impostos_angola/comprovantes/',
+        upload_to='impostos/comprovantes/',
         null=True,
         blank=True,
         help_text="Comprovante de pagamento"
@@ -1790,14 +1779,14 @@ class ImpostoTributo(TimeStampedModel):
     
     # Controle
     usuario_responsavel = models.ForeignKey(
-        'Usuario',
+        settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         help_text="Usuário responsável pela apuração"
     )
     
-    empresa = models.ForeignKey('Empresa', on_delete=models.CASCADE)
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
     
     class Meta:
         verbose_name = "Imposto/Tributo Angola"
@@ -1837,7 +1826,7 @@ class ImpostoTributo(TimeStampedModel):
         prefixo = self.codigo_receita_agt
         sufixo = f"{self.ano_referencia}{self.mes_referencia:02d}"
         
-        contador = ImpostoTributoAngola.objects.filter(
+        contador = ImpostoTributo.objects.filter(
             empresa=self.empresa,
             codigo_imposto_interno__startswith=f"{prefixo}{sufixo}"
         ).count() + 1
@@ -1978,196 +1967,217 @@ class ImpostoTributo(TimeStampedModel):
         """Obtém rendimentos de capitais para IAC"""
         # Implementar lógica específica para cada tipo de rendimento
         return Decimal('0.00')
-    
-    def pagar_imposto_agt(self, conta_bancaria, valor_pagamento=None, data_pagamento=None, numero_guia=None):
-        """Registra pagamento do imposto à AGT"""
-        if self.situacao == 'pago':
-            raise ValidationError("Imposto já foi pago")
-        
-        if valor_pagamento is None:
-            valor_pagamento = self.total_agt
-        
-        if data_pagamento is None:
-            data_pagamento = date.today()
-        
-        # Criar movimentação financeira
-        movimentacao = MovimentacaoFinanceira.objects.create(
-            tipo_movimentacao='saida',
-            tipo_documento='pagamento_imposto',
-            data_movimentacao=data_pagamento,
-            valor=valor_pagamento,
-            conta_bancaria=conta_bancaria,
-            plano_contas=self.plano_contas,
-            centro_custo=self.centro_custo,
-            descricao=f"Pagamento {self.get_codigo_receita_agt_display()} - {self.mes_referencia:02d}/{self.ano_referencia}",
-            observacoes=f"Código AGT: {self.codigo_receita_agt} | Guia: {numero_guia or 'N/A'}",
-            status='confirmada',
-            confirmada=True,
-            data_confirmacao=timezone.now(),
-            usuario_responsavel=self.usuario_responsavel,
-            empresa=self.empresa
-        )
-        
-        # Atualizar imposto
-        self.valor_pago += valor_pagamento
-        self.data_pagamento = data_pagamento
-        self.movimentacao_pagamento = movimentacao
-        self.conta_bancaria_pagamento = conta_bancaria
-        
-        if numero_guia:
-            self.numero_guia_agt = numero_guia
-        
-        if self.valor_pago >= self.total_agt:
-            self.situacao = 'pago'
-        
-        self.save()
-        
-        return movimentacao
-    
-    @property
-    def dias_para_vencimento(self):
-        """Dias para vencimento (negativo se vencido)"""
-        return (self.data_vencimento - date.today()).days
-    
-    @property
-    def esta_vencido(self):
-        """Verifica se o imposto está vencido"""
-        return self.data_vencimento < date.today() and self.situacao != 'pago'
-    
-    @property
-    def percentual_pago(self):
-        """Percentual pago do valor total"""
-        if self.total_agt > 0:
-            return (self.valor_pago / self.total_agt) * 100
-        return 0
-    
-    @classmethod
-    def gerar_impostos_periodo_angola(cls, empresa, ano, mes):
-        """Gera impostos do período automaticamente para empresa angolana"""
-        data_inicio = date(ano, mes, 1)
-        
-        if mes == 12:
-            data_fim = date(ano + 1, 1, 1) - timedelta(days=1)
-        else:
-            data_fim = date(ano, mes + 1, 1) - timedelta(days=1)
-        
-        # Data de vencimento: dia 15 do mês seguinte (padrão AGT)
-        if mes == 12:
-            data_vencimento = date(ano + 1, 1, 15)
-        else:
-            data_vencimento = date(ano, mes + 1, 15)
-        
-        impostos_criados = []
-        
-        # Impostos principais a gerar automaticamente
-        impostos_automaticos = [
-            ('03I', 'IVA - Regime Geral', 'iva_geral'),
-            ('01C', 'Imposto Industrial - Regime Geral', 'geral'),
-            ('01A', 'IAC - Títulos do Banco Central', 'geral'),
-        ]
-        
-        for codigo_agt, nome_imposto, regime in impostos_automaticos:
-            # Verificar se já existe
-            existe = cls.objects.filter(
-                empresa=empresa,
-                codigo_receita_agt=codigo_agt,
-                ano_referencia=ano,
-                mes_referencia=mes
-            ).exists()
-            
-            if not existe:
-                # Buscar ou criar plano de contas
-                plano_contas = PlanoContas.objects.filter(
-                    empresa=empresa,
-                    tipo_conta='despesa',
-                    nome__icontains=nome_imposto
-                ).first()
-                
-                if not plano_contas:
-                    plano_contas = PlanoContas.objects.create(
-                        empresa=empresa,
-                        codigo=f"DESP{codigo_agt}",
-                        nome=f"Impostos - {nome_imposto}",
-                        tipo_conta='despesa',
-                        natureza='debito'
+
+    def pagar_imposto_agt(self):
+        """Marca o imposto como pago à AGT"""
+        from django.utils import timezone
+        self.status = 'pago'
+        self.data_pagamento = timezone.now()
+        self.save(update_fields=['status', 'data_pagamento'])
+        return "Imposto pago com sucesso à AGT."
+
+
+
+
+    def estornar_imposto_agt(self, usuario):
+        """
+        Estorna manualmente um pagamento de imposto, revertendo a movimentação financeira.
+        Este método pode ser chamado pelo painel admin ou interface do usuário.
+        """
+        if getattr(self, "status_pagamento", None) != "pago":
+            return {"status": "erro", "mensagem": "Somente impostos pagos podem ser estornados."}
+
+        try:
+            with transaction.atomic():
+                # 1. Estorna movimentação financeira vinculada
+                movimentacao = getattr(self, "movimentacao_pagamento", None)
+                if movimentacao and hasattr(movimentacao, "estornar_movimentacao"):
+                    movimentacao.estornar_movimentacao(
+                        usuario=usuario,
+                        motivo=f"Estorno manual do imposto {self.nome}"
                     )
-                
-                imposto = cls.objects.create(
-                    empresa=empresa,
-                    codigo_receita_agt=codigo_agt,
-                    nome=nome_imposto,
-                    regime_tributario=regime,
-                    ano_referencia=ano,
-                    mes_referencia=mes,
-                    data_inicio_periodo=data_inicio,
-                    data_fim_periodo=data_fim,
-                    data_vencimento=data_vencimento,
-                    plano_contas=plano_contas,
-                    metodo_calculo='percentual_receita',
-                    calculo_automatico=True
-                )
-                
-                # Calcular automaticamente
-                imposto.calcular_imposto_angola()
-                impostos_criados.append(imposto)
-        
-        return impostos_criados
-        
+
+                # 2. Atualiza estado do imposto
+                self.status_pagamento = "estornado"
+                self.data_estorno = timezone.now().date() if hasattr(self, "data_estorno") else None
+                self.save(update_fields=["status_pagamento"])
+
+                return {
+                    "status": "sucesso",
+                    "mensagem": f"Imposto {self.nome} estornado com sucesso."
+                }
+
+        except Exception as e:
+            return {"status": "erro", "mensagem": f"Erro ao estornar imposto: {e}"}
+
 
 class ConfiguracaoImposto(TimeStampedModel):
-    """Configurações de impostos por empresa"""
+    """
+    Configurações de impostos por empresa angolana
+    Baseado na legislação da AGT (Administração Geral Tributária)
+    """
     
     empresa = models.OneToOneField(
         Empresa, 
         on_delete=models.CASCADE,
-        related_name='configuracao_impostos'
+        related_name='configuracao_impostos_angola'
     )
     
-    # Regime tributário
-    regime_tributario = models.CharField(
-        max_length=20,
+    # Regime tributário principal (baseado na legislação angolana)
+    regime_tributario_principal = models.CharField(
+        max_length=30,
         choices=ImpostoTributo.REGIME_TRIBUTARIO_CHOICES,
-        default='simples_nacional'
+        default='geral',
+        help_text="Regime tributário principal da empresa"
     )
     
-    # Simples Nacional
-    anexo_simples = models.CharField(
-        max_length=10,
+    # Regime de IVA específico
+    regime_iva = models.CharField(
+        max_length=30,
         choices=[
-            ('anexo_1', 'Anexo I - Comércio'),
-            ('anexo_2', 'Anexo II - Indústria'),
-            ('anexo_3', 'Anexo III - Serviços'),
-            ('anexo_4', 'Anexo IV - Serviços'),
-            ('anexo_5', 'Anexo V - Serviços'),
+            ('iva_geral', 'Regime do IVA - Geral'),
+            ('iva_simplificado', 'Regime do IVA - Simplificado'),
+            ('iva_transitorio', 'Regime Transitório do IVA'),
+            ('excluido_iva', 'Regime de Exclusão do IVA'),
         ],
-        default='anexo_1',
-        help_text="Anexo do Simples Nacional"
+        default='iva_geral',
+        help_text="Regime específico do IVA"
     )
     
-    # CNAE principal
-    cnae_principal = models.CharField(
-        max_length=10,
-        help_text="CNAE principal da empresa"
+    # Setor de atividade (importante para alíquotas diferenciadas)
+    setor_atividade = models.CharField(
+        max_length=50,
+        choices=[
+            ('comercio', 'Comércio'),
+            ('industria', 'Indústria'),
+            ('servicos', 'Serviços'),
+            ('construcao', 'Construção Civil'),
+            ('bancario', 'Sector Bancário'),
+            ('seguros', 'Sector de Seguros'),
+            ('telecomunicacoes', 'Telecomunicações'),
+            ('petroleo', 'Sector Petrolífero'),
+            ('mineiro', 'Sector Mineiro'),
+            ('transporte', 'Transporte'),
+            ('turismo', 'Turismo e Hotelaria'),
+            ('agricultura', 'Agricultura'),
+            ('outros', 'Outros'),
+        ],
+        default='comercio',
+        help_text="Setor principal de atividade da empresa"
     )
     
-    # Alíquotas padrão
-    aliquota_pis = models.DecimalField(
+    # Localização (importante para IVA - Cabinda tem 1%)
+    provincia = models.CharField(
+        max_length=30,
+        choices=[
+            ('luanda', 'Luanda'),
+            ('benguela', 'Benguela'),
+            ('huila', 'Huíla'),
+            ('cabinda', 'Cabinda'),
+            ('huambo', 'Huambo'),
+            ('cunene', 'Cunene'),
+            ('namibe', 'Namibe'),
+            ('cuando_cubango', 'Cuando Cubango'),
+            ('lunda_norte', 'Lunda Norte'),
+            ('lunda_sul', 'Lunda Sul'),
+            ('malanje', 'Malanje'),
+            ('moxico', 'Moxico'),
+            ('bie', 'Bié'),
+            ('kuanza_norte', 'Kwanza Norte'),
+            ('kuanza_sul', 'Kwanza Sul'),
+            ('uige', 'Uíge'),
+            ('zaire', 'Zaire'),
+            ('bengo', 'Bengo'),
+        ],
+        default='luanda',
+        help_text="Província onde a empresa está localizada"
+    )
+    
+    # Alíquotas personalizadas (baseadas na legislação angolana)
+    
+    # IVA - Alíquotas vigentes em Angola
+    aliquota_iva_geral = models.DecimalField(
         max_digits=5, 
         decimal_places=2, 
-        default=Decimal('0.65'),
-        help_text="Alíquota padrão do PIS (%)"
+        default=Decimal('7.00'),
+        help_text="Alíquota do IVA - Regime Geral (%) - Padrão: 7%"
     )
-    aliquota_cofins = models.DecimalField(
-        max_digits=5, 
-        decimal_places=2, 
-        default=Decimal('3.00'),
-        help_text="Alíquota padrão do COFINS (%)"
-    )
-    aliquota_iss = models.DecimalField(
+    aliquota_iva_simplificado = models.DecimalField(
         max_digits=5, 
         decimal_places=2, 
         default=Decimal('5.00'),
-        help_text="Alíquota padrão do ISS (%)"
+        help_text="Alíquota do IVA - Regime Simplificado (%) - Padrão: 5%"
+    )
+    aliquota_iva_cabinda = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=Decimal('1.00'),
+        help_text="Alíquota do IVA para Cabinda (%) - Padrão: 1%"
+    )
+    
+    # Imposto Industrial - Alíquotas diferenciadas por setor
+    aliquota_imposto_industrial_geral = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=Decimal('25.00'),
+        help_text="Alíquota do Imposto Industrial - Geral (%) - Padrão: 25%"
+    )
+    aliquota_imposto_industrial_especial = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=Decimal('35.00'),
+        help_text="Alíquota do Imposto Industrial - Setores Especiais (%) - Padrão: 35%"
+    )
+    
+    # Imposto sobre Aplicação de Capitais
+    aliquota_iac_depositos = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=Decimal('10.00'),
+        help_text="Alíquota IAC - Depósitos (%) - Padrão: 10%"
+    )
+    aliquota_iac_titulos = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=Decimal('15.00'),
+        help_text="Alíquota IAC - Títulos (%) - Padrão: 15%"
+    )
+    
+    # Imposto de Selo
+    aliquota_imposto_selo = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=Decimal('0.20'),
+        help_text="Alíquota do Imposto de Selo (%) - Padrão: 0,2%"
+    )
+    
+    # Impostos sobre bens móveis
+    aliquota_imposto_veiculos = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=Decimal('2.00'),
+        help_text="Alíquota do Imposto sobre Veículos (%) - Padrão: 2%"
+    )
+    
+    # Configurações específicas para setores especiais
+    eh_setor_petrolifero = models.BooleanField(
+        default=False,
+        help_text="Empresa pertence ao setor petrolífero"
+    )
+    eh_setor_mineiro = models.BooleanField(
+        default=False,
+        help_text="Empresa pertence ao setor mineiro"
+    )
+    eh_setor_diamantifero = models.BooleanField(
+        default=False,
+        help_text="Empresa pertence ao setor diamantífero"
+    )
+    
+    # Impostos específicos que a empresa está sujeita
+    impostos_aplicaveis = models.JSONField(
+        default=list,
+        help_text="Lista de códigos AGT dos impostos aplicáveis à empresa",
+        blank=True
     )
     
     # Configurações automáticas
@@ -2178,17 +2188,279 @@ class ConfiguracaoImposto(TimeStampedModel):
     dia_vencimento_impostos = models.IntegerField(
         default=15,
         validators=[MinValueValidator(1), MaxValueValidator(31)],
-        help_text="Dia do mês para vencimento dos impostos"
+        help_text="Dia do mês para vencimento dos impostos (padrão AGT: dia 15)"
+    )
+    
+    # Configurações de retenção na fonte
+    aplicar_retencao_fonte = models.BooleanField(
+        default=False,
+        help_text="Empresa sujeita à retenção na fonte"
+    )
+    percentual_retencao_ii = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('6.50'),
+        help_text="Percentual de retenção do Imposto Industrial (%)"
+    )
+    percentual_retencao_iva = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('6.50'),
+        help_text="Percentual de retenção do IVA (%)"
+    )
+    
+    # Configurações de multas e juros (legislação angolana)
+    percentual_multa_atraso = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('10.00'),
+        help_text="Percentual de multa por atraso (%) - Padrão: 10%"
+    )
+    percentual_juros_mora_mensal = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('1.50'),
+        help_text="Percentual de juros de mora mensal (%) - Padrão: 1,5%"
+    )
+    
+    # Configurações contábeis
+    conta_iva_a_pagar = models.ForeignKey(
+        'PlanoContas',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='configuracao_iva_pagar',
+        help_text="Conta contábil para IVA a pagar"
+    )
+    conta_impostos_diversos = models.ForeignKey(
+        'PlanoContas',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='configuracao_impostos_diversos',
+        help_text="Conta contábil para impostos diversos"
+    )
+    centro_custo_impostos = models.ForeignKey(
+        'CentroCusto',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Centro de custo padrão para impostos"
+    )
+    
+    # Configurações de notificação
+    notificar_vencimentos = models.BooleanField(
+        default=True,
+        help_text="Notificar sobre vencimentos de impostos"
+    )
+    dias_antecedencia_notificacao = models.IntegerField(
+        default=7,
+        validators=[MinValueValidator(1), MaxValueValidator(30)],
+        help_text="Dias de antecedência para notificação de vencimentos"
+    )
+    
+    # Responsável fiscal
+    responsavel_fiscal = models.ForeignKey(
+        'funcionarios.Funcionario',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Funcionário responsável pelos assuntos fiscais"
     )
     
     # Observações
-    observacoes = models.TextField(blank=True)
+    observacoes = models.TextField(
+        blank=True,
+        help_text="Observações específicas sobre a configuração fiscal da empresa"
+    )
+    
+    # Última atualização das alíquotas
+    data_ultima_atualizacao_aliquotas = models.DateTimeField(
+        auto_now=True,
+        help_text="Data da última atualização das alíquotas"
+    )
     
     class Meta:
-        verbose_name = "Configuração de Impostos"
-        verbose_name_plural = "Configurações de Impostos"
+        verbose_name = "Configuração de Impostos Angola"
+        verbose_name_plural = "Configurações de Impostos Angola"
+        indexes = [
+            models.Index(fields=['regime_tributario_principal']),
+            models.Index(fields=['setor_atividade']),
+            models.Index(fields=['provincia']),
+        ]
     
     def __str__(self):
-        return f"Configuração Impostos - {self.empresa.nome}"
-
-
+        return f"Config. Impostos Angola - {self.empresa.razao_social}"
+    
+    def clean(self):
+        """Validações específicas"""
+        super().clean()
+        
+        # Validar alíquotas específicas por setor
+        if self.setor_atividade in ['bancario', 'seguros', 'telecomunicacoes', 'petroleo']:
+            if self.aliquota_imposto_industrial_geral < 35:
+                raise ValidationError({
+                    'aliquota_imposto_industrial_geral': 
+                    f'Para o setor {self.get_setor_atividade_display()}, a alíquota mínima é 35%'
+                })
+        
+        # Validar IVA para Cabinda
+        if self.provincia == 'cabinda' and self.aliquota_iva_geral > 1:
+            self.aliquota_iva_geral = self.aliquota_iva_cabinda
+    
+    def save(self, *args, **kwargs):
+        # Configurar impostos aplicáveis automaticamente baseado no setor
+        if not self.impostos_aplicaveis:
+            self.impostos_aplicaveis = self._definir_impostos_aplicaveis()
+        
+        super().save(*args, **kwargs)
+    
+    def _definir_impostos_aplicaveis(self):
+        """Define impostos aplicáveis baseado no setor de atividade"""
+        impostos_base = [
+            '03I',  # IVA - Regime Geral
+            '01C',  # Imposto Industrial - Regime Geral
+        ]
+        
+        # Adicionar impostos específicos por setor
+        if self.setor_atividade == 'bancario':
+            impostos_base.extend([
+                '01A',  # IAC - Títulos do Banco Central
+                '02L',  # IS - Operações Bancárias
+            ])
+        elif self.setor_atividade == 'petroleo':
+            impostos_base.extend([
+                '01E',  # IP - Rendimentos do Petróleo
+                '02E',  # ITP - Transações de Petróleo
+                '01H',  # IPD - Produção de Petróleo
+            ])
+        elif self.setor_atividade == 'mineiro':
+            impostos_base.extend([
+                '05C',  # II - Diamantes
+                '06C',  # II - Ouro
+                '07C',  # II - Outros Minerais
+            ])
+        elif self.setor_atividade in ['comercio', 'industria']:
+            impostos_base.extend([
+                '12J',  # IEC - Veículos Automóveis (se aplicável)
+            ])
+        
+        # Adicionar impostos comuns a todos
+        impostos_base.extend([
+            '03L',  # IS - Recibo de Quitação
+            '01G',  # IBM - Veículos (se tiver)
+        ])
+        
+        return impostos_base
+    
+    def get_aliquota_iva_aplicavel(self):
+        """Retorna a alíquota de IVA aplicável à empresa"""
+        if self.provincia == 'cabinda':
+            return self.aliquota_iva_cabinda
+        elif self.regime_iva == 'iva_simplificado':
+            return self.aliquota_iva_simplificado
+        else:
+            return self.aliquota_iva_geral
+    
+    def get_aliquota_imposto_industrial_aplicavel(self):
+        """Retorna a alíquota de Imposto Industrial aplicável"""
+        if self.setor_atividade in ['bancario', 'seguros', 'telecomunicacoes', 'petroleo']:
+            return self.aliquota_imposto_industrial_especial
+        else:
+            return self.aliquota_imposto_industrial_geral
+    
+    def gerar_impostos_mes(self, ano, mes):
+        """Gera impostos do mês baseado na configuração"""
+        if not self.gerar_impostos_automaticamente:
+            return []
+        
+        impostos_criados = []
+        
+        for codigo_agt in self.impostos_aplicaveis:
+            # Verificar se já existe
+            exists = ImpostoTributo.objects.filter(
+                empresa=self.empresa,
+                codigo_receita_agt=codigo_agt,
+                ano_referencia=ano,
+                mes_referencia=mes
+            ).exists()
+            
+            if not exists:
+                imposto = self._criar_imposto_configurado(codigo_agt, ano, mes)
+                if imposto:
+                    impostos_criados.append(imposto)
+        
+        return impostos_criados
+    
+    def _criar_imposto_configurado(self, codigo_agt, ano, mes):
+        """Cria imposto com configurações personalizadas"""
+        # Obter informações do imposto
+        nome_imposto = dict(ImpostoTributo.TIPO_IMPOSTO_CHOICES).get(codigo_agt, '')
+        
+        # Definir alíquota baseada na configuração
+        aliquota = self._get_aliquota_por_codigo(codigo_agt)
+        
+        # Definir regime
+        regime = self._get_regime_por_codigo(codigo_agt)
+        
+        # Criar imposto
+        return ImpostoTributo.objects.create(
+            empresa=self.empresa,
+            codigo_receita_agt=codigo_agt,
+            nome=nome_imposto,
+            regime_tributario=regime,
+            ano_referencia=ano,
+            mes_referencia=mes,
+            aliquota_percentual=aliquota,
+            calculo_automatico=True,
+            usuario_responsavel=self.responsavel_fiscal.user if self.responsavel_fiscal else None,
+        )
+    
+    def _get_aliquota_por_codigo(self, codigo_agt):
+        """Retorna alíquota configurada para o código AGT"""
+        if codigo_agt.endswith('I'):  # IVA
+            return self.get_aliquota_iva_aplicavel()
+        elif codigo_agt.endswith('C'):  # Imposto Industrial
+            return self.get_aliquota_imposto_industrial_aplicavel()
+        elif codigo_agt.endswith('A'):  # IAC
+            if codigo_agt in ['01A', '04A']:  # Títulos e Depósitos
+                return self.aliquota_iac_titulos
+            else:
+                return self.aliquota_iac_depositos
+        elif codigo_agt.endswith('L'):  # Imposto de Selo
+            return self.aliquota_imposto_selo
+        elif codigo_agt.endswith('G'):  # Veículos
+            return self.aliquota_imposto_veiculos
+        else:
+            return Decimal('0.00')
+    
+    def _get_regime_por_codigo(self, codigo_agt):
+        """Retorna regime tributário para o código AGT"""
+        if codigo_agt.endswith('I'):  # IVA
+            return self.regime_iva
+        else:
+            return self.regime_tributario_principal
+    
+    @property
+    def total_impostos_estimado_mensal(self):
+        """Estima total de impostos mensais baseado na configuração"""
+        # Esta é uma estimativa baseada no faturamento médio
+        # Implementar lógica mais específica conforme necessário
+        return Decimal('0.00')
+    
+    @classmethod
+    def get_configuracao_padrao_angola(cls):
+        """Retorna configuração padrão para empresas angolanas"""
+        return {
+            'regime_tributario_principal': 'geral',
+            'regime_iva': 'iva_geral',
+            'setor_atividade': 'comercio',
+            'provincia': 'luanda',
+            'aliquota_iva_geral': Decimal('7.00'),
+            'aliquota_iva_simplificado': Decimal('5.00'),
+            'aliquota_iva_cabinda': Decimal('1.00'),
+            'aliquota_imposto_industrial_geral': Decimal('25.00'),
+            'aliquota_imposto_industrial_especial': Decimal('35.00'),
+            'dia_vencimento_impostos': 15,
+            'gerar_impostos_automaticamente': True,
+        }

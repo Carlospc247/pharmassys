@@ -1,0 +1,16 @@
+[Unit]
+Description=Gunicorn service para VistoGest Django application
+Requires=gunicorn.socket
+After=network.target
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=/var/www/vistogest-pro
+ExecStart=/var/www/vistogest-pro/venv/bin/gunicorn \
+          --access-logfile - \
+          --workers 3 \
+          --bind unix:/run/gunicorn.sock \
+          pharmassys.wsgi:application
+[Install]
+WantedBy=multi-user.target

@@ -5,11 +5,62 @@ from datetime import timedelta
 import dj_database_url
 from storages.backends.s3boto3 import S3Boto3Storage
 from celery.schedules import crontab
+import watchtower
+import logging
+
+
 
 # =========================================
 # Diretórios base
 # =========================================
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{levelname}] {asctime} {name} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+        "cloudwatch": {
+            "class": "watchtower.CloudWatchLogHandler",
+            "log_group": "pharmassys-logs",  # Nome do log group no CloudWatch
+            "stream_name": "django",         # Nome do stream dentro do log group
+            "formatter": "verbose",
+            # Opcional: configure region_name se não estiver usando default
+            # "boto3_session": boto3.Session(region_name="eu-west-1")
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console", "cloudwatch"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "django.db.backends": {
+            "handlers": ["console", "cloudwatch"],
+            "level": "DEBUG",  # imprime todas as queries
+            "propagate": False,
+        },
+        # Captura qualquer exceção crítica não tratada
+        "django.request": {
+            "handlers": ["console", "cloudwatch"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}
+
+
+
 
 # =========================================
 # Core
