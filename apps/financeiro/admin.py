@@ -13,7 +13,6 @@ from django.core.exceptions import ValidationError
 from decimal import Decimal
 import csv
 from datetime import date, timedelta
-
 from .models import (
     PlanoContas, CentroCusto, ContaBancaria, MovimentacaoFinanceira,
     ContaPai, ContaPagar, ContaReceber, FluxoCaixa, ConciliacaoBancaria,
@@ -830,6 +829,9 @@ class ContaPagarAdmin(admin.ModelAdmin):
 # CONTAS A RECEBER
 # ============================================================================
 
+
+
+
 @admin.register(ContaReceber)
 class ContaReceberAdmin(admin.ModelAdmin):
     list_display = [
@@ -841,95 +843,50 @@ class ContaReceberAdmin(admin.ModelAdmin):
         'status_badge',
         'acoes_rapidas'
     ]
-    
-    list_filter = [
-        'status',
-        'tipo_conta',
-        'data_vencimento',
-        'data_emissao',
-        'cliente',
-        'empresa'
-    ]
-    
-    search_fields = [
-        'numero_documento',
-        'descricao',
-        'cliente__nome',
-        'observacoes'
-    ]
-    
-    date_hierarchy = 'data_vencimento'
-    
-    # Fieldsets similar ao ContaPagar
-    fieldsets = (
-        ('Identificação', {
-            'fields': (
-                'numero_documento',
-                'descricao',
-                'tipo_conta',
-                'empresa'
-            )
-        }),
-        ('Datas', {
-            'fields': (
-                'data_emissao',
-                'data_vencimento',
-                'data_recebimento'
-            )
-        }),
-        ('Valores', {
-            'fields': (
-                'valor_original',
-                ('valor_juros', 'valor_multa', 'valor_desconto'),
-                'valor_recebido',
-                'valor_saldo'
-            )
-        }),
-        ('Relacionamentos', {
-            'fields': (
-                'cliente',
-                'venda',
-                'plano_contas',
-                'centro_custo'
-            )
-        }),
-        ('Parcelamento', {
-            'fields': (
-                ('numero_parcela', 'total_parcelas'),
-                'conta_pai'
-            ),
-            'classes': ('collapse',)
-        }),
-        ('Observações', {
-            'fields': (
-                'status',
-                'observacoes'
-            )
-        })
-    )
-    
-    readonly_fields = [
-        'valor_saldo',
-        'data_recebimento'
-    ]
-    
-    actions = [
-        'marcar_como_recebida',
-        'gerar_relatorio_inadimplencia',
-        'exportar_contas_receber'
-    ]
-    
-    def cliente_info(self, obj):
-        if obj.cliente:
-            return format_html(
-                '<div><strong>{}</strong><br><small>{}</small></div>',
-                obj.cliente.nome,
-                obj.cliente.nif or obj.cliente.email
-            )
-        return format_html('<span style="color: #6b7280;">Sem cliente</span>')
-    cliente_info.short_description = 'Cliente'
-    
-    # Outros métodos similares ao ContaPagar, adaptados para recebimento
+
+    def descricao_curta(self, obj):
+        return obj.descricao[:40] + '...' if len(obj.descricao) > 40 else obj.descricao
+    descricao_curta.short_description = 'Descrição'
+
+    def valor_info(self, obj):
+        return f"R$ {obj.valor_original:,.2f}"
+    valor_info.short_description = 'Valor'
+
+    def vencimento_info(self, obj):
+        dias = (obj.data_vencimento - date.today()).days
+        if dias < 0:
+            return format_html('<span style="color:red;">{:%d/%m/%Y} ({} dias vencida)</span>', obj.data_vencimento, abs(dias))
+        elif dias == 0:
+            return format_html('<span style="color:orange;">Vence hoje</span>')
+        else:
+            return format_html('<span style="color:green;">{:%d/%m/%Y} (em {} dias)</span>', obj.data_vencimento, dias)
+    vencimento_info.short_description = 'Vencimento'
+
+    def status_badge(self, obj):
+        cores = {
+            'aberta': '#3b82f6',
+            'vencida': '#ef4444',
+            'recebida': '#22c55e',
+            'cancelada': '#6b7280',
+            'renegociada': '#f59e0b',
+        }
+        cor = cores.get(obj.status, '#6b7280')
+        return format_html(
+            '<span style="background:{}; color:white; padding:3px 8px; border-radius:8px;">{}</span>',
+            cor,
+            obj.get_status_display()
+        )
+    status_badge.short_description = 'Status'
+
+    def acoes_rapidas(self, obj):
+        return format_html(
+            '<a href="/admin/financeiro/contareceber/{}/change/">Editar</a> | '
+            '<a href="/admin/financeiro/contareceber/{}/delete/">Excluir</a>',
+            obj.id, obj.id
+        )
+    acoes_rapidas.short_description = 'Ações'
+
+
 
 # ============================================================================
 # MOVIMENTO DE CAIXA
