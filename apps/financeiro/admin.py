@@ -837,7 +837,6 @@ class ContaReceberAdmin(admin.ModelAdmin):
     list_display = [
         'numero_documento',
         'descricao_curta',
-        'cliente_info',
         'valor_info',
         'vencimento_info',
         'status_badge',
