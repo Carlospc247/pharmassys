@@ -6,7 +6,6 @@ from datetime import timedelta
 import dj_database_url
 from storages.backends.s3boto3 import S3Boto3Storage
 from celery.schedules import crontab
-import watchtower
 import logging
 
 
@@ -18,46 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "[{levelname}] {asctime} {name} {message}",
-            "style": "{",
-        },
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "verbose",
-        },
-        "cloudwatch": {
-            "class": "watchtower.CloudWatchLogHandler",
-            "log_group_name": "pharmassys-logs",   # nome do grupo de logs no CloudWatch
-            "stream_name": "django",               # nome do stream dentro do grupo
-            "formatter": "verbose",
-            "boto3_client": boto3.client("logs", region_name="us-west-2"),
-        },
-    },
-    "loggers": {
-        "django": {
-            "handlers": ["console", "cloudwatch"],
-            "level": "INFO",
-            "propagate": True,
-        },
-        "django.db.backends": {
-            "handlers": ["console", "cloudwatch"],
-            "level": "DEBUG",
-            "propagate": False,
-        },
-        "django.request": {
-            "handlers": ["console", "cloudwatch"],
-            "level": "ERROR",
-            "propagate": False,
-        },
-    },
-}
+
 
 
 
