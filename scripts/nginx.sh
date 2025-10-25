@@ -13,7 +13,7 @@ sudo systemctl daemon-reload
 sudo rm -f /etc/nginx/sites-enabled/default
 
 # Copy Nginx configuration file
-sudo cp "/var/www/$PROJECT_MAIN_DIR_NAME/nginx/nginx.conf" "/etc/nginx/sites-available/$FOLDER_NAME_WHERE_SETTINGS_FILE_EXISTS"
+sudo cp "/home/ubuntu/$PROJECT_MAIN_DIR_NAME/nginx/nginx.conf" "/etc/nginx/sites-available/$FOLDER_NAME_WHERE_SETTINGS_FILE_EXISTS"
 
 # Create symbolic link to enable Nginx site
 sudo ln -s "/etc/nginx/sites-available/$FOLDER_NAME_WHERE_SETTINGS_FILE_EXISTS" "/etc/nginx/sites-enabled/"

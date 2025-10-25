@@ -2,18 +2,18 @@
 set -e
 
 # Replace {YOUR_GIT_REOPO_URL} with your actual Git repository URL
-#GIT_REPO_URL="https://github.com/Carlospc247/vistogest-pro.git"
+GIT_REPO_URL="https://github.com/Carlospc247/vistogest-pro.git"
 
 # If using Private Repo
-GIT_REPO_URL="https://Carlospc247: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@github.com/Carlospc247/vistogest-pro.git"
+#GIT_REPO_URL="https://<your_username>:<your_PAT>@github.com/codewithmuh/django-aws-ec2-autoscaling.git"
 
 # Replace {YOUR_PROJECT_MAIN_DIR_NAME} with your actual project directory name
 PROJECT_MAIN_DIR_NAME="vistogest-pro"
 
 # Clone repository
-git clone "$GIT_REPO_URL" "/var/www/$PROJECT_MAIN_DIR_NAME"
+git clone "$GIT_REPO_URL" "/home/ubuntu/$PROJECT_MAIN_DIR_NAME"
 
-cd "/var/www/$PROJECT_MAIN_DIR_NAME"
+cd "/home/ubuntu/$PROJECT_MAIN_DIR_NAME"
 
 # Make all .sh files executable
 chmod +x scripts/*.sh

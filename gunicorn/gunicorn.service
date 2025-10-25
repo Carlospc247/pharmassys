@@ -1,13 +1,13 @@
 [Unit]
-Description=Gunicorn service para VistoGest Django application
+Description=gunicorn daemon
 Requires=gunicorn.socket
 After=network.target
 
 [Service]
 User=ubuntu
 Group=www-data
-WorkingDirectory=/var/www/vistogest-pro
-ExecStart=/var/www/vistogest-pro/venv/bin/gunicorn \
+WorkingDirectory=/home/ubuntu/vistogest-pro
+ExecStart=/home/ubuntu/vistogest-pro/venv/bin/gunicorn \
           --access-logfile - \
           --workers 3 \
           --bind unix:/run/gunicorn.sock \
