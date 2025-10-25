@@ -6,6 +6,7 @@ from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from django.shortcuts import redirect
 
+
 # Função para redirecionar /accounts/profile/ para dashboard
 def redirect_to_dashboard(request):
     return redirect('dashboard')
