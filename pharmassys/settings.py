@@ -1,4 +1,5 @@
 import os
+import boto3
 from pathlib import Path
 from decouple import config
 from datetime import timedelta
@@ -14,6 +15,7 @@ import logging
 # Diretórios base
 # =========================================
 BASE_DIR = Path(__file__).resolve().parent.parent
+
 
 
 LOGGING = {
@@ -32,11 +34,10 @@ LOGGING = {
         },
         "cloudwatch": {
             "class": "watchtower.CloudWatchLogHandler",
-            "log_group": "pharmassys-logs",  # Nome do log group no CloudWatch
-            "stream_name": "django",         # Nome do stream dentro do log group
+            "log_group_name": "pharmassys-logs",   # nome do grupo de logs no CloudWatch
+            "stream_name": "django",               # nome do stream dentro do grupo
             "formatter": "verbose",
-            # Opcional: configure region_name se não estiver usando default
-            # "boto3_session": boto3.Session(region_name="eu-west-1")
+            "boto3_client": boto3.client("logs", region_name="us-west-2"),
         },
     },
     "loggers": {
@@ -47,10 +48,9 @@ LOGGING = {
         },
         "django.db.backends": {
             "handlers": ["console", "cloudwatch"],
-            "level": "DEBUG",  # imprime todas as queries
+            "level": "DEBUG",
             "propagate": False,
         },
-        # Captura qualquer exceção crítica não tratada
         "django.request": {
             "handlers": ["console", "cloudwatch"],
             "level": "ERROR",
