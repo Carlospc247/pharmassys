@@ -1,9 +1,10 @@
 import os
 from pathlib import Path
-from decouple import config, Csv
+import django
 from django.core.management.utils import get_random_secret_key
 from celery.schedules import crontab
 from datetime import timedelta
+
 
 # =========================================
 # Diretórios base
@@ -13,9 +14,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # =========================================
 # Core
 # =========================================
-SECRET_KEY = config('SECRET_KEY', default=get_random_secret_key())
-DEBUG = config('DEBUG', default=False, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost', cast=Csv())
+SECRET_KEY = 'SUA_CHAVE_SECRETA_AQUI'  # substitua pelo valor real
+DEBUG = True  # ou False, conforme ambiente
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'seudominio.com']  # adicione os hosts necessários
 
 # =========================================
 # Aplicações
@@ -107,14 +108,15 @@ CELERY_BEAT_SCHEDULE = {
 # =========================================
 # Database
 # =========================================
+# =========================================
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('POSTGRES_DB'),
-        'USER': config('POSTGRES_USER'),
-        'PASSWORD': config('POSTGRES_PASSWORD'),
-        'HOST': config('POSTGRES_HOST'),
-        'PORT': config('POSTGRES_PORT', default=5432, cast=int),
+        'NAME': 'nome_do_banco',
+        'USER': 'usuario_do_banco',
+        'PASSWORD': 'senha_do_banco',
+        'HOST': 'localhost',
+        'PORT': 5432,
     }
 }
 
@@ -180,14 +182,15 @@ X_FRAME_OPTIONS = 'DENY'
 # =========================================
 # Email
 # =========================================
-EMAIL_BACKEND = config('EMAIL_BACKEND')
-EMAIL_HOST = config('EMAIL_HOST')
-EMAIL_PORT = config('EMAIL_PORT', cast=int)
-EMAIL_USE_SSL = config('EMAIL_USE_SSL', cast=bool)
-EMAIL_HOST_USER = config('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
-
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.exemplo.com'
+EMAIL_PORT = 465
+EMAIL_USE_SSL = True
+EMAIL_HOST_USER = 'geral@vistogest.pro'
+EMAIL_HOST_PASSWORD = '@C@rlos#$%666'
+DEFAULT_FROM_EMAIL="VistoGest <geral@vistogest.pro>"
+SUPPORT_EMAIL='suporte@vistogest.pro'
+#DEFAULT_FROM_EMAIL = 'no-reply@example.com
 # =========================================
 # Allauth
 # =========================================
@@ -205,12 +208,12 @@ ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 # =========================================
 # CORS
 # =========================================
-CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='', cast=Csv())
+CORS_ALLOWED_ORIGINS = ['http://localhost:8000', 'https://seudominio.com']
 
 # =========================================
 # Redis / Celery
 # =========================================
-REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
+REDIS_URL = 'redis://localhost:6379/0'
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 
