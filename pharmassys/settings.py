@@ -1,28 +1,21 @@
 import os
-import boto3
 from pathlib import Path
-from decouple import config
-from datetime import timedelta
-import dj_database_url
-from storages.backends.s3boto3 import S3Boto3Storage
+from decouple import config, Csv
+from django.core.management.utils import get_random_secret_key
 from celery.schedules import crontab
-import logging
-
-
+from datetime import timedelta
 
 # =========================================
 # Diretórios base
 # =========================================
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-
 # =========================================
 # Core
 # =========================================
-SECRET_KEY = config('SECRET_KEY')
-DEBUG = config('DEBUG', default=False, cast=lambda v: v.lower() in ('true', '1', 't'))
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=lambda v: [s.strip() for s in v.split(',')])
+SECRET_KEY = config('SECRET_KEY', default=get_random_secret_key())
+DEBUG = config('DEBUG', default=False, cast=bool)
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost', cast=Csv())
 
 # =========================================
 # Aplicações
@@ -79,7 +72,6 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -102,60 +94,29 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.configuracoes.tasks.backup_automatico_diario',
         'schedule': crontab(hour=2, minute=0),
     },
-    'check-critical-margin-daily': {
+    'check_critical_margin_daily': {
         'task': 'apps.vendas.tasks.verificar_margem_critica',
         'schedule': timedelta(days=1),
     },
-    'check-critical-stock-hourly': {
+    'check_critical_stock_hourly': {
         'task': 'apps.vendas.tasks.verificar_stock_critico',
         'schedule': timedelta(hours=1),
     },
 }
 
 # =========================================
-# Redis / Cache / Celery
-# =========================================
-REDIS_HOST = config('REDIS_HOST', default='127.0.0.1')
-REDIS_PORT = config('REDIS_PORT', default=6379, cast=int)
-REDIS_URL_BASE = f"redis://{REDIS_HOST}:{REDIS_PORT}"
-
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"{REDIS_URL_BASE}/1",
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "CONNECTION_POOL_KWARGS": {"max_connections": 100},
-        }
-    },
-    "B.I.": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"{REDIS_URL_BASE}/2",
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        }
-    }
-}
-
-CELERY_BROKER_URL = config('CELERY_BROKER_URL', default=f'{REDIS_URL_BASE}/0')
-CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default=f'{REDIS_URL_BASE}/0')
-
-# =========================================
 # Database
 # =========================================
-if config('DATABASE_URL', default=None):
-    DATABASES = {'default': dj_database_url.parse(config('DATABASE_URL'))}
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': config('DB_ENGINE', default='django.db.backends.postgresql'),
-            'NAME': config('DB_NAME'),
-            'USER': config('DB_USER'),
-            'PASSWORD': config('DB_PASSWORD'),
-            'HOST': config('DB_HOST'),
-            'PORT': config('DB_PORT', cast=int),
-        }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': config('POSTGRES_DB'),
+        'USER': config('POSTGRES_USER'),
+        'PASSWORD': config('POSTGRES_PASSWORD'),
+        'HOST': config('POSTGRES_HOST'),
+        'PORT': config('POSTGRES_PORT', default=5432, cast=int),
     }
+}
 
 # =========================================
 # Templates
@@ -193,31 +154,20 @@ AUTH_PASSWORD_VALIDATORS = [
 # =========================================
 # Internacionalização
 # =========================================
-LANGUAGE_CODE = 'pt'
+LANGUAGE_CODE = 'pt-pt'
 TIME_ZONE = 'Africa/Luanda'
 USE_I18N = True
 USE_TZ = True
 
 # =========================================
-# Arquivos estáticos e de mídia (AWS S3)
+# Arquivos estáticos e de mídia
 # =========================================
-if not DEBUG:
-    AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
-    AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
-    AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
-    AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='us-west-2')
-    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-    STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
-    STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
-    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
-
-    AWS_QUERYSTRING_AUTH = False
-    AWS_DEFAULT_ACL = None
-
-STATICFILES_DIRS = [BASE_DIR / 'static']
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # =========================================
 # Segurança
@@ -226,12 +176,6 @@ SECURE_SSL_REDIRECT = True
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 X_FRAME_OPTIONS = 'DENY'
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://vistogest.pro",
-    "https://www.vistogest.pro",
-    "https://vistogest-env.eba-si92zp36.us-east-1.elasticbeanstalk.com",
-]
 
 # =========================================
 # Email
@@ -252,10 +196,23 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
+
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+
+# =========================================
+# CORS
+# =========================================
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='', cast=Csv())
+
+# =========================================
+# Redis / Celery
+# =========================================
+REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
 
 # =========================================
 # REST Framework / JWT
@@ -274,4 +231,3 @@ REST_FRAMEWORK = {
 # =========================================
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'core.Usuario'
-
