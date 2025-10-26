@@ -150,8 +150,8 @@ xmltodict==0.14.2
 psutil==7.1.0
 setuptools==80.9.0
 typing-extensions==4.15.0
-importlib-resources==6.5.2
-zipp==3.24.0
+importlib-resources==6.6.0
+zipp==3.23.1
 
 # Compression
 Brotli==1.1.0
