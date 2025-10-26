@@ -112,10 +112,10 @@ CELERY_BEAT_SCHEDULE = {
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'nome_do_banco',
-        'USER': 'usuario_do_banco',
-        'PASSWORD': 'senha_do_banco',
-        'HOST': 'localhost',
+        'NAME': 'vistogestpro_db',
+        'USER': 'admin_master',
+        'PASSWORD': 'y5qwcr5hcFu9AgnfcZOZViKWl9D35sds',
+        'HOST': 'dpg-d3v3rkvdiees73emt0eg-a',
         'PORT': 5432,
     }
 }
