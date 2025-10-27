@@ -14,9 +14,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # =========================================
 # Core
 # =========================================
-SECRET_KEY = 'SUA_CHAVE_SECRETA_AQUI'  # substitua pelo valor real
-DEBUG = True  # ou False, conforme ambiente
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'seudominio.com']  # adicione os hosts necessários
+SECRET_KEY = os.getenv('SECRET_KEY', get_random_secret_key())
+DEBUG = True
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'vistogest.pro',
+    'www.vistogest.pro',
+    'vistogestpro.onrender.com',
+    'www.vistogestpro.onrender.com',
+]
 
 # =========================================
 # Aplicações
@@ -45,7 +52,6 @@ INSTALLED_APPS = [
     'crispy_tailwind',
     'widget_tweaks',
     'django_filters',
-    'django_extensions',
 
     # Apps internos
     'apps.core',
@@ -208,7 +214,12 @@ ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 # =========================================
 # CORS
 # =========================================
-CORS_ALLOWED_ORIGINS = ['http://localhost:8000', 'https://seudominio.com']
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:8000',
+    'https://vistogest.pro',
+    'https://www.vistogest.pro',
+    'https://vistogestpro.onrender.com'
+]
 
 # =========================================
 # Redis / Celery
