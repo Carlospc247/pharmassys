@@ -111,6 +111,30 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
+
+# =========================================
+# Caches (Redis + BI)
+# =========================================
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://localhost:6379/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "TIMEOUT": 60 * 15,  # 15 minutos
+    },
+    "B_I": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://localhost:6379/2",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "TIMEOUT": 60 * 60 * 2,  # 2 horas para relatórios
+    },
+}
+
+
 # =========================================
 # Database
 # =========================================

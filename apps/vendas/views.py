@@ -145,8 +145,14 @@ from django.core.exceptions import ValidationError
 from datetime import datetime, timedelta, date
 from decimal import Decimal
 import json
-
-# Importar modelos necessários
+from django.db.models import Sum, F
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import generics, status
+from rest_framework.response import Response
+from django.db import transaction
+from .tasks import verificar_margem_critica # Importe a tarefa Celery
+from django.core.cache import caches
 from .models import (
     Venda, NotaCredito, ItemNotaCredito, NotaDebito,
     ItemNotaDebito, DocumentoTransporte, ItemDocumentoTransporte
@@ -155,7 +161,6 @@ from .forms import (
     NotaCreditoForm, ItemNotaCreditoForm, NotaDebitoForm, ItemNotaDebitoForm,
     DocumentoTransporteForm, ItemDocumentoTransporteForm
 )
-from django.db import transaction
 from django.views.decorators.http import require_POST
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
@@ -5343,19 +5348,9 @@ class VendaViewSet(viewsets.ModelViewSet):
             "documento": serializer.data
         }, status=status.HTTP_201_CREATED, headers=headers)
 
-# apps/vendas/views.py (ADICIONE ISTO)
-from django.db.models import Sum, F
-from rest_framework.views import APIView
-from rest_framework.response import Response
 
 
-# apps/vendas/views.py (CÓDIGO PENDENTE DA FASE ANTERIOR)
-from rest_framework import generics, status
-from rest_framework.response import Response
-from django.db import transaction
-from .tasks import verificar_margem_critica # Importe a tarefa Celery
-
-bi_cache = caches['B.I.']
+bi_cache = caches["B_I"]
 class VendaCreateAPIView(generics.CreateAPIView):
     """
     Endpoint para criar uma nova venda e gerar o documento fiscal (HASH, ATCUD).
