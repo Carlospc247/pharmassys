@@ -119,24 +119,21 @@ CELERY_BEAT_SCHEDULE = {
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.getenv("REDIS_URL"),  # Usa o Redis do Upstash
+        "LOCATION": os.getenv("REDIS_URL"),
         "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "SSL": True,  # Importante! O Upstash usa rediss:// (SSL)
+            "SSL": True,
         },
-        "TIMEOUT": 60 * 15,  # 15 minutos
+        "TIMEOUT": 60 * 15,
     },
     "B_I": {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": os.getenv("REDIS_URL"),
         "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "SSL": True,
         },
-        "TIMEOUT": 60 * 60 * 2,  # 2 horas
+        "TIMEOUT": 60 * 60 * 2,
     },
 }
-
 
 
 
