@@ -266,7 +266,7 @@ CORS_ALLOWED_ORIGINS = [
 # Redis / Celery
 # =========================================
 # KEY: REDIS_URL foi adicionada em enviroment no render e em Value adicionei o host que foi gerado automaticamente no upstash.
-REDIS_URL = os.getenv('REDIS_URL')
+
 
 
 # =========================================
