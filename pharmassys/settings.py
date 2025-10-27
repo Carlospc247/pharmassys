@@ -15,7 +15,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Core
 # =========================================
 SECRET_KEY = os.getenv('SECRET_KEY', get_random_secret_key())
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "False") == "True"
+
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
@@ -117,22 +118,26 @@ CELERY_BEAT_SCHEDULE = {
 # =========================================
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": "redis://localhost:6379/1",
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.getenv("REDIS_URL"),  # Usa o Redis do Upstash
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "SSL": True,  # Importante! O Upstash usa rediss:// (SSL)
         },
         "TIMEOUT": 60 * 15,  # 15 minutos
     },
     "B_I": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": "redis://localhost:6379/2",
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.getenv("REDIS_URL"),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "SSL": True,
         },
-        "TIMEOUT": 60 * 60 * 2,  # 2 horas para relatórios
+        "TIMEOUT": 60 * 60 * 2,  # 2 horas
     },
 }
+
+
 
 
 # =========================================
@@ -248,7 +253,8 @@ CORS_ALLOWED_ORIGINS = [
 # =========================================
 # Redis / Celery
 # =========================================
-REDIS_URL = 'redis://localhost:6379/0'
+# KEY: REDIS_URL foi adicionada em enviroment no render e em Value adicionei o host que foi gerado automaticamente no upstash.
+REDIS_URL = os.getenv('REDIS_URL')
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 
