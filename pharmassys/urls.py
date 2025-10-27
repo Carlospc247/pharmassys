@@ -59,15 +59,3 @@ urlpatterns = [
     path('vendas-documentos/', include('apps.vendas.urls_documentos', namespace='vendas_documentos')),
     path('api/v1/vendas/', include('apps.vendas.urls', namespace='vendas_api')),
 ]
-
-# Debug toolbar (apenas em desenvolvimento)
-if settings.DEBUG:
-    import debug_toolbar
-    urlpatterns = [
-        path('__debug__/', include(debug_toolbar.urls)),
-    ] + urlpatterns
-    
-    # Servir arquivos estáticos e media em desenvolvimento
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-
