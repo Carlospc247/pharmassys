@@ -145,7 +145,7 @@ DATABASES = {
         'NAME': 'vistogestpro_db',
         'USER': 'admin_master',
         'PASSWORD': 'y5qwcr5hcFu9AgnfcZOZViKWl9D35sds',
-        'HOST': 'dpg-d3v3rkvdiees73emt0eg-a',
+        'HOST': 'dpg-d3v3rkvdiees73emt0eg-a.oregon-postgres.render.com',
         'PORT': 5432,
     }
 }

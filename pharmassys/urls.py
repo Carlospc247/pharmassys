@@ -24,7 +24,6 @@ def redirect_to_suporte(request):
 urlpatterns = [
     # Admin
     path('admin/', admin.site.urls),
-    #path('accounts/', include('django.contrib.auth.urls')),
     
     
     # Autenticação
