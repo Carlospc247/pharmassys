@@ -5421,14 +5421,8 @@ class VendaCreateAPIView(generics.CreateAPIView):
             )
 
 
-# apps/vendas/views.py (ADAPTAÇÃO DA RentabilidadeAPIView)
-from django.db.models import Sum, F, DecimalField
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from django.core.cache import caches # Importar o módulo de cache
 
 
-bi_cache = caches['B.I.'] 
 
 class RentabilidadeAPIView(APIView):
     """
