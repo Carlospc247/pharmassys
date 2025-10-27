@@ -122,14 +122,16 @@ CELERY_BEAT_SCHEDULE = {
 # Exemplo de REDIS_URL (no Render):
 # rediss://default:senha@nome-do-cluster.upstash.io:6379
 
-REDIS_URL = os.getenv('REDIS_URL')
+# forneceido pelo upstash e adicionado no render em enviroments
+REDIS_URL="rediss://default:AXYnAAIncDI1ZDc0MWE5MzkzNGU0NDVhOWI2NzMxYTc4NTgyNjg0ZXAyMzAyNDc@welcomed-jaguar-30247.upstash.io:6379"
 
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": REDIS_URL,
         "OPTIONS": {
-            "ssl_cert_reqs": None,  # Necessário para o Upstash funcionar com SSL
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "CONNECTION_POOL_KWARGS": {"ssl_cert_reqs": None},
         },
         "TIMEOUT": 60 * 15,  # 15 minutos
     },
@@ -137,11 +139,13 @@ CACHES = {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": REDIS_URL,
         "OPTIONS": {
-            "ssl_cert_reqs": None,
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "CONNECTION_POOL_KWARGS": {"ssl_cert_reqs": None},
         },
         "TIMEOUT": 60 * 60 * 2,  # 2 horas
     },
 }
+
 
 # Celery
 CELERY_BROKER_URL = REDIS_URL
