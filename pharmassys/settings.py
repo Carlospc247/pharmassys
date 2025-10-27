@@ -116,24 +116,39 @@ CELERY_BEAT_SCHEDULE = {
 # =========================================
 # Caches (Redis + BI)
 # =========================================
+# =========================================
+# Redis / Celery / Cache
+# =========================================
+# Exemplo de REDIS_URL (no Render):
+# rediss://default:senha@nome-do-cluster.upstash.io:6379
+
+REDIS_URL = os.getenv('REDIS_URL')
+
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.getenv("REDIS_URL"),
+        "LOCATION": REDIS_URL,
         "OPTIONS": {
-            "SSL": True,
+            "ssl_cert_reqs": None,  # Necessário para o Upstash funcionar com SSL
         },
-        "TIMEOUT": 60 * 15,
+        "TIMEOUT": 60 * 15,  # 15 minutos
     },
     "B_I": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.getenv("REDIS_URL"),
+        "LOCATION": REDIS_URL,
         "OPTIONS": {
-            "SSL": True,
+            "ssl_cert_reqs": None,
         },
-        "TIMEOUT": 60 * 60 * 2,
+        "TIMEOUT": 60 * 60 * 2,  # 2 horas
     },
 }
+
+# Celery
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_BROKER_USE_SSL = {"ssl_cert_reqs": None}
+CELERY_RESULT_BACKEND_USE_SSL = {"ssl_cert_reqs": None}
+
 
 
 
@@ -252,8 +267,7 @@ CORS_ALLOWED_ORIGINS = [
 # =========================================
 # KEY: REDIS_URL foi adicionada em enviroment no render e em Value adicionei o host que foi gerado automaticamente no upstash.
 REDIS_URL = os.getenv('REDIS_URL')
-CELERY_BROKER_URL = REDIS_URL
-CELERY_RESULT_BACKEND = REDIS_URL
+
 
 # =========================================
 # REST Framework / JWT
