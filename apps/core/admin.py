@@ -191,22 +191,24 @@ class EmpresaAdmin(admin.ModelAdmin):
             # Obter limite do plano
             limite_usuarios = licenca.plano.limite_usuarios
             
-            # Determinar cor baseada na ocupação
+            # Calcular percentual de uso
             percentual_uso = (usuarios_atual / limite_usuarios) * 100 if limite_usuarios > 0 else 0
+            percentual_str = f"{percentual_uso:.1f}"  # ✅ já formatado como string
             
-            if percentual_uso >= 100:  # Limite excedido
+            # Definir cor e status
+            if percentual_uso >= 100:
                 cor = '#dc2626'
                 icone = '❌'
                 status_texto = 'LIMITE EXCEDIDO'
-            elif percentual_uso >= 90:  # Próximo do limite
+            elif percentual_uso >= 90:
                 cor = '#f59e0b'
                 icone = '⚠️'
                 status_texto = 'PRÓXIMO DO LIMITE'
-            elif percentual_uso >= 70:  # Uso alto
+            elif percentual_uso >= 70:
                 cor = '#3b82f6'
                 icone = '🔵'
                 status_texto = 'USO ALTO'
-            else:  # Uso normal
+            else:
                 cor = '#10b981'
                 icone = '✅'
                 status_texto = 'OK'
@@ -220,7 +222,7 @@ class EmpresaAdmin(admin.ModelAdmin):
                 '<span style="background-color: {}; color: white; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;">{} {}</span>'
                 '</div>'
                 '<div style="margin-top: 2px;">'
-                '<small style="color: #6b7280;">({:.1f}% usado)</small>'
+                '<small style="color: #6b7280;">({}% usado)</small>'
                 '</div>'
                 '</div>',
                 cor,
@@ -230,11 +232,10 @@ class EmpresaAdmin(admin.ModelAdmin):
                 cor,
                 icone,
                 status_texto,
-                percentual_uso
+                percentual_str  # ✅ valor já seguro
             )
                 
         except Licenca.DoesNotExist:
-            # Contar usuários mesmo sem licença
             usuarios_atual = obj.usuarios.filter(is_active=True).count()
             return format_html(
                 '<div style="text-align: center; font-family: monospace;">'
@@ -252,18 +253,19 @@ class EmpresaAdmin(admin.ModelAdmin):
                 '<span style="color: #ef4444; font-family: monospace;">Erro: {}</span>',
                 str(e)
             )
-    
-    total_usuarios.short_description = 'Usuários (Atual/Limite)'
 
-    def ativar_empresas(self, request, queryset):
-        count = queryset.update(ativa=True)
-        self.message_user(request, f'{count} empresas ativadas.')
-    ativar_empresas.short_description = "Ativar empresas selecionadas"
 
-    def desativar_empresas(self, request, queryset):
-        count = queryset.update(ativa=False)
-        self.message_user(request, f'{count} empresas desativadas.')
-    desativar_empresas.short_description = "Desativar empresas selecionadas"
+        total_usuarios.short_description = 'Usuários (Atual/Limite)'
+
+        def ativar_empresas(self, request, queryset):
+            count = queryset.update(ativa=True)
+            self.message_user(request, f'{count} empresas ativadas.')
+        ativar_empresas.short_description = "Ativar empresas selecionadas"
+
+        def desativar_empresas(self, request, queryset):
+            count = queryset.update(ativa=False)
+            self.message_user(request, f'{count} empresas desativadas.')
+        desativar_empresas.short_description = "Desativar empresas selecionadas"
 
 
 @admin.register(Usuario)
