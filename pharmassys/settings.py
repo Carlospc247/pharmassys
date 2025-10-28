@@ -116,11 +116,6 @@ CELERY_BEAT_SCHEDULE = {
 # =========================================
 # Caches (Redis + BI)
 # =========================================
-# =========================================
-# Redis / Celery / Cache
-# =========================================
-# Exemplo de REDIS_URL (no Render):
-# rediss://default:senha@nome-do-cluster.upstash.io:6379
 
 # forneceido pelo upstash e adicionado no render em enviroments
 REDIS_URL="rediss://default:AXYnAAIncDI1ZDc0MWE5MzkzNGU0NDVhOWI2NzMxYTc4NTgyNjg0ZXAyMzAyNDc@welcomed-jaguar-30247.upstash.io:6379"
@@ -130,21 +125,21 @@ CACHES = {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": REDIS_URL,
         "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "CONNECTION_POOL_KWARGS": {"ssl_cert_reqs": None},
+            "ssl_cert_reqs": None,  # SSL sem validação de certificado (necessário no Upstash)
         },
-        "TIMEOUT": 60 * 15,  # 15 minutos
+        "TIMEOUT": 60 * 15,
     },
     "B_I": {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": REDIS_URL,
         "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "CONNECTION_POOL_KWARGS": {"ssl_cert_reqs": None},
+            "ssl_cert_reqs": None,
         },
-        "TIMEOUT": 60 * 60 * 2,  # 2 horas
+        "TIMEOUT": 60 * 60 * 2,
     },
 }
+
+
 
 
 # Celery
