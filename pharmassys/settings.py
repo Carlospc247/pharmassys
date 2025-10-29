@@ -15,16 +15,30 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Core
 # =========================================
 SECRET_KEY = os.getenv('SECRET_KEY', get_random_secret_key())
-DEBUG = os.getenv("DEBUG", "False") == "True"
+#DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    'vistogest.pro',
-    'www.vistogest.pro',
-    'vistogestpro.onrender.com',
-    'www.vistogestpro.onrender.com',
-]
+#ALLOWED_HOSTS = [
+#    'localhost',
+#    '127.0.0.1',
+#    'vistogest.pro',
+#    'www.vistogest.pro',
+#    'vistogestpro.onrender.com',
+#    'www.vistogestpro.onrender.com',
+#]
+DEBUG = True
+ALLOWED_HOSTS = ['*']
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler'},
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'ERROR',
+    },
+}
 
 # =========================================
 # Aplicações
