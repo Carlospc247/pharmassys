@@ -285,6 +285,7 @@ class CriarProdutoView(LoginRequiredMixin, CreateView):
     form_class = ProdutoForm
     template_name = 'produtos/produto_form.html'
     success_url = reverse_lazy('produtos:produto_list')
+    acao_requerida = 'editar_produtos'
 
     def get_empresa(self):
         """ Método seguro para obter a empresa do utilizador logado. """
@@ -330,6 +331,7 @@ class EditarProdutoView(LoginRequiredMixin, UpdateView):
     template_name = 'produtos/produto_form.html'
     success_url = reverse_lazy('produtos:lista') # Redireciona para a lista de produtos
     pk_url_kwarg = 'produto_id' # Informa que o ID na URL é 'produto_id'
+    acao_requerida = 'editar_produtos'
 
     def get_queryset(self):
         """ Garante que o utilizador só pode editar produtos da sua própria empresa. """
@@ -354,6 +356,7 @@ class EditarProdutoView(LoginRequiredMixin, UpdateView):
     
 
 class DeletarProdutoView(LoginRequiredMixin, View):
+    acao_requerida = 'editar_produtos'
     def post(self, request, produto_id):
         try:
             empresa = self.get_empresa(request)
@@ -382,6 +385,7 @@ class DeletarProdutoView(LoginRequiredMixin, View):
 
 
 class ToggleProdutoView(LoginRequiredMixin, View):
+    acao_requerida = 'editar_produtos'
     def post(self, request, produto_id):
         try:
             empresa = self.get_empresa(request)
@@ -411,6 +415,7 @@ class ToggleProdutoView(LoginRequiredMixin, View):
 
 
 class ImportarProdutosView(LoginRequiredMixin, View):
+    acao_requerida = 'editar_produtos'
     @method_decorator(csrf_exempt)
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
@@ -663,7 +668,6 @@ class CategoriaListView(CategoriaBaseView, ListView):
 class CategoriaCreateView(CategoriaBaseView, CreateView):
     model = Categoria
     # --- PONTO CRÍTICO DA CORREÇÃO ---
-    # Usamos form_class para dizer ao Django para usar o nosso formulário com validação.
     form_class = CategoriaForm
     
     template_name = 'produtos/categoria_form.html'
