@@ -167,8 +167,8 @@ from django.http import JsonResponse
 from django.utils import timezone
 from decimal import Decimal
 import logging
-
-
+from functools import wraps
+from django.http import JsonResponse
 from apps.vendas.models import FaturaCredito, Recibo, FormaPagamento 
 from apps.financeiro.models import MovimentacaoFinanceira, PlanoContas
 from apps.financeiro.models import ContaBancaria
@@ -220,6 +220,29 @@ class PermissaoAcaoMixin(AccessMixin):
                 return redirect(reverse_lazy('core:dashboard')) # Redirecionamento para a Home ou Dashboard
 
         return super().dispatch(request, *args, **kwargs)
+
+
+
+def requer_permissao(acao_requerida):
+    """Decorator para FBVs, usando a lógica do modelo Funcionario"""
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            funcionario = getattr(request.user, "funcionario", None)
+            if not funcionario:
+                return JsonResponse(
+                    {"success": False, "message": "Usuário não está vinculado a um funcionário."},
+                    status=403
+                )
+            if not funcionario.pode_realizar_acao(acao_requerida):
+                return JsonResponse(
+                    {"success": False, "message": f"Você não tem permissão para realizar a ação '{acao_requerida}'."},
+                    status=403
+                )
+            return view_func(request, *args, **kwargs)
+        return _wrapped_view
+    return decorator
+
 
 
 class VendasView(BaseMPAView):
@@ -2013,7 +2036,7 @@ from django.contrib.auth.decorators import permission_required
 
  # Fatura recibo
 @require_GET
-@permission_required('vendas.view_venda', raise_exception=True) 
+@requer_permissao("vender") 
 def fatura_pdf_view(request, venda_id, tipo):
     """
     Gera uma fatura em PDF para uma venda específica.
@@ -2195,7 +2218,7 @@ def fatura_pdf_view(request, venda_id, tipo):
 
 
 @require_GET
-@permission_required('vendas.view_faturacredito', raise_exception=True) 
+@requer_permissao("emitir_faturacredito")
 def fatura_credito_pdf_view(request, fatura_id, tipo):
     """
     Gera uma Fatura a Crédito (FT) em PDF para uma FaturaCredito específica.
@@ -2345,7 +2368,7 @@ def fatura_credito_pdf_view(request, fatura_id, tipo):
 
 
 @require_GET
-@permission_required('vendas.view_faturaproforma', raise_exception=True) 
+@requer_permissao("acessar_proforma")
 def proforma_pdf_view(request, proforma_id):
     """
     Gera uma Proforma em PDF seguindo o padrão da fatura_pdf_view.
@@ -2518,7 +2541,7 @@ def proforma_pdf_view(request, proforma_id):
     response['Content-Disposition'] = f'inline; filename="{filename}"'
     return response
 
-
+@requer_permissao("emitir_recibos")
 def recibo_pdf_view(request, recibo_id):
     """
     Gera o PDF de um Recibo de Tesouraria (Liquidação de Fatura a Crédito).
@@ -2663,11 +2686,9 @@ def atualizar_observacoes_venda(request, venda_id):
 
 
 @login_required
+@requer_permissao("acessar_documentos")
 def documentos_dashboard_view(request):
-    funcionario = request.user.funcionario
-    if not funcionario.permissoes_cargo.get('acessar_documentos', False):
-        return JsonResponse({'success': False, 'message': 'Sem permissao para finalizar para acessar documentos.'}, status=403)
-
+    
     """Dashboard geral de documentos fiscais"""
     
     # Período dos últimos 30 dias
@@ -2757,11 +2778,9 @@ def documentos_dashboard_view(request):
 # apps/vendas/views.py - ADICIONAR essas views
 
 @login_required
+@requer_permissao("emitir_faturacredito")
 def nova_fatura_credito(request):
-    funcionario = request.user.funcionario
-    if not funcionario.pode_realizar_acao('emitir_faturacredito', False):
-         return JsonResponse({'success': False, 'message': 'Você não tem permissão para emitir crédito a crédito.'}, status=403)
-    
+
     context = {
         'title': 'Nova Fatura a Crédito (FT)',
         'tipo_documento': 'FT'
@@ -2770,11 +2789,8 @@ def nova_fatura_credito(request):
 
 
 @login_required
+@requer_permissao("emitir_proforma")
 def nova_proforma(request):
-    funcionario = request.user.funcionario
-    if not funcionario.permissoes_cargo.get('emitir_proforma'):
-        return JsonResponse({'success': False, 'message': 'Você não tem permissão para emitir proformas a crédito.'}, status=403)
-    
     
     """Interface para criar nova Proforma (Orçamento)"""
     context = {
