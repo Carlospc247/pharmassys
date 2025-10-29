@@ -236,7 +236,7 @@ class ItemVenda(TimeStampedModel):
         default=0.00
     )
     taxa_iva = models.ForeignKey(
-        'fiscais.TaxaIVAAGT', # Usa string para evitar circular import se necessário
+        'fiscal.TaxaIVAAGT', # Usa string para evitar circular import se necessário
         on_delete=models.PROTECT, 
         verbose_name="Regime Fiscal (AGT)"
     )
