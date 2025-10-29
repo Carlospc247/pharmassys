@@ -238,7 +238,7 @@ DEFAULT_FROM_EMAIL="VistoGest <geral@vistogest.pro>"
 SUPPORT_EMAIL='suporte@vistogest.pro'
 #DEFAULT_FROM_EMAIL = 'no-reply@example.com
 # =========================================
-# Allauth
+# Allauth (versão atualizada e sem warnings)
 # =========================================
 SITE_ID = 1
 AUTHENTICATION_BACKENDS = [
@@ -246,10 +246,10 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+# Novo formato (Allauth >= 0.63)
+ACCOUNT_LOGIN_METHODS = {"email"}  # apenas login via email
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"  # exige verificação por email
 
 # =========================================
 # CORS
