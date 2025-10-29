@@ -508,7 +508,7 @@ class Funcionario(TimeStampedModel):
             self.outros_beneficios or Decimal('0'),
         ])
 
-    def pode_realizar_acao(self, acao):
+    def pode_realizar_acao(self, acao, *args, **kwargs):
         """Valida se funcionário tem permissão baseada no cargo"""
         if not self.ativo:
             return False
