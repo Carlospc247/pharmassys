@@ -167,8 +167,10 @@ class DepartamentoAdmin(admin.ModelAdmin):
 
 @admin.register(Funcionario)
 class FuncionarioAdmin(admin.ModelAdmin):
+    readonly_fields = ("matricula",)
+
     list_display = (
-        "matricula", "nome_completo", "cargo", "departamento",
+        "nome_completo", "cargo", "departamento",
         "loja_principal", "ativo", "data_admissao", "data_demissao"
     )
     list_filter = (
