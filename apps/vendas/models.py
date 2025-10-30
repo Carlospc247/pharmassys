@@ -147,54 +147,48 @@ class Venda(TimeStampedModel):
 
 
     def save(self, *args, **kwargs):
-        is_new = not self.pk
-        
-        # 1. Pré-cálculo de totais (necessário antes de gerar o Hash)
-        # Assumimos que o código de cálculo de totais é chamado antes do save 
-        # (Ex: no serializer, form ou no método clean/pre_save signal)
+        is_new = self._state.adding  # True se for um novo objeto
+        super().save(*args, **kwargs)
 
+        # Só gera hash e numeração se for uma nova venda finalizada
         if is_new and self.status == 'finalizada':
-            # 1. Definir o TIPO_DOCUMENTO. Usamos o tipo de venda, mapeado para o código fiscal.
-            TIPO_DOCUMENTO = 'FR' # Exemplo para Fatura Recibo
-            
-            # 2. Inicialização do Service Fiscal
+            from fiscal.services import FaturaFiscalService
+
             service = FaturaFiscalService(empresa=self.empresa)
-            
-            # 3. Geração do número, hash e ATCUD em transação atómica
             numero, hash_doc, atcud_doc = service.assinar_e_numerar_documento(
-                documento_tipo=TIPO_DOCUMENTO,
-                total_liquido=self.total, # Usamos o 'total' final para o Hash
+                documento_tipo='FR',
+                total_liquido=self.total,
                 data_emissao=self.data_venda
             )
-            
-            # 4. Atualização dos campos no modelo Venda
+
             self.numero_venda = numero
             self.hash_documento = hash_doc
             self.atcud = atcud_doc
-            
-        super().save(*args, **kwargs)
+
+            # Salva novamente apenas os campos alterados
+            super().save(update_fields=['numero_venda', 'hash_documento', 'atcud'])
 
 
-    def __str__(self):
-        return f"Venda {self.numero_venda}"
+        def __str__(self):
+            return f"Venda {self.numero_venda}"
 
-    class Meta:
-        verbose_name = 'Venda'
-        verbose_name_plural = 'Vendas'
-    
-    def desconto_percentual(self):
-        if self.subtotal > Decimal('0.00'):
-            return (self.desconto_valor / self.subtotal) * Decimal('100.00')
-        return Decimal('0.00')
-    desconto_percentual.short_description = 'Desconto %'
-    
-    def margem_lucro_total(self):
-        return self.total - sum(item.produto.preco_custo * item.quantidade for item in self.itens.all())
-    margem_lucro_total.short_description = 'Margem de Lucro'
-    
-    def quantidade_itens(self):
-        return self.itens.count()
-    quantidade_itens.short_description = 'Qtd Itens'
+        class Meta:
+            verbose_name = 'Venda'
+            verbose_name_plural = 'Vendas'
+        
+        def desconto_percentual(self):
+            if self.subtotal > Decimal('0.00'):
+                return (self.desconto_valor / self.subtotal) * Decimal('100.00')
+            return Decimal('0.00')
+        desconto_percentual.short_description = 'Desconto %'
+        
+        def margem_lucro_total(self):
+            return self.total - sum(item.produto.preco_custo * item.quantidade for item in self.itens.all())
+        margem_lucro_total.short_description = 'Margem de Lucro'
+        
+        def quantidade_itens(self):
+            return self.itens.count()
+        quantidade_itens.short_description = 'Qtd Itens'
 
 class ItemVenda(TimeStampedModel):
     """Item da venda"""
@@ -231,7 +225,7 @@ class ItemVenda(TimeStampedModel):
         decimal_places=2, 
         default=0.00
     )
-    iva_percentual = models.DecimalField(
+    taxa_iva = models.DecimalField(
         max_digits=5, 
         decimal_places=2, 
         default=0.00,
@@ -251,12 +245,6 @@ class ItemVenda(TimeStampedModel):
     tax_type = models.CharField(max_length=3, blank=True, null=True, verbose_name="Tipo de Imposto") # IVA/IS/NS
     tax_code = models.CharField(max_length=3, blank=True, null=True, verbose_name="Código da Taxa") # NOR/ISE/NSU
     
-    # 3. Mantenha 'iva_valor' para o cálculo
-    iva_valor = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        default=0.00
-    )
 
     total = models.DecimalField(max_digits=10, decimal_places=2)
 
@@ -265,8 +253,6 @@ class ItemVenda(TimeStampedModel):
         if self.iva_percentual:
             self.tax_type = self.iva_percentual.tax_type
             self.tax_code = self.iva_percentual.tax_code
-            # Se for um item de serviço, use 'S'. Se for produto, use 'M'.
-            # Se fosse necessário o ProductType no ItemVenda, seria definido aqui.
             
         super().save(*args, **kwargs)
 
@@ -296,9 +282,7 @@ class ItemVenda(TimeStampedModel):
     @property
     def iva_percentual(self):
         """MANTÉM A COMPATIBILIDADE com o código antigo (Property Getter)."""
-        if self.iva_percentual and self.iva_percentual.tax_type == 'IVA':
-            return self.iva_percentual.tax_percentage 
-        return Decimal('0.00')
+        return self.taxa_iva.percentual if self.taxa_iva else Decimal('0.00')
     
     @property
     def tipo(self):
@@ -320,7 +304,9 @@ class PagamentoVenda(models.Model):
 
     venda = models.ForeignKey(Venda, on_delete=models.CASCADE, related_name='pagamentos')
     forma_pagamento = models.ForeignKey('FormaPagamento', on_delete=models.PROTECT)
-    observacoes = nsu = models.CharField(max_length=100, blank=True)
+    observacoes = models.CharField(max_length=255, blank=True, null=True)
+    nsu = models.CharField(max_length=100, blank=True)
+
     valor_pago = models.DecimalField(max_digits=10, decimal_places=2)
     numero_parcelas = models.PositiveIntegerField("Número de Parcelas", default=1)
     valor_parcela = models.DecimalField("Valor da Parcela", max_digits=10, decimal_places=2, default=0.00)
@@ -338,10 +324,10 @@ class PagamentoVenda(models.Model):
     data_processamento = models.DateTimeField("Processado em", null=True, blank=True)
 
     def save(self, *args, **kwargs):
-        if self.numero_parcelas > 0:
-            self.valor_parcela = self.valor_pago / self.numero_parcelas
-        # Adicione aqui a lógica para calcular 'valor_taxa' e 'valor_liquido'
-            self.valor_liquido = self.valor_pago - self.valor_taxa
+        if self.forma_pagamento.taxa_administracao > 0:
+            self.valor_taxa = (self.valor_pago * self.forma_pagamento.taxa_administracao) / 100
+        self.valor_liquido = self.valor_pago - self.valor_taxa
+
         super().save(*args, **kwargs)
 
     def __str__(self):
