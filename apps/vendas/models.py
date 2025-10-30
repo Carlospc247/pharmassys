@@ -87,6 +87,8 @@ class FormaPagamento(models.Model):
     def __str__(self):
         return self.nome
 
+
+
 class Venda(TimeStampedModel):
     """Venda realizada"""
     TIPO_VENDA_CHOICES = [
@@ -191,6 +193,8 @@ class Venda(TimeStampedModel):
         return self.itens.count()
     quantidade_itens.short_description = 'Qtd Itens'
 
+
+
 class ItemVenda(TimeStampedModel):
     """Item da venda"""
     venda = models.ForeignKey(Venda, on_delete=models.CASCADE, related_name='itens')
@@ -226,18 +230,12 @@ class ItemVenda(TimeStampedModel):
         decimal_places=2, 
         default=0.00
     )
-    taxa_iva = models.DecimalField(
-        max_digits=5, 
-        decimal_places=2, 
-        default=0.00,
-        verbose_name="IVA (%)"
-    )
     iva_valor = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
         default=0.00
     )
-    iva_percentual = models.ForeignKey(
+    taxa_iva = models.ForeignKey(
         'fiscais.TaxaIVAAGT', # Usa string para evitar circular import se necessário
         on_delete=models.PROTECT, 
         verbose_name="Regime Fiscal (AGT)"
@@ -292,6 +290,7 @@ class ItemVenda(TimeStampedModel):
         elif self.servico:
             return "servico"
         return "indefinido"
+
 
 class PagamentoVenda(models.Model):
     STATUS_CHOICES = [
