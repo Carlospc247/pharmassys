@@ -20,8 +20,8 @@ from apps.core.models import TimeStampedModel
 
 class Cargo(TimeStampedModel):
     """Cargos dos funcionários — com permissões integradas ao sistema Django"""
-    nome = models.CharField(max_length=100, unique=True)
-    codigo = models.CharField(max_length=20, unique=True)
+    nome = models.CharField(max_length=100)
+    codigo = models.CharField(max_length=20)
     descricao = models.TextField(blank=True)
 
     empresa = models.ForeignKey(
