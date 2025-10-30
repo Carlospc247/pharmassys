@@ -169,26 +169,27 @@ class Venda(TimeStampedModel):
             super().save(update_fields=['numero_venda', 'hash_documento', 'atcud'])
 
 
-        def __str__(self):
-            return f"Venda {self.numero_venda}"
 
-        class Meta:
-            verbose_name = 'Venda'
-            verbose_name_plural = 'Vendas'
-        
-        def desconto_percentual(self):
-            if self.subtotal > Decimal('0.00'):
-                return (self.desconto_valor / self.subtotal) * Decimal('100.00')
-            return Decimal('0.00')
-        desconto_percentual.short_description = 'Desconto %'
-        
-        def margem_lucro_total(self):
-            return self.total - sum(item.produto.preco_custo * item.quantidade for item in self.itens.all())
-        margem_lucro_total.short_description = 'Margem de Lucro'
-        
-        def quantidade_itens(self):
-            return self.itens.count()
-        quantidade_itens.short_description = 'Qtd Itens'
+    def __str__(self):
+        return f"Venda {self.numero_venda}"
+
+    class Meta:
+        verbose_name = 'Venda'
+        verbose_name_plural = 'Vendas'
+    
+    def desconto_percentual(self):
+        if self.subtotal > Decimal('0.00'):
+            return (self.desconto_valor / self.subtotal) * Decimal('100.00')
+        return Decimal('0.00')
+    desconto_percentual.short_description = 'Desconto %'
+    
+    def margem_lucro_total(self):
+        return self.total - sum(item.produto.preco_custo * item.quantidade for item in self.itens.all())
+    margem_lucro_total.short_description = 'Margem de Lucro'
+    
+    def quantidade_itens(self):
+        return self.itens.count()
+    quantidade_itens.short_description = 'Qtd Itens'
 
 class ItemVenda(TimeStampedModel):
     """Item da venda"""
