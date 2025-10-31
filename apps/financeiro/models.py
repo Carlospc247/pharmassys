@@ -39,7 +39,7 @@ class PlanoContas(TimeStampedModel):
     ]
     
     # Identificação
-    codigo = models.CharField(max_length=20, unique=True, help_text="Código da conta")
+    codigo = models.CharField(max_length=20, help_text="Código da conta")
     nome = models.CharField(max_length=200)
     descricao = models.TextField(blank=True)
     
