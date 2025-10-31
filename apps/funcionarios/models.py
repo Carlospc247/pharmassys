@@ -261,7 +261,6 @@ class Funcionario(TimeStampedModel):
     # Identificação
     matricula = models.CharField(
         max_length=20,
-        unique=True,  # garante unicidade
         editable=False,
         help_text="Gerada automaticamente no formato FUNC-00001"
     )
