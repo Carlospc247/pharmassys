@@ -1169,6 +1169,18 @@
                     -->
               
                     <!-- Configurações -->
+                    <li class="mt-auto">
+                        <a href="{% url 'configuracoes:dashboard' %}" 
+                           @click="isMobile && closeSidebar()"
+                           class="menu-item {% if request.resolver_match.namespace == 'configuracoes' %}menu-active{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800{% endif %} 
+                                  group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold">
+                            <i class="fas fa-cog h-6 w-6 shrink-0 menu-icon"></i>
+                            Configurações
+                        </a>
+                    </li>
+                    
+
+                    <!--
                     {% if perms.configuracoes.view_personalizacaointerface %}
                     <li class="mt-auto">
                         <a href="{% url 'configuracoes:dashboard' %}" 
@@ -1180,6 +1192,8 @@
                         </a>
                     </li>
                     {% endif %}
+                    -->
+                    
                 </ul>
             </nav>
         </aside>
