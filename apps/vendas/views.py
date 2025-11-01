@@ -189,6 +189,17 @@ from django.contrib.auth.mixins import AccessMixin
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.contrib import messages
+from decimal import Decimal
+from django.db import transaction
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.http import JsonResponse
+from django.utils import timezone
+import json
+from .models import FaturaProforma, ItemProforma
+from apps.core.services import gerar_numero_documento  # Ajusta o import conforme seu projeto
+
+
 
 
 class BaseVendaView(LoginRequiredMixin):
@@ -2840,69 +2851,193 @@ def contas_receber(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+@login_required
 def finalizar_fatura_credito_api(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método não permitido.'}, status=405)
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'message': 'Utilizador não autenticado.'}, status=401)
 
-    funcionario = request.user.funcionario
-    if not funcionario.permissoes_cargo.get('emitir_faturacredito', False):
-        return JsonResponse({'success': False, 'message': 'Sem permissão para finalizar fatura a crédito.'}, status=403)
-    
     try:
-
         funcionario = request.user.funcionario
-        if not funcionario.pode_realizar_acao('vender'):
-            # Permissão de cargo negada!
-            return JsonResponse({'success': False, 'message': 'O seu cargo não permite finalizar nota de crédito.'}, status=403)
+        if not funcionario.pode_realizar_acao('emitir_faturacredito'):
+            return JsonResponse({'success': False, 'message': 'O seu cargo não permite emitir faturas a crédito.'}, status=403)
         
         data = json.loads(request.body)
         
-        
-        # Validações básicas
-        if not data.get('cliente_id'):
-            return JsonResponse({'success': False, 'message': 'Cliente é obrigatório para faturas a crédito'})
-        
-        if not data.get('data_vencimento'):
-            return JsonResponse({'success': False, 'message': 'Data de vencimento é obrigatória'})
-        
+        required_fields = ['itens', 'cliente_id', 'data_vencimento']
+        if not all(field in data for field in required_fields):
+            return JsonResponse({'success': False, 'message': 'Campo(s) obrigatório(s) ausente(s).'}, status=400)
+
+        itens_fatura = data.get('itens', [])
+        if not itens_fatura:
+            return JsonResponse({'success': False, 'message': 'A fatura está vazia.'}, status=400)
+
         with transaction.atomic():
-            # Criar a Fatura a Crédito
-            fatura_credito = FaturaCredito.objects.create(
-                empresa=request.user.empresa,
-                cliente_id=data['cliente_id'],
-                data_vencimento=data['data_vencimento'],
-                subtotal=Decimal(str(data.get('subtotal', 0))),
-                iva_valor=Decimal(str(data.get('iva_valor', 0))),
-                total_faturado=Decimal(str(data.get('total', 0))),
-                observacoes=data.get('observacoes', '')
-            )
+            empresa = funcionario.loja_principal.empresa
+            cliente = Cliente.objects.filter(id=data.get('cliente_id')).first()
             
-            # Criar os itens da fatura
-            for item_data in data.get('itens', []):
-                ItemFatura.objects.create(
-                    fatura=fatura_credito,
-                    produto_id=item_data.get('produto_id'),
-                    servico_id=item_data.get('servico_id'),
-                    nome_item=item_data.get('nome_item', ''),
-                    quantidade=Decimal(str(item_data.get('quantidade', 1))),
-                    preco_unitario=Decimal(str(item_data.get('preco_unitario', 0))),
-                    desconto_item=Decimal(str(item_data.get('desconto_item', 0))),
-                    iva_percentual=Decimal(str(item_data.get('iva_percentual', 0))),
-                    iva_valor=Decimal(str(item_data.get('iva_valor', 0))),
-                    total=Decimal(str(item_data.get('total', 0)))
-                )
-        
+            if not cliente:
+                return JsonResponse({'success': False, 'message': 'Cliente não encontrado.'}, status=400)
+
+            subtotal_final = Decimal('0.00')
+            desconto_final = Decimal('0.00')
+            iva_final = Decimal('0.00')
+            total_final = Decimal('0.00')
+            
+            itens_processados = []
+
+            print("Etapa 1: Pré-processamento e cálculos fatura crédito. Iniciando o loop.")
+
+            # 1. PRÉ-PROCESSAMENTO E CÁLCULOS
+            for item in itens_fatura:
+                produto_id = item.get('produto_id')
+                servico_id = item.get('servico_id')
+                quantidade = to_int(item.get('quantidade', 0))
+
+                if produto_id:
+                    # Processa Produto
+                    if quantidade <= 0:
+                        raise ValueError(f"Quantidade inválida para o produto de ID {produto_id}")
+                    try:
+                        produto = Produto.objects.get(id=produto_id)
+                    except Produto.DoesNotExist:
+                        raise ValueError(f"Produto com ID {produto_id} não encontrado.")
+
+                    # Para fatura crédito, não validamos estoque pois não debitamos agora
+                    preco_unitario = to_decimal(item.get('preco_unitario', produto.preco_venda))
+                    desconto_item = to_decimal(item.get('desconto_item', "0.00"))
+
+                    subtotal_item = (preco_unitario * quantidade) - desconto_item
+                    iva_item = subtotal_item * (produto.iva_percentual / Decimal('100.00'))
+                    total_item = subtotal_item + iva_item
+
+                    subtotal_final += subtotal_item
+                    desconto_final += desconto_item
+                    iva_final += iva_item
+                    total_final += total_item
+                    
+                    itens_processados.append({
+                        'tipo': 'produto',
+                        'produto_obj': produto,
+                        'quantidade': quantidade,
+                        'preco_unitario': preco_unitario,
+                        'desconto_item': desconto_item,
+                        'subtotal_item': subtotal_item,
+                        'iva_percentual': produto.iva_percentual,
+                        'iva_valor': iva_item,
+                        'total_item': total_item
+                    })
+                    print(f"Item processado (produto). ID: {produto_id}, Quantidade: {quantidade}")
+
+                elif servico_id:
+                    # Processa Serviço
+                    if quantidade <= 0:
+                        raise ValueError(f"Quantidade inválida para o serviço de ID {servico_id}")
+                    try:
+                        servico = Servico.objects.get(id=servico_id)
+                    except Servico.DoesNotExist:
+                        raise ValueError(f"Serviço com ID {servico_id} não encontrado.")
+
+                    preco_unitario = to_decimal(item.get('preco_unitario', servico.preco_padrao))
+                    desconto_item = to_decimal(item.get('desconto_item', "0.00"))
+
+                    subtotal_item = (preco_unitario * quantidade) - desconto_item
+                    iva_percentual = getattr(servico, 'iva_percentual', 14)
+                    iva_item = subtotal_item * (iva_percentual / Decimal('100.00'))
+                    total_item = subtotal_item + iva_item
+
+                    subtotal_final += subtotal_item
+                    desconto_final += desconto_item
+                    iva_final += iva_item
+                    total_final += total_item
+                    
+                    itens_processados.append({
+                        'tipo': 'servico',
+                        'servico_obj': servico,
+                        'quantidade': quantidade,
+                        'preco_unitario': preco_unitario,
+                        'desconto_item': desconto_item,
+                        'subtotal_item': subtotal_item,
+                        'iva_percentual': iva_percentual,
+                        'iva_valor': iva_item,
+                        'total_item': total_item,
+                        'duracao': servico.duracao_padrao_minutos,
+                        'instrucoes': servico.instrucoes_padrao
+                    })
+                    print(f"Item processado (serviço). ID: {servico_id}, Quantidade: {quantidade}")
+
+                else:
+                    raise ValueError("Item sem 'produto_id' ou 'servico_id'.")
+
+            print("\nEtapa 2: Iniciando a criação da Fatura a Crédito.")
+
+            # 2. CRIAÇÃO E SALVAMENTO DA FATURA A CRÉDITO
+            data_vencimento = datetime.strptime(data['data_vencimento'], '%Y-%m-%d').date()
+
+            nova_fatura = FaturaCredito(
+                cliente=cliente,
+                empresa=empresa,
+                data_vencimento=data_vencimento,
+                subtotal=subtotal_final,
+                iva_valor=iva_final,
+                total_faturado=total_final,
+                observacoes=data.get('observacoes', ''),
+                status='emitida'
+            )
+            nova_fatura.save()
+            print(f"Fatura a Crédito criada com sucesso. ID: {nova_fatura.id}")
+
+            print("\nEtapa 3: Criando Itens da Fatura a Crédito.")
+            for item in itens_processados:
+                if item['tipo'] == 'produto':
+                    ItemFatura.objects.create(
+                        fatura=nova_fatura,
+                        produto=item['produto_obj'],
+                        nome_item=item['produto_obj'].nome_produto,
+                        quantidade=item['quantidade'],
+                        preco_unitario=item['preco_unitario'],
+                        desconto_item=item['desconto_item'],
+                        subtotal=item['subtotal_item'],
+                        iva_percentual=item['iva_percentual'],
+                        iva_valor=item['iva_valor'],
+                        total=item['total_item']
+                    )
+                    # Nota: Para fatura crédito, não atualizamos estoque ainda
+                    # O estoque será atualizado quando a fatura for liquidada/entregue
+                    
+                elif item['tipo'] == 'servico':
+                    ItemFatura.objects.create(
+                        fatura=nova_fatura,
+                        servico=item['servico_obj'],
+                        nome_item=item['servico_obj'].nome,
+                        duracao_servico_padrao=timedelta(minutes=item['duracao']),
+                        instrucoes_servico=item['instrucoes'],
+                        quantidade=item['quantidade'],
+                        preco_unitario=item['preco_unitario'],
+                        desconto_item=item['desconto_item'],
+                        subtotal=item['subtotal_item'],
+                        iva_percentual=item['iva_percentual'],
+                        iva_valor=item['iva_valor'],
+                        total=item['total_item']
+                    )
+
+            # 4. Criar conta a receber (opcional - se sistema financeiro estiver integrado)
+            # ContaReceber.objects.create(...)
+
         return JsonResponse({
             'success': True,
-            'message': 'Fatura a crédito criada com sucesso!',
-            'fatura_id': fatura_credito.id,
-            'numero_fatura': fatura_credito.numero_fatura
-        })
-        
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Erro ao criar fatura a crédito: {str(e)}'
+            'message': f'Fatura a crédito {nova_fatura.numero_fatura} criada com sucesso.',
+            'fatura_id': nova_fatura.id,
+            'numero_fatura': nova_fatura.numero_fatura
         })
 
+    except json.JSONDecodeError:
+        logger.error("Erro: JSON inválido")
+        return JsonResponse({'success': False, 'message': 'Dados JSON inválidos.'}, status=400)
+    except Exception as e:
+        logger.exception(f"Erro inesperado: {str(e)}")
+        return JsonResponse({'success': False, 'message': f'Erro na fatura a crédito: {str(e)}'}, status=500)
 #-------------------------------------------------------
 
 @login_required
@@ -3224,89 +3359,191 @@ def proformas_lista(request):
             'message': f'Erro ao criar proforma: {str(e)}'
         })
 
-from decimal import Decimal
-from django.db import transaction
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from django.http import JsonResponse
-from django.utils import timezone
-import json
-from .models import FaturaProforma, ItemProforma
-from apps.core.services import gerar_numero_documento  # Ajusta o import conforme seu projeto
+
 
 @csrf_exempt
 @require_http_methods(["POST"])
+@login_required
 def finalizar_proforma_api(request):
-    funcionario = request.user.funcionario
-    if not funcionario.pode_realizar_acao('emitir_proforma'):
-         return JsonResponse({'success': False, 'message': 'Você não tem permissão para finalizar pproformas.'}, status=403)
-    
-    """API para finalizar uma Proforma com geração automática de número único"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método não permitido.'}, status=405)
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'message': 'Utilizador não autenticado.'}, status=401)
+
     try:
+        funcionario = request.user.funcionario
+        if not funcionario.pode_realizar_acao('emitir_proforma'):
+            return JsonResponse({'success': False, 'message': 'O seu cargo não permite emitir proformas.'}, status=403)
+        
         data = json.loads(request.body)
+        
+        required_fields = ['itens', 'cliente_id', 'data_validade']
+        if not all(field in data for field in required_fields):
+            return JsonResponse({'success': False, 'message': 'Campo(s) obrigatório(s) ausente(s).'}, status=400)
 
-        # Validações básicas
-        if not data.get('cliente_id'):
-            return JsonResponse({'success': False, 'message': 'Cliente é obrigatório para proformas'})
+        itens_proforma = data.get('itens', [])
+        if not itens_proforma:
+            return JsonResponse({'success': False, 'message': 'A proforma está vazia.'}, status=400)
 
-        if not data.get('data_validade'):
-            return JsonResponse({'success': False, 'message': 'Data de validade é obrigatória'})
-
-        # Garante atomicidade para evitar duplicidade de número
         with transaction.atomic():
-            empresa = request.user.empresa
-            if not empresa:
-                return JsonResponse({'success': False, 'message': 'Usuário não está associado a uma empresa'})
+            empresa = funcionario.loja_principal.empresa
+            cliente = Cliente.objects.filter(id=data.get('cliente_id')).first()
+            
+            if not cliente:
+                return JsonResponse({'success': False, 'message': 'Cliente não encontrado.'}, status=400)
 
-            # Cria a proforma sem número ainda
-            proforma = FaturaProforma(
+            subtotal_final = Decimal('0.00')
+            desconto_final = Decimal('0.00')
+            iva_final = Decimal('0.00')
+            total_final = Decimal('0.00')
+            
+            itens_processados = []
+
+            print("Etapa 1: Pré-processamento e cálculos proforma. Iniciando o loop.")
+
+            # 1. PRÉ-PROCESSAMENTO E CÁLCULOS
+            for item in itens_proforma:
+                produto_id = item.get('produto_id')
+                servico_id = item.get('servico_id')
+                quantidade = to_int(item.get('quantidade', 0))
+
+                if produto_id:
+                    # Processa Produto
+                    if quantidade <= 0:
+                        raise ValueError(f"Quantidade inválida para o produto de ID {produto_id}")
+                    try:
+                        produto = Produto.objects.get(id=produto_id)
+                    except Produto.DoesNotExist:
+                        raise ValueError(f"Produto com ID {produto_id} não encontrado.")
+
+                    preco_unitario = to_decimal(item.get('preco_unitario', produto.preco_venda))
+                    desconto_item = to_decimal(item.get('desconto_item', "0.00"))
+
+                    subtotal_item = (preco_unitario * quantidade) - desconto_item
+                    iva_item = subtotal_item * (produto.iva_percentual / Decimal('100.00'))
+                    total_item = subtotal_item + iva_item
+
+                    subtotal_final += subtotal_item
+                    desconto_final += desconto_item
+                    iva_final += iva_item
+                    total_final += total_item
+                    
+                    itens_processados.append({
+                        'tipo': 'produto',
+                        'produto_obj': produto,
+                        'quantidade': quantidade,
+                        'preco_unitario': preco_unitario,
+                        'desconto_item': desconto_item,
+                        'subtotal_item': subtotal_item,
+                        'iva_percentual': produto.iva_percentual,
+                        'iva_valor': iva_item,
+                        'total_item': total_item
+                    })
+                    print(f"Item processado (produto). ID: {produto_id}, Quantidade: {quantidade}")
+
+                elif servico_id:
+                    # Processa Serviço
+                    if quantidade <= 0:
+                        raise ValueError(f"Quantidade inválida para o serviço de ID {servico_id}")
+                    try:
+                        servico = Servico.objects.get(id=servico_id)
+                    except Servico.DoesNotExist:
+                        raise ValueError(f"Serviço com ID {servico_id} não encontrado.")
+
+                    preco_unitario = to_decimal(item.get('preco_unitario', servico.preco_padrao))
+                    desconto_item = to_decimal(item.get('desconto_item', "0.00"))
+
+                    subtotal_item = (preco_unitario * quantidade) - desconto_item
+                    iva_percentual = getattr(servico, 'iva_percentual', 14)
+                    iva_item = subtotal_item * (iva_percentual / Decimal('100.00'))
+                    total_item = subtotal_item + iva_item
+
+                    subtotal_final += subtotal_item
+                    desconto_final += desconto_item
+                    iva_final += iva_item
+                    total_final += total_item
+                    
+                    itens_processados.append({
+                        'tipo': 'servico',
+                        'servico_obj': servico,
+                        'quantidade': quantidade,
+                        'preco_unitario': preco_unitario,
+                        'desconto_item': desconto_item,
+                        'subtotal_item': subtotal_item,
+                        'iva_percentual': iva_percentual,
+                        'iva_valor': iva_item,
+                        'total_item': total_item,
+                        'duracao': servico.duracao_padrao_minutos,
+                        'instrucoes': servico.instrucoes_padrao
+                    })
+                    print(f"Item processado (serviço). ID: {servico_id}, Quantidade: {quantidade}")
+
+                else:
+                    raise ValueError("Item sem 'produto_id' ou 'servico_id'.")
+
+            print("\nEtapa 2: Iniciando a criação da Proforma.")
+
+            # 2. CRIAÇÃO E SALVAMENTO DA PROFORMA
+            data_validade = datetime.strptime(data['data_validade'], '%Y-%m-%d').date()
+            desconto_global = to_decimal(data.get('desconto_global', '0.00'))
+
+            nova_proforma = FaturaProforma(
+                cliente=cliente,
                 empresa=empresa,
-                cliente_id=data['cliente_id'],
-                data_validade=data['data_validade'],
-                subtotal=Decimal(str(data.get('subtotal', 0))),
-                desconto_global=Decimal(str(data.get('desconto_global', 0))),
-                iva_valor=Decimal(str(data.get('iva_valor', 0))),
-                total=Decimal(str(data.get('total', 0))),
-                observacoes=data.get('observacoes', '')
+                data_validade=data_validade,
+                subtotal=subtotal_final,
+                desconto_global=desconto_global,
+                iva_valor=iva_final,
+                total=total_final,
+                observacoes=data.get('observacoes', ''),
+                status='emitida'
             )
+            nova_proforma.save()
+            print(f"Proforma criada com sucesso. ID: {nova_proforma.id}")
 
-            # Geração automática do número de forma segura
-            if not proforma.numero_proforma:
-                proforma.numero_proforma = gerar_numero_documento(
-                    empresa=empresa,
-                    tipo_documento='FP'
-                )
-
-            proforma.save()
-
-            # Criar os itens da proforma
-            for item_data in data.get('itens', []):
-                ItemProforma.objects.create(
-                    proforma=proforma,
-                    produto_id=item_data.get('produto_id'),
-                    servico_id=item_data.get('servico_id'),
-                    quantidade=Decimal(str(item_data.get('quantidade', 1))),
-                    preco_unitario=Decimal(str(item_data.get('preco_unitario', 0))),
-                    desconto_item=Decimal(str(item_data.get('desconto_item', 0))),
-                    iva_percentual=Decimal(str(item_data.get('iva_percentual', 0))),
-                    iva_valor=Decimal(str(item_data.get('iva_valor', 0))),
-                    total=Decimal(str(item_data.get('total', 0)))
-                )
+            print("\nEtapa 3: Criando Itens da Proforma.")
+            for item in itens_processados:
+                if item['tipo'] == 'produto':
+                    ItemProforma.objects.create(
+                        proforma=nova_proforma,
+                        produto=item['produto_obj'],
+                        nome_item=item['produto_obj'].nome_produto,
+                        quantidade=item['quantidade'],
+                        preco_unitario=item['preco_unitario'],
+                        desconto_item=item['desconto_item'],
+                        subtotal=item['subtotal_item'],
+                        iva_percentual=item['iva_percentual'],
+                        iva_valor=item['iva_valor'],
+                        total=item['total_item']
+                    )
+                elif item['tipo'] == 'servico':
+                    ItemProforma.objects.create(
+                        proforma=nova_proforma,
+                        servico=item['servico_obj'],
+                        nome_item=item['servico_obj'].nome,
+                        duracao_servico_padrao=timedelta(minutes=item['duracao']),
+                        instrucoes_servico=item['instrucoes'],
+                        quantidade=item['quantidade'],
+                        preco_unitario=item['preco_unitario'],
+                        desconto_item=item['desconto_item'],
+                        subtotal=item['subtotal_item'],
+                        iva_percentual=item['iva_percentual'],
+                        iva_valor=item['iva_valor'],
+                        total=item['total_item']
+                    )
 
         return JsonResponse({
             'success': True,
-            'message': 'Proforma criada com sucesso!',
-            'proforma_id': proforma.id,
-            'numero_proforma': proforma.numero_proforma
+            'message': f'Proforma {nova_proforma.numero_proforma} criada com sucesso.',
+            'proforma_id': nova_proforma.id
         })
 
+    except json.JSONDecodeError:
+        logger.error("Erro: JSON inválido")
+        return JsonResponse({'success': False, 'message': 'Dados JSON inválidos.'}, status=400)
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Erro ao criar proforma: {str(e)}'
-        })
-
-
+        logger.exception(f"Erro inesperado: {str(e)}")
+        return JsonResponse({'success': False, 'message': f'Erro na proforma: {str(e)}'}, status=500)
 
 
 

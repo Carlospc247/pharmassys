@@ -37,6 +37,71 @@
         box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
     }
 
+    .filtros-section {
+        background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 6px -1px rgba(124, 58, 237, 0.3);
+    }
+
+    .categoria-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .categoria-btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .categoria-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-1px);
+    }
+
+    .categoria-btn.active {
+        background: rgba(255, 255, 255, 0.9);
+        color: #7c3aed;
+        border-color: rgba(255, 255, 255, 0.9);
+        font-weight: 600;
+    }
+
+    .content-tabs {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+
+    .tab-btn {
+        background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+        border: none;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .tab-btn.active {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.3);
+    }
+
+    .tab-btn:hover {
+        transform: translateY(-1px);
+    }
+
     .produtos-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -65,10 +130,68 @@
         background: linear-gradient(90deg, #8b5cf6 0%, #7c3aed 100%);
     }
 
+    .produto-card.servico::before {
+        background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+    }
+
     .produto-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 10px 15px -3px rgba(139, 92, 246, 0.2);
         border-color: rgba(139, 92, 246, 0.3);
+    }
+
+    .produto-image {
+        width: 100%;
+        height: 90px;
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 12px;
+    }
+
+    .servico-icon {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+    }
+
+    .produto-nome {
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 8px;
+        font-size: 0.875rem;
+        line-height: 1.3;
+    }
+
+    .produto-codigo {
+        font-size: 0.75rem;
+        color: #6b7280;
+        margin-bottom: 8px;
+    }
+
+    .produto-preco {
+        font-size: 1.125rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 8px;
+    }
+
+    .produto-estoque {
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 12px;
+        display: inline-block;
+        font-weight: 500;
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        color: #065f46;
+    }
+
+    .servico-disponivel {
+        background: linear-gradient(135deg, #e9d5ff 0%, #ddd6fe 100%);
+        color: #5b21b6;
     }
 
     .carrinho-section {
@@ -174,12 +297,12 @@
                 <div>
                     <h2 class="text-xl font-bold text-white mb-2">
                         <i class="fas fa-search mr-2"></i>
-                        Buscar Produtos
+                        Buscar Produtos/Serviços
                     </h2>
                     <div class="flex gap-3">
                         <input type="text" id="searchInput" class="search-input flex-1"
-                            placeholder="Código de barras ou nome do produto..." autocomplete="off">
-                        <button onclick="buscarProdutos()"
+                            placeholder="Código de barras, nome do produto ou serviço..." autocomplete="off">
+                        <button onclick="buscarItens()"
                             class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300">
                             <i class="fas fa-search"></i>
                         </button>
@@ -207,11 +330,44 @@
                 </div>
             </div>
 
+            <!-- Filtros por Categoria -->
+            <div class="filtros-section">
+                <h3 class="text-lg font-bold text-white mb-3">
+                    <i class="fas fa-filter mr-2"></i>
+                    Filtrar por Categoria
+                </h3>
+                <div id="categoriaButtons" class="categoria-buttons">
+                    <button class="categoria-btn active" onclick="filtrarPorCategoria('todos')">
+                        Todos
+                    </button>
+                </div>
+            </div>
+
+            <!-- Abas de Produtos/Serviços -->
+            <div class="content-tabs">
+                <button id="tabProdutos" class="tab-btn active" onclick="alternarAba('produtos')">
+                    <i class="fas fa-box mr-2"></i>
+                    Produtos
+                </button>
+                <button id="tabServicos" class="tab-btn" onclick="alternarAba('servicos')">
+                    <i class="fas fa-tools mr-2"></i>
+                    Serviços
+                </button>
+            </div>
+
             <div id="produtosContainer" class="mt-6">
                 <div class="empty-state text-center py-8">
                     <i class="fas fa-box text-4xl text-gray-300 mb-3"></i>
                     <h3 class="text-lg font-semibold mb-2">Carregando produtos...</h3>
                     <p>Aguarde enquanto carregamos os produtos disponíveis</p>
+                </div>
+            </div>
+
+            <div id="servicosContainer" class="mt-6" style="display: none;">
+                <div class="empty-state text-center py-8">
+                    <i class="fas fa-tools text-4xl text-gray-300 mb-3"></i>
+                    <h3 class="text-lg font-semibold mb-2">Carregando serviços...</h3>
+                    <p>Aguarde enquanto carregamos os serviços disponíveis</p>
                 </div>
             </div>
         </div>
@@ -227,7 +383,7 @@
                     <div class="text-center text-white text-opacity-70 py-8">
                         <i class="fas fa-cart-plus text-3xl mb-3 opacity-50"></i>
                         <p>Orçamento vazio</p>
-                        <p class="text-sm">Adicione produtos para iniciar o orçamento</p>
+                        <p class="text-sm">Adicione produtos ou serviços para iniciar o orçamento</p>
                     </div>
                 </div>
 
@@ -290,8 +446,12 @@
 <script>
     let carrinho = [];
     let produtos = [];
+    let servicos = [];
+    let categorias = [];
     let clienteSelecionado = null;
     let proformaAtualId = null;
+    let categoriaAtual = 'todos';
+    let abaAtual = 'produtos';
 
     function getCookie(name) {
         let cookieValue = null;
@@ -316,10 +476,77 @@
         setTimeout(() => toast.classList.add("hidden"), 3000);
     }
 
+    async function carregarDadosIniciais() {
+        await Promise.all([
+            carregarCategorias(),
+            carregarProdutos(),
+            carregarServicos()
+        ]);
+    }
+
+    async function carregarCategorias() {
+        try {
+            const urlCategorias = "{% url 'produtos:listar_categorias_api' %}";
+            const response = await fetch(urlCategorias);
+            const data = await response.json();
+            if (data.success) {
+                categorias = data.categorias;
+                renderizarCategorias();
+            }
+        } catch (error) {
+            console.error('Erro ao carregar categorias:', error);
+        }
+    }
+
+    function renderizarCategorias() {
+        const container = document.getElementById('categoriaButtons');
+        let categoriasHtml = `
+            <button class="categoria-btn ${categoriaAtual === 'todos' ? 'active' : ''}" 
+                    onclick="filtrarPorCategoria('todos')">Todos</button>
+        `;
+        categorias.forEach(categoria => {
+            categoriasHtml += `
+                <button class="categoria-btn ${categoriaAtual === categoria.id.toString() ? 'active' : ''}" 
+                        onclick="filtrarPorCategoria('${categoria.id}')">${categoria.nome}</button>
+            `;
+        });
+        container.innerHTML = categoriasHtml;
+    }
+
+    function filtrarPorCategoria(categoria) {
+        categoriaAtual = categoria;
+        renderizarCategorias();
+        if (abaAtual === 'produtos') {
+            carregarProdutos();
+        } else {
+            carregarServicos();
+        }
+    }
+
+    function alternarAba(aba) {
+        abaAtual = aba;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`tab${aba.charAt(0).toUpperCase() + aba.slice(1)}`).classList.add('active');
+
+        if (aba === 'produtos') {
+            document.getElementById('produtosContainer').style.display = 'block';
+            document.getElementById('servicosContainer').style.display = 'none';
+            carregarProdutos();
+        } else {
+            document.getElementById('produtosContainer').style.display = 'none';
+            document.getElementById('servicosContainer').style.display = 'block';
+            carregarServicos();
+        }
+    }
+
     async function carregarProdutos() {
         try {
             const urlProdutos = "{% url 'produtos:buscar_produtos_api' %}";
-            const response = await fetch(urlProdutos);
+            let url = urlProdutos;
+            if (categoriaAtual !== 'todos') {
+                url += `?categoria=${categoriaAtual}`;
+            }
+            const response = await fetch(url);
             const data = await response.json();
             if (data.success) {
                 produtos = data.produtos;
@@ -327,6 +554,20 @@
             }
         } catch (error) {
             console.error('Erro ao carregar produtos:', error);
+        }
+    }
+
+    async function carregarServicos() {
+        try {
+            const urlServicos = "{% url 'servicos:listar_servicos_api' %}";
+            const response = await fetch(urlServicos);
+            const data = await response.json();
+            if (data.success) {
+                servicos = data.servicos;
+                renderizarServicos(servicos);
+            }
+        } catch (error) {
+            console.error('Erro ao carregar serviços:', error);
         }
     }
 
@@ -343,48 +584,98 @@
 
         const produtosHtml = produtos.map(produto => `
             <div class="produto-card" onclick="adicionarAoCarrinho(${produto.id}, 'produto')">
-                <div class="produto-image mb-3">
+                <div class="produto-image">
                     ${produto.foto_url ?
-                        `<img src="${produto.foto_url}" alt="${produto.nome_produto}" class="w-full h-20 object-cover rounded">` :
-                        `<div class="w-full h-20 bg-gray-100 rounded flex items-center justify-center">
-                            <i class="fas fa-box text-2xl text-purple-500"></i>
-                        </div>`
+                        `<img src="${produto.foto_url}" alt="${produto.nome_produto}" class="w-full h-full object-cover rounded">` :
+                        `<i class="fas fa-box text-2xl text-purple-500"></i>`
                     }
                 </div>
-                <div class="font-semibold text-sm mb-1">${produto.nome_produto}</div>
-                <div class="text-xs text-gray-500 mb-2">Cód: ${produto.codigo_interno}</div>
-                <div class="font-bold text-purple-600">AKZ ${produto.preco_venda.toFixed(2)}</div>
-                <div class="text-xs text-gray-500 mt-1">Estoque: ${produto.estoque_atual}</div>
+                <div class="produto-nome">${produto.nome_produto}</div>
+                <div class="produto-codigo">Cód: ${produto.codigo_interno}</div>
+                <div class="produto-preco">AKZ ${produto.preco_venda.toFixed(2)}</div>
+                <span class="produto-estoque">Estoque: ${produto.estoque_atual}</span>
+                ${produto.categoria ? `<div class="text-xs text-gray-500 mt-1">${produto.categoria}</div>` : ''}
             </div>
         `).join('');
 
         container.innerHTML = `<div class="produtos-grid">${produtosHtml}</div>`;
     }
 
-    function adicionarAoCarrinho(itemId, tipo) {
-        const item = produtos.find(p => p.id === itemId);
-        if (!item) return;
+    function renderizarServicos(servicos) {
+        const container = document.getElementById('servicosContainer');
+        if (servicos.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-8">
+                    <i class="fas fa-tools text-4xl text-gray-300 mb-3"></i>
+                    <p>Nenhum serviço encontrado</p>
+                </div>`;
+            return;
+        }
 
-        const itemExistente = carrinho.find(carrinhoItem => carrinhoItem.id === itemId);
+        let servicosFiltrados = servicos;
+        if (categoriaAtual !== 'todos') {
+            servicosFiltrados = servicos.filter(servico => 
+                servico.categoria_id && servico.categoria_id.toString() === categoriaAtual
+            );
+        }
+
+        const servicosHtml = servicosFiltrados.map(servico => `
+            <div class="produto-card servico" onclick="adicionarAoCarrinho(${servico.id}, 'servico')">
+                <div class="produto-image servico-icon">
+                    <i class="fas fa-tools text-2xl text-green-500"></i>
+                </div>
+                <div class="produto-nome">${servico.nome}</div>
+                <div class="produto-preco">AKZ ${servico.preco.toFixed(2)}</div>
+                <span class="produto-estoque servico-disponivel">Disponível</span>
+                ${servico.categoria ? `<div class="text-xs text-gray-500 mt-1">${servico.categoria}</div>` : ''}
+                ${servico.descricao ? `<div class="text-xs text-gray-600 mt-1">${servico.descricao}</div>` : ''}
+            </div>
+        `).join('');
+
+        container.innerHTML = `<div class="produtos-grid">${servicosHtml}</div>`;
+    }
+
+    function adicionarAoCarrinho(itemId, tipo) {
+        let item;
         
+        if (tipo === 'produto') {
+            item = produtos.find(p => p.id === itemId);
+            if (!item) {
+                showToast("Produto não encontrado!", "#ef4444");
+                return;
+            }
+        } else if (tipo === 'servico') {
+            item = servicos.find(s => s.id === itemId);
+            if (!item) {
+                showToast("Serviço não encontrado!", "#ef4444");
+                return;
+            }
+        }
+
+        const itemExistente = carrinho.find(carrinhoItem => 
+            carrinhoItem.id === itemId && carrinhoItem.tipo === tipo
+        );
+
         if (itemExistente) {
             itemExistente.quantidade += 1;
-            itemExistente.subtotal = itemExistente.quantidade * itemExistente.preco_unitario;
+            itemExistente.subtotal = itemExistente.quantidade * itemExistente.preco_venda;
         } else {
-            carrinho.push({
+            const novoItem = {
                 id: item.id,
                 tipo: tipo,
-                nome_produto: item.nome_produto,
-                preco_unitario: item.preco_venda,
+                nome_produto: tipo === 'produto' ? item.nome_produto : item.nome,
+                preco_venda: tipo === 'produto' ? item.preco_venda : item.preco,
                 quantidade: 1,
-                subtotal: item.preco_venda,
-                iva_percentual: item.iva_percentual || 14,
+                subtotal: tipo === 'produto' ? item.preco_venda : item.preco,
+                iva_percentual: tipo === 'produto' ? (item.iva_percentual || 0) : 14,
                 desconto_percentual: 0
-            });
+            };
+
+            carrinho.push(novoItem);
         }
         
         atualizarCarrinho();
-        showToast('Produto adicionado ao orçamento!', "#22c55e");
+        showToast(`${tipo === 'produto' ? 'Produto' : 'Serviço'} adicionado ao orçamento!`, "#22c55e");
     }
 
     function atualizarCarrinho() {
@@ -404,41 +695,48 @@
                 <div class="text-center text-white text-opacity-70 py-8">
                     <i class="fas fa-cart-plus text-3xl mb-3 opacity-50"></i>
                     <p>Orçamento vazio</p>
-                    <p class="text-sm">Adicione produtos para iniciar o orçamento</p>
+                    <p class="text-sm">Adicione produtos ou serviços para iniciar o orçamento</p>
                 </div>`;
             totalSection.style.display = 'none';
             return;
         }
 
-        const itensHtml = carrinho.map((item, index) => `
-            <div class="carrinho-item">
-                <div class="flex-1 mr-3">
-                    <div class="font-semibold text-sm">${item.nome_produto}</div>
-                    <div class="text-xs opacity-80">AKZ ${item.preco_unitario.toFixed(2)} cada</div>
+        const itensHtml = carrinho.map((item, index) => {
+            const tipoIcon = item.tipo === 'produto' ? 'fas fa-box' : 'fas fa-tools';
+            
+            return `
+                <div class="carrinho-item">
+                    <div class="flex-1 mr-3">
+                        <div class="font-semibold text-sm">
+                            <i class="${tipoIcon} mr-1"></i>
+                            ${item.nome_produto}
+                        </div>
+                        <div class="text-xs opacity-80">AKZ ${item.preco_venda.toFixed(2)} cada</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button class="btn-quantidade" onclick="alterarQuantidade(${index}, -1)">
+                            <i class="fas fa-minus text-xs"></i>
+                        </button>
+                        <input type="number" class="quantidade-input" value="${item.quantidade}" 
+                                onchange="alterarQuantidadeInput(${index}, this.value)" min="1">
+                        <button class="btn-quantidade" onclick="alterarQuantidade(${index}, 1)">
+                            <i class="fas fa-plus text-xs"></i>
+                        </button>
+                        <button class="btn-quantidade" onclick="removerItem(${index})" style="background: rgba(239, 68, 68, 0.3);">
+                            <i class="fas fa-trash text-xs"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <button class="btn-quantidade" onclick="alterarQuantidade(${index}, -1)">
-                        <i class="fas fa-minus text-xs"></i>
-                    </button>
-                    <input type="number" class="quantidade-input" value="${item.quantidade}" 
-                            onchange="alterarQuantidadeInput(${index}, this.value)" min="1">
-                    <button class="btn-quantidade" onclick="alterarQuantidade(${index}, 1)">
-                        <i class="fas fa-plus text-xs"></i>
-                    </button>
-                    <button class="btn-quantidade" onclick="removerItem(${index})" style="background: rgba(239, 68, 68, 0.3);">
-                        <i class="fas fa-trash text-xs"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="text-right text-sm mb-2 opacity-80">Subtotal: AKZ ${item.subtotal.toFixed(2)}</div>
-        `).join('');
+                <div class="text-right text-sm mb-2 opacity-80">Subtotal: AKZ ${item.subtotal.toFixed(2)}</div>
+            `;
+        }).join('');
 
         container.innerHTML = itensHtml;
         totalSection.style.display = 'block';
     }
 
     function calcularTotais() {
-        let subtotalSemDesconto = carrinho.reduce((sum, item) => sum + (item.preco_unitario * item.quantidade), 0);
+        let subtotalSemDesconto = carrinho.reduce((sum, item) => sum + (item.preco_venda * item.quantidade), 0);
         const descontoPercentual = parseFloat(document.getElementById('descontoInput').value) || 0;
         const valorDesconto = subtotalSemDesconto * (descontoPercentual / 100);
         const subtotalComDesconto = subtotalSemDesconto - valorDesconto;
@@ -456,14 +754,14 @@
             removerItem(index);
             return;
         }
-        carrinho[index].subtotal = carrinho[index].quantidade * carrinho[index].preco_unitario;
+        carrinho[index].subtotal = carrinho[index].quantidade * carrinho[index].preco_venda;
         atualizarCarrinho();
     }
 
     function alterarQuantidadeInput(index, valor) {
         const novaQuantidade = parseInt(valor) || 1;
         carrinho[index].quantidade = novaQuantidade;
-        carrinho[index].subtotal = carrinho[index].quantidade * carrinho[index].preco_unitario;
+        carrinho[index].subtotal = carrinho[index].quantidade * carrinho[index].preco_venda;
         atualizarCarrinho();
     }
 
@@ -479,7 +777,7 @@
 
     async function finalizarProforma() {
         if (carrinho.length === 0) {
-            showToast('Orçamento vazio! Adicione produtos para continuar.', "#ef4444");
+            showToast('Orçamento vazio! Adicione produtos ou serviços para continuar.', "#ef4444");
             return;
         }
 
@@ -495,7 +793,7 @@
         }
 
         const descontoPercentual = parseFloat(document.getElementById('descontoInput').value) || 0;
-        let subtotalItens = carrinho.reduce((sum, item) => sum + (item.preco_unitario * item.quantidade), 0);
+        let subtotalItens = carrinho.reduce((sum, item) => sum + (item.preco_venda * item.quantidade), 0);
         let valorDesconto = subtotalItens * (descontoPercentual / 100);
         let subtotalComDesconto = subtotalItens - valorDesconto;
         let ivaTotal = subtotalComDesconto * 0.14;
@@ -505,16 +803,23 @@
             cliente_id: clienteSelecionado.id,
             data_validade: dataValidade,
             itens: carrinho.map(item => {
-                const descontoItem = (item.preco_unitario * item.quantidade) * (descontoPercentual / 100);
-                return {
-                    produto_id: item.id,
+                const descontoItem = (item.preco_venda * item.quantidade) * (descontoPercentual / 100);
+                const itemData = {
                     nome_item: item.nome_produto,
                     quantidade: item.quantidade,
-                    preco_unitario: item.preco_unitario,
+                    preco_unitario: item.preco_venda,
                     iva_percentual: item.iva_percentual || 14,
                     desconto_item: descontoItem,
-                    total: (item.preco_unitario * item.quantidade) - descontoItem + ((item.preco_unitario * item.quantidade - descontoItem) * (item.iva_percentual || 14) / 100)
+                    total: (item.preco_venda * item.quantidade) - descontoItem + ((item.preco_venda * item.quantidade - descontoItem) * (item.iva_percentual || 14) / 100)
                 };
+
+                if (item.tipo === 'produto') {
+                    itemData.produto_id = item.id;
+                } else if (item.tipo === 'servico') {
+                    itemData.servico_id = item.id;
+                }
+
+                return itemData;
             }),
             subtotal: subtotalItens,
             desconto_global: valorDesconto,
@@ -551,6 +856,37 @@
         } catch (error) {
             console.error('Erro de conexão:', error);
             showToast('Erro de conexão com o servidor.', "#ef4444");
+        }
+    }
+
+    // Funções de busca
+    async function buscarItens() {
+        const query = document.getElementById('searchInput').value.trim();
+        if (!query) {
+            if (abaAtual === 'produtos') carregarProdutos();
+            else carregarServicos();
+            return;
+        }
+
+        try {
+            if (abaAtual === 'produtos') {
+                const urlProdutos = "{% url 'produtos:buscar_produtos_api' %}";
+                let url = `${urlProdutos}?q=${encodeURIComponent(query)}`;
+                if (categoriaAtual !== 'todos') {
+                    url += `&categoria=${categoriaAtual}`;
+                }
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data.success) {
+                    produtos = data.produtos;
+                    renderizarProdutos(produtos);
+                }
+            } else {
+                // Buscar serviços (assumindo que existe uma API similar)
+                carregarServicos(); // Por enquanto, apenas recarrega todos
+            }
+        } catch (error) {
+            console.error('Erro na busca:', error);
         }
     }
 
@@ -599,9 +935,22 @@
         document.getElementById('clienteSelecionado').style.display = 'none';
     }
 
+    // Eventos de teclado
+    document.getElementById('searchInput').addEventListener('input', function (e) {
+        clearTimeout(this.searchTimeout);
+        this.searchTimeout = setTimeout(() => {
+            if (e.target.value.length >= 2) {
+                buscarItens();
+            } else if (e.target.value.length === 0) {
+                if (abaAtual === 'produtos') carregarProdutos();
+                else carregarServicos();
+            }
+        }, 300);
+    });
+
     // Inicializar
     document.addEventListener('DOMContentLoaded', function () {
-        carregarProdutos();
+        carregarDadosIniciais();
         
         // Definir data de validade padrão (30 dias)
         const hoje = new Date();
