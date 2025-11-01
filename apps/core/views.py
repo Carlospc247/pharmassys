@@ -16,32 +16,45 @@ from apps.vendas.models import Venda
 from apps.servicos.models import NotificacaoAgendamento
 from datetime import date
 import traceback
+from django.core.exceptions import PermissionDenied
 
 
 # ============================================================
 # BASE VIEW COM CONTEXTO EMPRESARIAL
 # ============================================================
+
+
 class BaseMPAView(LoginRequiredMixin, TemplateView):
     """View base: define contexto padrão e empresa atual."""
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        empresa = self.get_empresa()
         context.update({
             'user': self.request.user,
-            'empresa_atual': self.get_empresa(),
+            'empresa_atual': empresa,
             'current_module': getattr(self, 'module_name', 'dashboard'),
         })
         return context
 
     def get_empresa(self):
-        """Retorna a empresa associada ao usuário logado."""
+        """Obtém a empresa do utilizador logado ou lança erro se não existir."""
         user = self.request.user
-        if hasattr(user, 'usuario') and user.usuario.empresa:
-            return user.usuario.empresa
-        elif hasattr(user, 'profile') and user.profile.empresa:
-            return user.profile.empresa
-        else:
-            return Empresa.objects.first()
+
+        # Verifica se o user possui relação com uma empresa (via perfil/usuário/funcionário)
+        empresa = None
+        if hasattr(user, 'usuario') and getattr(user.usuario, 'empresa', None):
+            empresa = user.usuario.empresa
+        elif hasattr(user, 'funcionario') and getattr(user.funcionario, 'empresa', None):
+            empresa = user.funcionario.empresa
+        elif hasattr(user, 'profile') and getattr(user.profile, 'empresa', None):
+            empresa = user.profile.empresa
+
+        # Se não encontrou empresa, nega acesso
+        if not empresa:
+            raise PermissionDenied("O utilizador não está associado a nenhuma empresa.")
+
+        return empresa
 
 
 # ============================================================
