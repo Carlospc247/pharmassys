@@ -43,7 +43,7 @@ class Servico(TimeStampedModel):
     instrucoes_padrao = models.TextField(blank=True, help_text="Instruções para o cliente ou para o funcionário.")
     ativo = models.BooleanField(default=True)
     
-    foto = models.ImageField(upload_to='servicos/fotos/', null=True, blank=True, default='servicos/fotos/servico.png')
+    foto = models.ImageField(upload_to='servicos/fotos/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
 
     #campos para Servico
     nome = models.CharField(max_length=255, blank=True, null=True)

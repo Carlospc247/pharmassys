@@ -75,7 +75,7 @@ class Produto(TimeStampedModel):
     preco_venda = models.DecimalField(max_digits=10, decimal_places=2)
     margem_lucro = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
-    foto = models.ImageField(upload_to='produtos/fotos/', null=True, blank=True, default='produtos/fotos/produtos.png')
+    foto = models.ImageField(upload_to='produtos/fotos/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
     
     # Status
     ativo = models.BooleanField(default=True)
