@@ -172,5 +172,46 @@ class CategoriaForm(forms.ModelForm):
         return nome
 
 
+# apps/produtos/forms.py (adicionar ao arquivo existente)
+
+from django import forms
+from .models import Produto, Categoria, Fabricante
+
+class ImportarProdutosForm(forms.Form):
+    arquivo = forms.FileField(
+        label="Arquivo Excel",
+        help_text="Selecione um arquivo .xlsx ou .csv com os produtos",
+        widget=forms.FileInput(attrs={
+            'class': 'block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-secondary',
+            'accept': '.xlsx,.xls,.csv'
+        })
+    )
+    
+    atualizar_existentes = forms.BooleanField(
+        label="Atualizar produtos existentes",
+        help_text="Se marcado, produtos com mesmo código de barras serão atualizados",
+        required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'rounded border-gray-300 text-primary shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50'})
+    )
+    
+    validar_apenas = forms.BooleanField(
+        label="Apenas validar (não importar)",
+        help_text="Se marcado, apenas validará o arquivo sem importar os dados",
+        required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'rounded border-gray-300 text-secondary shadow-sm focus:border-secondary focus:ring focus:ring-secondary focus:ring-opacity-50'})
+    )
+
+    def clean_arquivo(self):
+        arquivo = self.cleaned_data.get('arquivo')
+        if arquivo:
+            if arquivo.size > 10 * 1024 * 1024:  # 10MB
+                raise forms.ValidationError("O arquivo não pode ser maior que 10MB")
+            
+            extensao = arquivo.name.split('.')[-1].lower()
+            if extensao not in ['xlsx', 'xls', 'csv']:
+                raise forms.ValidationError("Apenas arquivos .xlsx, .xls ou .csv são permitidos")
+        
+        return arquivo
+
 
 

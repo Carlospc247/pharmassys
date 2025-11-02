@@ -1,0 +1,254 @@
+<!-- templates/produtos/importar_produtos.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .resultado-item {
+        @apply flex items-center justify-between p-4 border border-gray-200 rounded-lg;
+    }
+    .resultado-sucesso {
+        @apply bg-green-50 border-green-200 text-green-800;
+    }
+    .resultado-erro {
+        @apply bg-red-50 border-red-200 text-red-800;
+    }
+    .resultado-aviso {
+        @apply bg-yellow-50 border-yellow-200 text-yellow-800;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ title }}</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-2">
+                Importe produtos em massa usando um arquivo Excel ou CSV
+            </p>
+        </div>
+        <div class="flex space-x-4">
+            <a href="{% url 'produtos:template' %}" 
+               class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center">
+                <i class="fas fa-download mr-2"></i>
+                Baixar Template
+            </a>
+            <a href="{% url 'produtos:produto_list' %}" 
+               class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Voltar
+            </a>
+        </div>
+    </div>
+
+    <!-- Instruções -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle text-blue-600 text-xl"></i>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-lg font-medium text-blue-900">Como importar produtos</h3>
+                <div class="mt-2 text-sm text-blue-800">
+                    <ol class="list-decimal list-inside space-y-1">
+                        <li>Baixe o template Excel clicando no botão "Baixar Template"</li>
+                        <li>Preencha o arquivo com os dados dos seus produtos</li>
+                        <li>Salve o arquivo e faça o upload usando o formulário abaixo</li>
+                        <li>Use a opção "Apenas validar" para testar antes de importar</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulário de Upload -->
+    <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-8 mb-8">
+        <form method="post" enctype="multipart/form-data" id="uploadForm">
+            {% csrf_token %}
+            
+            <div class="space-y-6">
+                <!-- Upload de Arquivo -->
+                <div>
+                    <label for="{{ form.arquivo.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        {{ form.arquivo.label }}
+                    </label>
+                    {{ form.arquivo }}
+                    {% if form.arquivo.help_text %}
+                        <p class="mt-1 text-sm text-gray-500">{{ form.arquivo.help_text }}</p>
+                    {% endif %}
+                    {% if form.arquivo.errors %}
+                        <div class="mt-1 text-sm text-red-600">
+                            {% for error in form.arquivo.errors %}
+                                <p>{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Opções -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex items-center">
+                        {{ form.atualizar_existentes }}
+                        <label for="{{ form.atualizar_existentes.id_for_label }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            {{ form.atualizar_existentes.label }}
+                        </label>
+                        {% if form.atualizar_existentes.help_text %}
+                            <div class="ml-2">
+                                <i class="fas fa-question-circle text-gray-400 cursor-help" 
+                                   title="{{ form.atualizar_existentes.help_text }}"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="flex items-center">
+                        {{ form.validar_apenas }}
+                        <label for="{{ form.validar_apenas.id_for_label }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            {{ form.validar_apenas.label }}
+                        </label>
+                        {% if form.validar_apenas.help_text %}
+                            <div class="ml-2">
+                                <i class="fas fa-question-circle text-gray-400 cursor-help" 
+                                   title="{{ form.validar_apenas.help_text }}"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Botões -->
+                <div class="flex justify-end space-x-4">
+                    <button type="submit" 
+                            class="bg-primary hover:bg-secondary text-white px-8 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center"
+                            id="submitBtn">
+                        <i class="fas fa-upload mr-2"></i>
+                        <span id="submitText">Processar Arquivo</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Resultado da Importação -->
+    {% if resultado %}
+    <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-8">
+        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-6">Resultado do Processamento</h3>
+        
+        <!-- Resumo -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="resultado-item resultado-sucesso">
+                <div>
+                    <p class="text-sm font-medium">Total Válidos</p>
+                    <p class="text-2xl font-bold">{{ resultado.validos }}</p>
+                </div>
+                <i class="fas fa-check-circle text-2xl"></i>
+            </div>
+            
+            {% if not resultado.validar_apenas %}
+            <div class="resultado-item resultado-sucesso">
+                <div>
+                    <p class="text-sm font-medium">Importados</p>
+                    <p class="text-2xl font-bold">{{ resultado.importados }}</p>
+                </div>
+                <i class="fas fa-plus-circle text-2xl"></i>
+            </div>
+            
+            <div class="resultado-item resultado-aviso">
+                <div>
+                    <p class="text-sm font-medium">Atualizados</p>
+                    <p class="text-2xl font-bold">{{ resultado.atualizados }}</p>
+                </div>
+                <i class="fas fa-edit text-2xl"></i>
+            </div>
+            {% endif %}
+            
+            {% if resultado.erros %}
+            <div class="resultado-item resultado-erro">
+                <div>
+                    <p class="text-sm font-medium">Erros</p>
+                    <p class="text-2xl font-bold">{{ resultado.erros|length }}</p>
+                </div>
+                <i class="fas fa-exclamation-triangle text-2xl"></i>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Erros Detalhados -->
+        {% if resultado.erros %}
+        <div class="mb-6">
+            <h4 class="text-lg font-semibold text-red-800 mb-4">Erros Encontrados</h4>
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 max-h-96 overflow-y-auto">
+                <ul class="space-y-2">
+                    {% for erro in resultado.erros %}
+                        <li class="text-sm text-red-700">{{ erro }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Ações Pós-Processamento -->
+        <div class="flex justify-end space-x-4">
+            {% if not resultado.validar_apenas and resultado.importados > 0 %}
+                <a href="{% url 'produtos:produto_list' %}" 
+                   class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200">
+                    <i class="fas fa-eye mr-2"></i>
+                    Ver Produtos Importados
+                </a>
+            {% endif %}
+            
+            <button onclick="window.location.reload()" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200">
+                <i class="fas fa-redo mr-2"></i>
+                Nova Importação
+            </button>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Loading Modal -->
+<div id="loadingModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-8 max-w-sm w-full mx-4">
+        <div class="flex flex-col items-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Processando arquivo...</h3>
+            <p class="text-sm text-gray-500 text-center">Por favor, aguarde enquanto processamos seus dados.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    const fileInput = document.querySelector('input[type="file"]');
+    const submitBtn = document.getElementById('submitBtn');
+    const submitText = document.getElementById('submitText');
+    const loadingModal = document.getElementById('loadingModal');
+    
+    if (!fileInput.files.length) {
+        e.preventDefault();
+        alert('Por favor, selecione um arquivo para upload.');
+        return;
+    }
+    
+    // Mostrar loading
+    loadingModal.classList.remove('hidden');
+    loadingModal.classList.add('flex');
+    
+    // Desabilitar botão
+    submitBtn.disabled = true;
+    submitText.textContent = 'Processando...';
+});
+
+// Verificar tamanho do arquivo
+document.querySelector('input[type="file"]').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file && file.size > 10 * 1024 * 1024) { // 10MB
+        alert('O arquivo é muito grande. O tamanho máximo é 10MB.');
+        e.target.value = '';
+    }
+});
+</script>
+{% endblock %}

@@ -414,195 +414,111 @@ class ToggleProdutoView(LoginRequiredMixin, View):
             return Empresa.objects.first()
 
 
-class ImportarProdutosView(LoginRequiredMixin, View):
-    acao_requerida = 'editar_produtos'
-    @method_decorator(csrf_exempt)
-    def dispatch(self, *args, **kwargs):
-        return super().dispatch(*args, **kwargs)
-    
-    def post(self, request):
-        try:
-            empresa = self.get_empresa(request)
-            arquivo = request.FILES.get('arquivo')
-            atualizar_existentes = request.POST.get('atualizar_existentes') == 'on'
-            
-            if not arquivo:
-                return JsonResponse({'success': False, 'message': 'Arquivo é obrigatório'})
-            
-            # Ler arquivo
-            try:
-                if arquivo.name.endswith('.csv'):
-                    df = pd.read_csv(arquivo)
-                else:
-                    df = pd.read_excel(arquivo)
-            except Exception as e:
-                return JsonResponse({'success': False, 'message': f'Erro ao ler arquivo: {str(e)}'})
-            
-            # Validar colunas obrigatórias
-            colunas_obrigatorias = ['nome_produto', 'preco_venda', 'categoria']
-            for coluna in colunas_obrigatorias:
-                if coluna not in df.columns:
-                    return JsonResponse({
-                        'success': False,
-                        'message': f'Coluna obrigatória "{coluna}" não encontrada'
-                    })
-            
-            importados = 0
-            atualizados = 0
-            erros = []
-            
-            from apps.produtos.models import Produto, Categoria
-            
-            for index, row in df.iterrows():
-                try:
-                    linha = index + 2
-                    
-                    # Validações
-                    if pd.isna(row['nome_produto']) or not str(row['nome_produto']).strip():
-                        erros.append(f'Linha {linha}: Nome comercial é obrigatório')
-                        continue
-                    
-                    if pd.isna(row['preco_venda']) or float(row['preco_venda']) <= 0:
-                        erros.append(f'Linha {linha}: Preço de venda inválido')
-                        continue
-                    
-                    # Buscar ou criar categoria
-                    categoria_nome = str(row['categoria']).strip()
-                    categoria, created = Categoria.objects.get_or_create(
-                        nome=categoria_nome,
-                        empresa=empresa,
-                        defaults={'ativa': True}
-                    )
-                    
-                    # Dados do produto
-                    dados_produto = {
-                        'empresa': empresa,
-                        'nome_produto': str(row['nome_produto']).strip(),
-                        'categoria': categoria,
-                        'preco_venda': float(row['preco_venda']),
-                        'preco_custo': self._get_float_value(row, 'preco_custo', 0),
-                        'estoque_atual': self._get_int_value(row, 'estoque_inicial', 0),
-                        'estoque_minimo': self._get_int_value(row, 'estoque_minimo', 10),
-                        'lote': self._get_value(row, 'lote', ''),
-                        'ativo': self._get_bool_value(row, 'ativo', True),
-                    }
-                    
-                    # Código de barras
-                    codigo_barras = self._get_value(row, 'codigo_barras', '')
-                    if codigo_barras:
-                        dados_produto['codigo_barras'] = codigo_barras
-                    
-                    # Verificar se produto já existe
-                    produto_existente = None
-                    if codigo_barras and atualizar_existentes:
-                        produto_existente = Produto.objects.filter(
-                            codigo_barras=codigo_barras,
-                            empresa=empresa
-                        ).first()
-                    
-                    if produto_existente:
-                        # Atualizar produto existente
-                        for key, value in dados_produto.items():
-                            if key != 'empresa':
-                                setattr(produto_existente, key, value)
-                        produto_existente.save()
-                        atualizados += 1
-                    else:
-                        # Criar novo produto
-                        Produto.objects.create(**dados_produto)
-                        importados += 1
-                
-                except Exception as e:
-                    erros.append(f'Linha {linha}: {str(e)}')
-                    continue
-            
-            return JsonResponse({
-                'success': True,
-                'importados': importados,
-                'atualizados': atualizados,
-                'erros': erros,
-                'message': 'Importação concluída'
-            })
-            
-        except Exception as e:
-            return JsonResponse({'success': False, 'message': str(e)})
-    
-    def _get_value(self, row, column, default=''):
-        try:
-            value = row.get(column, default)
-            return str(value).strip() if not pd.isna(value) else default
-        except:
-            return default
-    
-    def _get_float_value(self, row, column, default=0):
-        try:
-            value = row.get(column, default)
-            return float(value) if not pd.isna(value) else default
-        except:
-            return default
-    
-    def _get_int_value(self, row, column, default=0):
-        try:
-            value = row.get(column, default)
-            return int(value) if not pd.isna(value) else default
-        except:
-            return default
-    
-    def _get_bool_value(self, row, column, default=False):
-        try:
-            value = row.get(column, default)
-            if pd.isna(value):
-                return default
-            return str(value).lower() in ['1', 'true', 'sim', 'yes']
-        except:
-            return default
-    
-    def get_empresa(self, request):
-        if hasattr(request.user, 'usuario') and request.user.usuario.empresa:
-            return request.user.usuario.empresa
-        elif hasattr(request.user, 'profile') and request.user.profile.empresa:
-            return request.user.profile.empresa
-        else:
-            from apps.core.models import Empresa
-            return Empresa.objects.first()
-
-
+# apps/produtos/views.py (substituir a TemplateProdutosView existente)
 
 class TemplateProdutosView(LoginRequiredMixin, View):
     def get(self, request):
         try:
+            empresa = self.get_empresa()
+            if not empresa:
+                return HttpResponseBadRequest('Empresa não encontrada')
+            
             # Criar workbook
             wb = Workbook()
             ws = wb.active
-            ws.title = "Template Produtos"
+            ws.title = "Produtos"
             
-            # Cabeçalhos
+            # Definir cabeçalhos
             headers = [
-                'nome_produto', 'codigo_barras', 'categoria',
-                'preco_custo', 'preco_venda', 'estoque_inicial', 'estoque_minimo', 'data_validade',
-                'lote', 'ativo'
+                'nome_produto', 'codigo_barras', 'categoria', 'preco_custo', 'preco_venda',
+                'nome_comercial', 'codigo_interno', 'fabricante', 'fornecedor',
+                'estoque_atual', 'estoque_minimo', 'estoque_maximo', 'margem_lucro',
+                'desconto_percentual', 'observacoes', 'ativo'
             ]
             
             # Adicionar cabeçalhos
             for col, header in enumerate(headers, 1):
-                ws.cell(row=1, column=col, value=header)
+                cell = ws.cell(row=1, column=col, value=header)
+                cell.font = openpyxl.styles.Font(bold=True)
+                cell.fill = openpyxl.styles.PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
             
-            # Adicionar linha de exemplo
+            # Adicionar dados de exemplo
             exemplo = [
-                'Paracetamol 500mg', 'Paracetamol', '7891234567890', 'Analgésicos',
-                'EMS', '500mg', 'comprimido', '2.50',
-                '5.00', '100', '10', '2025-12-31',
-                'L123456', '0', '1', '1'
+                'Paracetamol 500mg',    # nome_produto
+                '7891234567890',        # codigo_barras
+                'Medicamentos',         # categoria
+                '2.50',                 # preco_custo
+                '5.00',                 # preco_venda
+                'Paracetamol 500mg',    # nome_comercial
+                'PARA500',              # codigo_interno
+                'EMS',                  # fabricante
+                'Distribuidora ABC',    # fornecedor
+                '100',                  # estoque_atual
+                '10',                   # estoque_minimo
+                '1000',                 # estoque_maximo
+                '100.00',               # margem_lucro
+                '0.00',                 # desconto_percentual
+                'Produto de exemplo',   # observacoes
+                '1'                     # ativo
             ]
             
             for col, value in enumerate(exemplo, 1):
                 ws.cell(row=2, column=col, value=value)
             
-            # Adicionar instruções
-            ws.cell(row=4, column=1, value="INSTRUÇÕES:")
-            ws.cell(row=5, column=1, value="- Campos obrigatórios: nome_produto, preco_venda, categoria")
-            ws.cell(row=7, column=1, value="- Data de validade no formato: AAAA-MM-DD")
-            ws.cell(row=8, column=1, value="- Preços em formato decimal (ex: 12.50)")
+            # Adicionar instruções em uma nova planilha
+            ws_instrucoes = wb.create_sheet("Instruções")
+            
+            instrucoes = [
+                "INSTRUÇÕES PARA IMPORTAÇÃO DE PRODUTOS",
+                "",
+                "CAMPOS OBRIGATÓRIOS:",
+                "- nome_produto: Nome do produto",
+                "- codigo_barras: Código de barras único",
+                "- categoria: Nome da categoria",
+                "- preco_custo: Preço de custo (formato: 12.50)",
+                "- preco_venda: Preço de venda (formato: 25.00)",
+                "",
+                "CAMPOS OPCIONAIS:",
+                "- nome_comercial: Nome comercial (se vazio, usará nome_produto)",
+                "- codigo_interno: Código interno (se vazio, usará codigo_barras)",
+                "- fabricante: Nome do fabricante",
+                "- fornecedor: Nome do fornecedor (deve existir no sistema)",
+                "- estoque_atual: Quantidade em estoque (padrão: 0)",
+                "- estoque_minimo: Estoque mínimo (padrão: 1)",
+                "- estoque_maximo: Estoque máximo (padrão: 100)",
+                "- margem_lucro: Margem de lucro em % (padrão: 0)",
+                "- desconto_percentual: Desconto em % (padrão: 0)",
+                "- observacoes: Observações sobre o produto",
+                "- ativo: 1 para ativo, 0 para inativo (padrão: 1)",
+                "",
+                "FORMATOS:",
+                "- Preços: Use ponto como separador decimal (ex: 12.50)",
+                "- Booleanos: Use 1/0 ou true/false ou sim/não",
+                "- Texto: Evite caracteres especiais",
+                "",
+                "NOTAS IMPORTANTES:",
+                "- Códigos de barras devem ser únicos",
+                "- Categorias e fabricantes serão criados automaticamente se não existirem",
+                "- Fornecedores devem existir previamente no sistema",
+                "- Linhas com erros serão ignoradas",
+                "- Use a opção 'Validar apenas' para testar antes de importar"
+            ]
+            
+            for row, instrucao in enumerate(instrucoes, 1):
+                ws_instrucoes.cell(row=row, column=1, value=instrucao)
+            
+            # Ajustar largura das colunas
+            for column in ws.columns:
+                max_length = 0
+                column = [cell for cell in column]
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = (max_length + 2)
+                ws.column_dimensions[column[0].column_letter].width = adjusted_width
             
             # Salvar em buffer
             buffer = io.BytesIO()
@@ -614,14 +530,21 @@ class TemplateProdutosView(LoginRequiredMixin, View):
                 buffer.getvalue(),
                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             )
-            response['Content-Disposition'] = 'attachment; filename="template_produtos.xlsx"'
+            response['Content-Disposition'] = f'attachment; filename="template_produtos_{empresa.nome}_{timezone.now().strftime("%Y%m%d")}.xlsx"'
             
             return response
             
         except Exception as e:
+            logger.error(f"Erro ao gerar template: {str(e)}")
             return HttpResponseBadRequest(f'Erro ao gerar template: {str(e)}')
 
-
+    def get_empresa(self):
+        user = self.request.user
+        if hasattr(user, 'funcionario') and user.funcionario and user.funcionario.empresa:
+            return user.funcionario.empresa
+        if user.is_superuser:
+            return Empresa.objects.first()
+        return None
 
 
 class CategoriaBaseView(LoginRequiredMixin):
@@ -1071,3 +994,369 @@ def listar_categorias_api(request):
             'message': f'Erro interno: {str(e)}'
         }, status=500)
 
+
+# apps/produtos/views.py (substituir a ImportarProdutosView existente)
+
+import logging
+import pandas as pd
+from decimal import Decimal, InvalidOperation
+from django.utils import timezone
+from django.core.exceptions import ValidationError
+from apps.fornecedores.models import Fornecedor
+
+logger = logging.getLogger(__name__)
+
+class ImportarProdutosView(LoginRequiredMixin, FormView):
+    template_name = 'produtos/importar_produtos.html'
+    form_class = ImportarProdutosForm
+    success_url = reverse_lazy('produtos:produto_list')
+    acao_requerida = 'editar_produtos'
+
+    def get_empresa(self):
+        user = self.request.user
+        if hasattr(user, 'funcionario') and user.funcionario and user.funcionario.empresa:
+            return user.funcionario.empresa
+        if user.is_superuser:
+            return Empresa.objects.first()
+        return None
+
+    def dispatch(self, request, *args, **kwargs):
+        if not self.get_empresa():
+            messages.error(request, "Seu usuário não está associado a nenhuma empresa.")
+            return redirect('core:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        empresa = self.get_empresa()
+        arquivo = form.cleaned_data['arquivo']
+        atualizar_existentes = form.cleaned_data['atualizar_existentes']
+        validar_apenas = form.cleaned_data['validar_apenas']
+        
+        try:
+            resultado = self.processar_arquivo(arquivo, empresa, atualizar_existentes, validar_apenas)
+            
+            if resultado['success']:
+                if validar_apenas:
+                    messages.success(
+                        self.request, 
+                        f"Validação concluída: {resultado['validos']} produtos válidos, {len(resultado['erros'])} com erros."
+                    )
+                else:
+                    messages.success(
+                        self.request,
+                        f"Importação concluída: {resultado['importados']} novos, {resultado['atualizados']} atualizados."
+                    )
+                
+                # Armazenar resultado na sessão para mostrar na próxima página
+                self.request.session['resultado_importacao'] = resultado
+                
+            else:
+                messages.error(self.request, f"Erro na importação: {resultado['message']}")
+                
+        except Exception as e:
+            logger.error(f"Erro na importação de produtos: {str(e)}")
+            messages.error(self.request, f"Erro inesperado: {str(e)}")
+        
+        return super().form_valid(form)
+
+    def processar_arquivo(self, arquivo, empresa, atualizar_existentes, validar_apenas):
+        """Processa o arquivo Excel/CSV e retorna resultado detalhado"""
+        try:
+            # Ler arquivo
+            if arquivo.name.endswith('.csv'):
+                df = pd.read_csv(arquivo, encoding='utf-8')
+            else:
+                df = pd.read_excel(arquivo)
+            
+            # Validar estrutura do arquivo
+            resultado_validacao = self.validar_estrutura_arquivo(df)
+            if not resultado_validacao['valid']:
+                return {
+                    'success': False,
+                    'message': resultado_validacao['message'],
+                    'erros': resultado_validacao['erros']
+                }
+            
+            # Processar linhas
+            return self.processar_linhas(df, empresa, atualizar_existentes, validar_apenas)
+            
+        except Exception as e:
+            logger.error(f"Erro ao processar arquivo: {str(e)}")
+            return {
+                'success': False,
+                'message': f'Erro ao ler arquivo: {str(e)}',
+                'erros': [str(e)]
+            }
+
+    def validar_estrutura_arquivo(self, df):
+        """Valida se o arquivo tem a estrutura correta"""
+        colunas_obrigatorias = [
+            'nome_produto', 'codigo_barras', 'categoria', 'preco_custo', 'preco_venda'
+        ]
+        
+        colunas_opcionais = [
+            'nome_comercial', 'codigo_interno', 'fabricante', 'fornecedor',
+            'estoque_atual', 'estoque_minimo', 'estoque_maximo', 'margem_lucro',
+            'desconto_percentual', 'observacoes', 'ativo'
+        ]
+        
+        # Normalizar nomes das colunas (remover espaços, converter para minúsculas)
+        df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
+        
+        erros = []
+        
+        # Verificar colunas obrigatórias
+        for coluna in colunas_obrigatorias:
+            if coluna not in df.columns:
+                erros.append(f"Coluna obrigatória '{coluna}' não encontrada")
+        
+        # Verificar se o arquivo não está vazio
+        if df.empty:
+            erros.append("O arquivo está vazio")
+        
+        if erros:
+            return {
+                'valid': False,
+                'message': 'Estrutura do arquivo inválida',
+                'erros': erros
+            }
+        
+        return {
+            'valid': True,
+            'message': 'Estrutura válida',
+            'erros': []
+        }
+
+    def processar_linhas(self, df, empresa, atualizar_existentes, validar_apenas):
+        """Processa cada linha do DataFrame"""
+        importados = 0
+        atualizados = 0
+        validos = 0
+        erros = []
+        produtos_processados = []
+        
+        for index, row in df.iterrows():
+            linha = index + 2  # +2 porque o Excel começa em 1 e temos cabeçalho
+            
+            try:
+                # Validar linha
+                dados_validos, erros_linha = self.validar_linha(row, linha, empresa)
+                
+                if erros_linha:
+                    erros.extend(erros_linha)
+                    continue
+                
+                validos += 1
+                
+                if not validar_apenas:
+                    # Processar produto
+                    resultado = self.criar_ou_atualizar_produto(dados_validos, empresa, atualizar_existentes)
+                    
+                    if resultado['created']:
+                        importados += 1
+                    elif resultado['updated']:
+                        atualizados += 1
+                    
+                    produtos_processados.append(resultado['produto'])
+                
+            except Exception as e:
+                logger.error(f"Erro na linha {linha}: {str(e)}")
+                erros.append(f"Linha {linha}: Erro inesperado - {str(e)}")
+        
+        return {
+            'success': True,
+            'importados': importados,
+            'atualizados': atualizados,
+            'validos': validos,
+            'total_linhas': len(df),
+            'erros': erros,
+            'produtos_processados': produtos_processados
+        }
+
+    def validar_linha(self, row, linha, empresa):
+        """Valida uma linha individual do arquivo"""
+        erros = []
+        dados = {}
+        
+        # Validações obrigatórias
+        nome_produto = self.get_string_value(row, 'nome_produto')
+        if not nome_produto:
+            erros.append(f"Linha {linha}: Nome do produto é obrigatório")
+        else:
+            dados['nome_produto'] = nome_produto
+        
+        codigo_barras = self.get_string_value(row, 'codigo_barras')
+        if not codigo_barras:
+            erros.append(f"Linha {linha}: Código de barras é obrigatório")
+        else:
+            dados['codigo_barras'] = codigo_barras
+        
+        # Validar preços
+        try:
+            preco_custo = self.get_decimal_value(row, 'preco_custo')
+            if preco_custo is None or preco_custo < 0:
+                erros.append(f"Linha {linha}: Preço de custo deve ser maior ou igual a zero")
+            else:
+                dados['preco_custo'] = preco_custo
+        except (ValueError, InvalidOperation):
+            erros.append(f"Linha {linha}: Preço de custo inválido")
+        
+        try:
+            preco_venda = self.get_decimal_value(row, 'preco_venda')
+            if preco_venda is None or preco_venda <= 0:
+                erros.append(f"Linha {linha}: Preço de venda deve ser maior que zero")
+            else:
+                dados['preco_venda'] = preco_venda
+        except (ValueError, InvalidOperation):
+            erros.append(f"Linha {linha}: Preço de venda inválido")
+        
+        # Validar categoria
+        categoria_nome = self.get_string_value(row, 'categoria')
+        if not categoria_nome:
+            erros.append(f"Linha {linha}: Categoria é obrigatória")
+        else:
+            categoria = self.obter_ou_criar_categoria(categoria_nome, empresa)
+            dados['categoria'] = categoria
+        
+        # Campos opcionais
+        dados['nome_comercial'] = self.get_string_value(row, 'nome_comercial') or nome_produto
+        dados['codigo_interno'] = self.get_string_value(row, 'codigo_interno') or codigo_barras
+        dados['estoque_atual'] = self.get_decimal_value(row, 'estoque_atual', 0)
+        dados['estoque_minimo'] = self.get_decimal_value(row, 'estoque_minimo', 1)
+        dados['estoque_maximo'] = self.get_decimal_value(row, 'estoque_maximo', 100)
+        dados['margem_lucro'] = self.get_decimal_value(row, 'margem_lucro', 0)
+        dados['desconto_percentual'] = self.get_decimal_value(row, 'desconto_percentual', 0)
+        dados['observacoes'] = self.get_string_value(row, 'observacoes', '')
+        dados['ativo'] = self.get_boolean_value(row, 'ativo', True)
+        
+        # Fabricante (opcional)
+        fabricante_nome = self.get_string_value(row, 'fabricante')
+        if fabricante_nome:
+            fabricante = self.obter_ou_criar_fabricante(fabricante_nome, empresa)
+            dados['fabricante'] = fabricante
+        
+        # Fornecedor (opcional)
+        fornecedor_nome = self.get_string_value(row, 'fornecedor')
+        if fornecedor_nome:
+            fornecedor = self.obter_fornecedor(fornecedor_nome, empresa)
+            if fornecedor:
+                dados['fornecedor'] = fornecedor
+        
+        return dados, erros
+
+    def criar_ou_atualizar_produto(self, dados, empresa, atualizar_existentes):
+        """Cria ou atualiza um produto"""
+        codigo_barras = dados['codigo_barras']
+        
+        # Verificar se produto já existe
+        produto_existente = Produto.objects.filter(
+            codigo_barras=codigo_barras,
+            empresa=empresa
+        ).first()
+        
+        if produto_existente and atualizar_existentes:
+            # Atualizar produto existente
+            for campo, valor in dados.items():
+                if campo != 'empresa':
+                    setattr(produto_existente, campo, valor)
+            
+            produto_existente.empresa = empresa
+            produto_existente.save()
+            
+            return {
+                'produto': produto_existente,
+                'created': False,
+                'updated': True
+            }
+        
+        elif not produto_existente:
+            # Criar novo produto
+            dados['empresa'] = empresa
+            produto = Produto.objects.create(**dados)
+            
+            return {
+                'produto': produto,
+                'created': True,
+                'updated': False
+            }
+        
+        else:
+            # Produto existe mas não deve ser atualizado
+            return {
+                'produto': produto_existente,
+                'created': False,
+                'updated': False
+            }
+
+    def obter_ou_criar_categoria(self, nome, empresa):
+        """Obtém ou cria uma categoria"""
+        categoria, created = Categoria.objects.get_or_create(
+            nome=nome.strip(),
+            empresa=empresa,
+            defaults={
+                'ativa': True,
+                'descricao': f'Categoria importada: {nome}'
+            }
+        )
+        return categoria
+
+    def obter_ou_criar_fabricante(self, nome, empresa):
+        """Obtém ou cria um fabricante"""
+        fabricante, created = Fabricante.objects.get_or_create(
+            nome=nome.strip(),
+            empresa=empresa,
+            defaults={'ativo': True}
+        )
+        return fabricante
+
+    def obter_fornecedor(self, nome, empresa):
+        """Obtém um fornecedor existente"""
+        try:
+            return Fornecedor.objects.get(nome=nome.strip(), empresa=empresa)
+        except Fornecedor.DoesNotExist:
+            return None
+
+    # Métodos auxiliares para extração de dados
+    def get_string_value(self, row, column, default=''):
+        try:
+            value = row.get(column, default)
+            if pd.isna(value):
+                return default
+            return str(value).strip()
+        except:
+            return default
+
+    def get_decimal_value(self, row, column, default=None):
+        try:
+            value = row.get(column, default)
+            if pd.isna(value):
+                return default
+            return Decimal(str(value))
+        except:
+            return default
+
+    def get_boolean_value(self, row, column, default=False):
+        try:
+            value = row.get(column, default)
+            if pd.isna(value):
+                return default
+            
+            if isinstance(value, bool):
+                return value
+            
+            value_str = str(value).lower().strip()
+            return value_str in ['1', 'true', 'sim', 'yes', 'ativo', 'verdadeiro']
+        except:
+            return default
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Importar Produtos via Excel'
+        
+        # Adicionar resultado da sessão se existir
+        resultado = self.request.session.pop('resultado_importacao', None)
+        if resultado:
+            context['resultado'] = resultado
+        
+        return context
+    
