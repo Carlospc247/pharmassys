@@ -1865,7 +1865,10 @@ def finalizar_venda_api(request):
                     desconto_item = to_decimal(item.get('desconto_item', "0.00"))
 
                     subtotal_item = (preco_unitario * quantidade) - desconto_item
-                    iva_item = subtotal_item * (produto.iva_percentual / Decimal('100.00'))
+                    # Garante que o campo iva_percentual não é None
+                    iva_percentual = produto.iva_percentual if produto.iva_percentual is not None else Decimal('0.00')
+                    iva_item = subtotal_item * (iva_percentual / Decimal('100.00'))
+
                     total_item = subtotal_item + iva_item
 
                     subtotal_final += subtotal_item
