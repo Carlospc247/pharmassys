@@ -180,24 +180,40 @@ CELERY_RESULT_BACKEND_USE_SSL = {"ssl_cert_reqs": None}
 # =========================================
 
 
-import os
-import dj_database_url
 
 # =========================================
 # DATABASE (Postgres no Render)
 # =========================================
-DATABASE_URL = os.getenv("DATABASE_URL")
+#DATABASE_URL = os.getenv("DATABASE_URL")
 
-if not DATABASE_URL:
-    raise ValueError("Variável de ambiente DATABASE_URL não encontrada! Configure no Render.")
+#if not DATABASE_URL:
+#    raise ValueError("Variável de ambiente DATABASE_URL não encontrada! Configure no Render.")
 
+#DATABASES = {
+#    'default': dj_database_url.config(
+#        default=DATABASE_URL,
+#        conn_max_age=600,  # conexões persistentes
+#        ssl_require=True   # força SSL
+#    )
+#}
+# =========================================
+# Database (Postgres explícito)
+# =========================================
 DATABASES = {
-    'default': dj_database_url.config(
-        default=DATABASE_URL,
-        conn_max_age=600,  # conexões persistentes
-        ssl_require=True   # força SSL
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',  # Postgres
+        'NAME': 'vistogestpro_db',                   # Nome do banco
+        'USER': 'admin_master',                      # Usuário
+        'PASSWORD': 'y5qwcr5hcFu9AgnfcZOZViKWl9D35sds',  # Senha
+        'HOST': 'dpg-d3v3rkvdiees73emt0eg-a.oregon-postgres.render.com',  # Host do Render
+        'PORT': '5432',                              # Porta padrão Postgres
+        'OPTIONS': {
+            'sslmode': 'require',                    # SSL obrigatório no Render
+        },
+        'CONN_MAX_AGE': 600,                         # Reuso de conexões
+    }
 }
+
 
 
 
