@@ -54,6 +54,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.sites',
     'django.contrib.humanize',
+    'cloudinary',
+    'cloudinary_storage',
 
     # Terceiros
     'rest_framework',
@@ -172,13 +174,14 @@ CELERY_RESULT_BACKEND_USE_SSL = {"ssl_cert_reqs": None}
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'vistogestpro_db',
-        'USER': 'admin_master',
-        'PASSWORD': 'y5qwcr5hcFu9AgnfcZOZViKWl9D35sds',
-        'HOST': 'dpg-d3v3rkvdiees73emt0eg-a.oregon-postgres.render.com',
-        'PORT': 5432,
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT', 5432),
     }
 }
+
 
 # =========================================
 # Templates
@@ -224,20 +227,41 @@ USE_TZ = True
 # =========================================
 # Arquivos estáticos e de mídia
 # =========================================
+# =========================================
+# Cloudinary
+# =========================================
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
+    'SECURE': True,
+}
+
+
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+# =========================================
+# Arquivos estáticos e de mídia
+# =========================================
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# MEDIA_ROOT = BASE_DIR / 'media'  # desativado, pois Cloudinary lida com media
 
 # =========================================
-# Segurança
+# Segurança dinâmica
 # =========================================
-SECURE_SSL_REDIRECT = True
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
-X_FRAME_OPTIONS = 'DENY'
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+else:
+    SECURE_SSL_REDIRECT = False
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
+
 
 # =========================================
 # Email
@@ -247,7 +271,7 @@ EMAIL_HOST = 'smtp.exemplo.com'
 EMAIL_PORT = 465
 EMAIL_USE_SSL = True
 EMAIL_HOST_USER = 'geral@vistogest.pro'
-EMAIL_HOST_PASSWORD = '@C@rlos#$%666'
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL="VistoGest <geral@vistogest.pro>"
 SUPPORT_EMAIL='suporte@vistogest.pro'
 #DEFAULT_FROM_EMAIL = 'no-reply@example.com
@@ -268,12 +292,12 @@ ACCOUNT_EMAIL_VERIFICATION = "mandatory"  # exige verificação por email
 # =========================================
 # CORS
 # =========================================
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:8000',
+CSRF_TRUSTED_ORIGINS = [
     'https://vistogest.pro',
     'https://www.vistogest.pro',
-    'https://vistogestpro.onrender.com'
+    'https://vistogestpro.onrender.com',
 ]
+
 
 # =========================================
 # Redis / Celery
