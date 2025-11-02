@@ -14,7 +14,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import Permission
 from apps.core.models import TimeStampedModel
-
+from cloudinary.models import CloudinaryField
 
 
 
@@ -377,7 +377,9 @@ class Funcionario(TimeStampedModel):
     observacoes = models.TextField(blank=True)
     observacoes_rh = models.TextField(blank=True, help_text="Observações confidenciais do RH")
 
-    foto = models.ImageField(upload_to='funcionarios/fotos/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+    #foto = models.ImageField(upload_to='funcionarios/fotos/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+    foto = CloudinaryField('foto', blank=True, null=True)
+
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='funcionarios')
 

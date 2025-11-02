@@ -5,6 +5,13 @@ from django.core.management.utils import get_random_secret_key
 from celery.schedules import crontab
 from datetime import timedelta
 import dj_database_url
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+from cloudinary.storage import RawMediaCloudinaryStorage
+from cloudinary_storage.storage import MediaCloudinaryStorage
+from cloudinary_storage.storage import StaticHashedCloudinaryStorage
+
 
 # =========================================
 # Diretórios base
@@ -233,24 +240,27 @@ USE_TZ = True
 # =========================================
 # Cloudinary
 # =========================================
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
-    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
-    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
-    'SECURE': True,
-}
+# Configurações Cloudinary
+cloudinary.config(
+    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.getenv('CLOUDINARY_API_KEY'),
+    api_secret=os.getenv('CLOUDINARY_API_SECRET')
+)
 
+# Media e Static files
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-
-# =========================================
-# Arquivos estáticos e de mídia
-# =========================================
-STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = 'cloudinary_storage.storage.StaticHashedCloudinaryStorage'
 
 MEDIA_URL = '/media/'
-# MEDIA_ROOT = BASE_DIR / 'media'  # desativado, pois Cloudinary lida com media
+STATIC_URL = '/static/'
+
+
+#CLOUDINARY_STORAGE = {
+#    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
+#    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
+#    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
+#    'SECURE': True,
+#}
 
 # =========================================
 # Segurança dinâmica

@@ -7,7 +7,7 @@ from apps.core.models import TimeStampedModel
 from decimal import Decimal
 from datetime import date, datetime, timedelta
 import uuid
-
+from cloudinary.models import CloudinaryField
 from pharmassys import settings
 
 
@@ -88,7 +88,8 @@ class Fornecedor(TimeStampedModel):
     categoria = models.CharField(max_length=20, choices=CATEGORIA_CHOICES, default='distribuidor')
     porte = models.CharField(max_length=10, choices=PORTE_CHOICES, default='medio')
     
-    foto = models.ImageField(upload_to='fornecedores/fotos/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+    #foto = models.ImageField(upload_to='fornecedores/fotos/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+    foto = CloudinaryField('foto', blank=True, null=True)
     
     # Documentos
     nif_bi = models.CharField(

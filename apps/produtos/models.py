@@ -7,7 +7,7 @@ from django.utils.html import format_html
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from apps.core.models import Empresa, TimeStampedModel, Categoria
-
+from cloudinary.models import CloudinaryField
 
 
 
@@ -74,8 +74,9 @@ class Produto(TimeStampedModel):
     preco_venda = models.DecimalField(max_digits=10, decimal_places=2)
     margem_lucro = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
-    foto = models.ImageField(upload_to='produtos/fotos/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
-    
+    #foto = models.ImageField(upload_to='produtos/fotos/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+    foto = CloudinaryField('foto', blank=True, null=True)
+
     # Status
     ativo = models.BooleanField(default=True)
 

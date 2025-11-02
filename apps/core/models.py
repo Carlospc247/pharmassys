@@ -2,7 +2,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.contrib.auth.models import AbstractUser
-
+from cloudinary.models import CloudinaryField
 
 
 
@@ -57,7 +57,8 @@ class Empresa(models.Model):
     telefone = models.CharField(max_length=20)
     email = models.EmailField()
 
-    foto = models.ImageField(upload_to='core/empresa/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+    #foto = models.ImageField(upload_to='core/empresa/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+    foto = CloudinaryField('foto', blank=True, null=True)
 
     # Status
     ativa = models.BooleanField(default=True)
@@ -105,8 +106,8 @@ class Loja(TimeStampedModel):
         ('ZAI', 'Zaire'),
     ])
 
-    foto = models.ImageField(upload_to='core/loja/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
-
+    #foto = models.ImageField(upload_to='core/loja/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+    foto = CloudinaryField('foto', blank=True, null=True)
     
     # Contato
     telefone = models.CharField(max_length=20, blank=True)
@@ -144,8 +145,8 @@ class Usuario(AbstractUser):
         help_text="Se marcado, este utilizador pode gerir todas as lojas e utilizadores da sua empresa."
     )
 
-    foto = models.ImageField(upload_to='core/usuario/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
-
+    #foto = models.ImageField(upload_to='core/usuario/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+    foto = CloudinaryField('foto', blank=True, null=True)
 
     class Meta:
         verbose_name = 'Usuário'

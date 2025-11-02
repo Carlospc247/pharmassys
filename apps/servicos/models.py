@@ -19,6 +19,9 @@ from decimal import Decimal
 from apps.core.models import TimeStampedModel, Empresa, Usuario, Categoria, Loja
 from apps.clientes.models import Cliente
 from apps.funcionarios.models import Funcionario
+from cloudinary.models import CloudinaryField
+
+
 
 # =====================================
 # MODELO 1: O CATÁLOGO DE SERVIÇOS
@@ -43,7 +46,9 @@ class Servico(TimeStampedModel):
     instrucoes_padrao = models.TextField(blank=True, help_text="Instruções para o cliente ou para o funcionário.")
     ativo = models.BooleanField(default=True)
     
-    foto = models.ImageField(upload_to='servicos/fotos/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+    #foto = models.ImageField(upload_to='servicos/fotos/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+    foto = CloudinaryField('foto', blank=True, null=True)
+
 
     #campos para Servico
     nome = models.CharField(max_length=255, blank=True, null=True)
