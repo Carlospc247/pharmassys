@@ -62,7 +62,7 @@ class Cliente(TimeStampedModel):
     email = models.EmailField(blank=True)
     
 
-    foto = models.ImageField(upload_to='clientes/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+    foto = models.ImageField(upload_to='clientes/fotos/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
     
 
     # Dados comerciais

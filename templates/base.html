@@ -1336,9 +1336,10 @@
                     <div x-data="{ open: false }" class="relative">
                         <button @click="open = !open" type="button" class="flex items-center -m-1.5 p-1.5">
                             <span class="sr-only">Abrir menu do usuário</span>
-                            <img class="h-8 w-8 rounded-full bg-gray-50"
-                                src="{{ user.funcionario.foto.url }}"
+                            <img src="{{ user.funcionario.foto.url|default:'https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png' }}"
+                                class="h-8 w-8 rounded-full bg-gray-50"
                                 alt="{{ user.get_full_name|default:user.username }}">
+
 
                             <span class="hidden lg:flex lg:items-center">
                                 <span class="ml-4 text-sm font-semibold leading-6 text-gray-900 dark:text-gray-100">{{ user.get_full_name|default:user.username }}</span>

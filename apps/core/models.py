@@ -57,7 +57,7 @@ class Empresa(models.Model):
     telefone = models.CharField(max_length=20)
     email = models.EmailField()
 
-    foto = models.ImageField(upload_to='core/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+    foto = models.ImageField(upload_to='core/empresa/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
 
     # Status
     ativa = models.BooleanField(default=True)
@@ -105,7 +105,7 @@ class Loja(TimeStampedModel):
         ('ZAI', 'Zaire'),
     ])
 
-    foto = models.ImageField(upload_to='core/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+    foto = models.ImageField(upload_to='core/loja/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
 
     
     # Contato
@@ -144,7 +144,7 @@ class Usuario(AbstractUser):
         help_text="Se marcado, este utilizador pode gerir todas as lojas e utilizadores da sua empresa."
     )
 
-    foto = models.ImageField(upload_to='core/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+    foto = models.ImageField(upload_to='core/usuario/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
 
 
     class Meta:
