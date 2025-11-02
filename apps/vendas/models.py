@@ -154,11 +154,11 @@ class Venda(TimeStampedModel):
 
         # Só gera hash e numeração se for uma nova venda finalizada
         if is_new and self.status == 'finalizada':
-            from fiscal.services import FaturaFiscalService
+            from fiscal.models import DocumentoFiscal
 
-            service = FaturaFiscalService(empresa=self.empresa)
+            service = DocumentoFiscal(empresa=self.empresa)
             numero, hash_doc, atcud_doc = service.assinar_e_numerar_documento(
-                documento_tipo='FR',
+                tipo_documento='FR',
                 total_liquido=self.total,
                 data_emissao=self.data_venda
             )

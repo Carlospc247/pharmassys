@@ -4,7 +4,7 @@ import django
 from django.core.management.utils import get_random_secret_key
 from celery.schedules import crontab
 from datetime import timedelta
-
+import dj_database_url
 
 # =========================================
 # Diretórios base
@@ -171,16 +171,19 @@ CELERY_RESULT_BACKEND_USE_SSL = {"ssl_cert_reqs": None}
 # Database
 # =========================================
 # =========================================
+
+
+
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT', 5432),
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=True
+        )
     }
-}
 
 
 # =========================================
