@@ -180,17 +180,25 @@ CELERY_RESULT_BACKEND_USE_SSL = {"ssl_cert_reqs": None}
 # =========================================
 
 
+import os
+import dj_database_url
 
-
+# =========================================
+# DATABASE (Postgres no Render)
+# =========================================
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+if not DATABASE_URL:
+    raise ValueError("Variável de ambiente DATABASE_URL não encontrada! Configure no Render.")
+
 DATABASES = {
-        'default': dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=600,
-            ssl_require=True
-        )
-    }
+    'default': dj_database_url.config(
+        default=DATABASE_URL,
+        conn_max_age=600,  # conexões persistentes
+        ssl_require=True   # força SSL
+    )
+}
+
 
 
 # =========================================
