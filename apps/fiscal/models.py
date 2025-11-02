@@ -217,6 +217,7 @@ class DocumentoFiscal(TimeStampedModel):
         ('FR', 'Fatura-Recibo'),
         ('NC', 'Nota de Crédito'),
         ('ND', 'Nota de Débito'),
+        ('DT', 'Documento de Transporte'),
         ('VD', 'Venda a Dinheiro'),
         ('TV', 'Talão de Venda'),
         ('TD', 'Talão de Devolução'),

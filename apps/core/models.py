@@ -57,8 +57,8 @@ class Empresa(models.Model):
     telefone = models.CharField(max_length=20)
     email = models.EmailField()
 
-    foto = models.ImageField(upload_to='core/fotos/', null=True, blank=True, default='core/fotos/empresa.png')
-    
+    foto = models.ImageField(upload_to='core/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+
     # Status
     ativa = models.BooleanField(default=True)
     data_cadastro = models.DateTimeField(auto_now_add=True)
@@ -105,7 +105,8 @@ class Loja(TimeStampedModel):
         ('ZAI', 'Zaire'),
     ])
 
-    foto = models.ImageField(upload_to='core/fotos/', null=True, blank=True, default='core/fotos/loja.png')
+    foto = models.ImageField(upload_to='core/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+
     
     # Contato
     telefone = models.CharField(max_length=20, blank=True)
@@ -143,7 +144,8 @@ class Usuario(AbstractUser):
         help_text="Se marcado, este utilizador pode gerir todas as lojas e utilizadores da sua empresa."
     )
 
-    foto = models.ImageField(upload_to='core/fotos/', null=True, blank=True, default='core/fotos/usuario.png')
+    foto = models.ImageField(upload_to='core/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+
 
     class Meta:
         verbose_name = 'Usuário'
@@ -193,6 +195,17 @@ class ContadorDocumento(models.Model):
         ('NC', 'Nota de Crédito'),
         ('ND', 'Nota de Débito'),  
         ('DT', 'Documento de Transporte'),
+        ('VD', 'Venda a Dinheiro'),
+        ('TV', 'Talão de Venda'),
+        ('TD', 'Talão de Devolução'),
+        ('AA', 'Alienação de Ativos'),
+        ('DA', 'Devolução de Ativos'),
+        ('RP', 'Prémio ou Penalização'),
+        ('RE', 'Estorno ou Anulação'),
+        ('CS', 'Imputação a Co-Produtos'),
+        ('LD', 'Lançamentos Diversos'),
+        ('RA', 'Resseguro Aceite'),
+        ('RC', 'Resseguro Cedido'),
     ]
 
     empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE)

@@ -377,7 +377,7 @@ class Funcionario(TimeStampedModel):
     observacoes = models.TextField(blank=True)
     observacoes_rh = models.TextField(blank=True, help_text="Observações confidenciais do RH")
 
-    foto = models.ImageField(upload_to='funcionarios/fotos/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
+    foto = models.ImageField(upload_to='funcionarios/', null=True, blank=True, default='https://res.cloudinary.com/drb9m2gwz/image/upload/v1762087442/logo_wovikm.png')
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='funcionarios')
 

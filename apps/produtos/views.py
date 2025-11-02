@@ -329,7 +329,7 @@ class EditarProdutoView(LoginRequiredMixin, UpdateView):
     model = Produto
     form_class = ProdutoForm
     template_name = 'produtos/produto_form.html'
-    success_url = reverse_lazy('produtos:lista') # Redireciona para a lista de produtos
+    success_url = reverse_lazy('produtos:produto_list') # Redireciona para a lista de produtos
     pk_url_kwarg = 'produto_id' # Informa que o ID na URL é 'produto_id'
     acao_requerida = 'editar_produtos'
 
