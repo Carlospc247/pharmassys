@@ -111,10 +111,10 @@ INSTALLED_APPS = [
 # =========================================
 # Database (Render - PostgreSQL)
 # =========================================
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASES_URL = os.getenv("DATABASE_URL")
 DATABASES = {
     'default': dj_database_url.config(
-        default=DATABASE_URL,
+        default=DATABASES_URL,
         conn_max_age=600,
         ssl_require=True
     )
