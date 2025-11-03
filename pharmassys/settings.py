@@ -123,9 +123,14 @@ WSGI_APPLICATION = 'pharmassys.wsgi.application'
 # Database (Render - PostgreSQL)
 # =========================================
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise Exception("❌ Variável DATABASE_URL não encontrada no ambiente Render!")
+
 DATABASES = {
-    'default': dj_database_url.config(
-        env='DATABASE_URL',
+    'default': dj_database_url.parse(
+        DATABASE_URL,
         conn_max_age=600,
         ssl_require=True
     )

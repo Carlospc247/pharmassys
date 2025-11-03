@@ -1,8 +1,7 @@
+# apps/analytics/utils.py
 import requests
 from django.conf import settings
-# Lembre-se que este import requer a biblioteca 'django-user-agents'
-# pip install django-user-agents
-# apps/analytics/utils.py
+
 from django.utils import timezone
 from apps.analytics.models import EventoAnalytics
 from django.utils import timezone
