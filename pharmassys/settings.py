@@ -107,8 +107,21 @@ INSTALLED_APPS = [
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-DATABASES = {'default'{'ENGINE':'dj_database_url.config(default=DATABASE_URL,conn_max_age=600,ssl_require=True)'}'}
 
+# =========================================
+# Database (Render - PostgreSQL)
+
+
+if not DATABASE_URL:
+    raise ValueError("❌ A variável de ambiente DATABASE_URL não foi encontrada no Render!")
+
+DATABASES = {
+    'default': dj_database_url.config(
+        default=DATABASE_URL,
+        conn_max_age=600,  # mantém conexões persistentes
+        ssl_require=True   # exige SSL (obrigatório no Render)
+    )
+}
 
 # =========================================
 # Cloudinary
