@@ -106,29 +106,27 @@ INSTALLED_APPS = [
 # =========================================
 
 
-DATABASE_URL = os.environ.get('DATABASE_URL')
 
-if DATABASE_URL:
 
-    DATABASES = {
-        'default': dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=600,
-            ssl_require=True  # Essencial para Render Postgres
-        )
-    }
-else:
-    # Configuração de base de dados local/SQLite para DEBUG=True
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+# =========================================
+# Database (Render - PostgreSQL)
+# =========================================
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# PODE ADICIONAR ESTA LINHA PARA UMA VERIFICAÇÃO EXTRA
-if not DATABASES['default'].get('ENGINE'):
-    raise ImproperlyConfigured("A configuração da Base de Dados falhou. Verifique DATABASE_URL.")
+if not DATABASE_URL:
+    raise ValueError("❌ Variável de ambiente DATABASE_URL não encontrada no Render!")
+
+# Corrige automaticamente URLs antigas com 'postgres://'
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+DATABASES = {
+    'default': dj_database_url.config(
+        default=DATABASE_URL,
+        conn_max_age=600,
+        ssl_require=True
+    )
+}
 
 # =========================================
 # Cloudinary
