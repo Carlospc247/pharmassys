@@ -69,7 +69,6 @@ pipreqs==0.4.13
 prompt_toolkit==3.0.52
 propcache==0.4.1
 psutil==7.1.0
-psycopg2-binary==2.9.11
 pycparser==2.23
 pydyf==0.11.0
 PyJWT==2.10.1
@@ -115,3 +114,6 @@ yarg==0.1.10
 yarl==1.20.1
 zipp==3.23.0
 zopfli==0.2.3.post1
+# Banco de dados
+dj-database-url>=2.1.0
+psycopg[binary]>=3.2.1
