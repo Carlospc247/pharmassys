@@ -97,6 +97,47 @@ INSTALLED_APPS = [
     'apps.compras',
 ]
 
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'vistogestpro_db',
+        'USER': 'admin_master',
+        'PASSWORD': 'y5qwcr5hcFu9AgnfcZOZViKWl9D35sds',
+        'HOST': 'dpg-d3v3rkvdiees73emt0eg-a.oregon-postgres.render.com',
+        'PORT': '5432',
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
+    }
+}
+
+Arquivos estáticos e de mídia
+# =========================================
+# =========================================
+# Cloudinary
+# =========================================
+# Configurações Cloudinary
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
+    'SECURE': True,
+}
+
+
+# Media e Static files
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+STATICFILES_STORAGE = 'cloudinary_storage.storage.StaticHashedCloudinaryStorage'
+
+MEDIA_URL = '/media/'
+STATIC_URL = '/static/'
+
+
+
+
+
 # =========================================
 # Middleware
 # =========================================
@@ -200,19 +241,7 @@ CELERY_RESULT_BACKEND_USE_SSL = {"ssl_cert_reqs": None}
 # Database (Postgres explícito)
 # =========================================
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',  # ESSENCIAL
-        'NAME': 'vistogestpro_db',                  # Nome do banco
-        'USER': 'admin_master',                     # Usuário
-        'PASSWORD': 'y5qwcr5hcFu9AgnfcZOZViKWl9D35sds',  # Senha
-        'HOST': 'dpg-d3v3rkvdiees73emt0eg-a.oregon-postgres.render.com',  # Host do Render
-        'PORT': '5432',                             # Porta padrão Postgres
-        'OPTIONS': {
-            'sslmode': 'require',                   # Obrigatório no Render
-        },
-    }
-}
+
 
 
 # =========================================
@@ -256,33 +285,6 @@ TIME_ZONE = 'Africa/Luanda'
 USE_I18N = True
 USE_TZ = True
 
-# =========================================
-# Arquivos estáticos e de mídia
-# =========================================
-# =========================================
-# Cloudinary
-# =========================================
-# Configurações Cloudinary
-cloudinary.config(
-    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
-    api_key=os.getenv('CLOUDINARY_API_KEY'),
-    api_secret=os.getenv('CLOUDINARY_API_SECRET')
-)
-
-# Media e Static files
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-STATICFILES_STORAGE = 'cloudinary_storage.storage.StaticHashedCloudinaryStorage'
-
-MEDIA_URL = '/media/'
-STATIC_URL = '/static/'
-
-
-#CLOUDINARY_STORAGE = {
-#    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
-#    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
-#    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
-#    'SECURE': True,
-#}
 
 # =========================================
 # Segurança dinâmica
