@@ -11,6 +11,9 @@ from cloudinary.storage import RawMediaCloudinaryStorage
 from cloudinary_storage.storage import MediaCloudinaryStorage
 from cloudinary_storage.storage import StaticHashedCloudinaryStorage
 import dj_database_url
+import dj_database_url
+import os
+
 
 # =========================================
 # Diretórios base
@@ -124,20 +127,36 @@ WSGI_APPLICATION = 'pharmassys.wsgi.application'
 # Database (Render - PostgreSQL)
 # =========================================
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+#DATABASE_URL = os.getenv("DATABASE_URL")
 
-if not DATABASE_URL:
-    raise Exception("❌ Variável DATABASE_URL não encontrada no ambiente Render!")
+#if not DATABASE_URL:
+#    raise Exception("❌ Variável DATABASE_URL não encontrada no ambiente Render!")
 
-DATABASES = {
-    'default': dj_database_url.parse(
-        DATABASE_URL,
-        conn_max_age=600,
-        ssl_require=True
-    )
-}
+#DATABASES = {
+#    'default': dj_database_url.parse(
+#        DATABASE_URL,
+#        conn_max_age=600,
+#        ssl_require=True
+#    )
+#}
 
+IS_RENDER = os.getenv("RENDER") == "true"
 
+if IS_RENDER:
+    DATABASE_URL = os.getenv("DATABASE_URL_INTERNAL")
+else:
+    DATABASE_URL = os.getenv("DATABASE_URL_EXTERNAL")
+
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=True
+        )
+    }
+else:
+    raise Exception("❌ DATABASE_URL não encontrada! Configure DATABASE_URL_INTERNAL ou DATABASE_URL_EXTERNAL")
 
 # =========================================
 # Cloudinary
