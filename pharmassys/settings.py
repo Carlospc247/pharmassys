@@ -111,10 +111,10 @@ INSTALLED_APPS = [
 # =========================================
 # Database (Render - PostgreSQL)
 # =========================================
-
+DATABASE_URL = os.getenv("DATABASE_URL")
 DATABASES = {
     'default': dj_database_url.config(
-        default='postgresql://admin_master:y5qwcr5hcFu9AgnfcZOZViKWl9D35sds@dpg-d3v3rkvdiees73emt0eg-a.oregon-postgres.render.com:5432/vistogestpro_db',
+        default=DATABASE_URL,
         conn_max_age=600,
         ssl_require=True
     )
