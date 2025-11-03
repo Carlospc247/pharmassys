@@ -101,18 +101,34 @@ INSTALLED_APPS = [
 # =========================================
 
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+# =========================================
+# Database (funciona tanto local como Render)
+# =========================================
 
-if not DATABASE_URL:
-    raise ValueError("❌ A variável de ambiente DATABASE_URL não foi encontrada no Render!")
 
-DATABASES = {
-    'default': dj_database_url.config(
-        default=DATABASE_URL,
-        conn_max_age=600,  # mantém conexões persistentes
-        ssl_require=True   # exige SSL (obrigatório no Render)
-    )
-}
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL:
+
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=True  # Essencial para Render Postgres
+        )
+    }
+else:
+    # Configuração de base de dados local/SQLite para DEBUG=True
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+
+# PODE ADICIONAR ESTA LINHA PARA UMA VERIFICAÇÃO EXTRA
+if not DATABASES['default'].get('ENGINE'):
+    raise ImproperlyConfigured("A configuração da Base de Dados falhou. Verifique DATABASE_URL.")
 
 # =========================================
 # Cloudinary
@@ -317,4 +333,3 @@ REST_FRAMEWORK = {
 # =========================================
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'core.Usuario'
-
