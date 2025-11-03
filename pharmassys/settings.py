@@ -22,6 +22,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # =========================================
 SECRET_KEY = os.getenv('SECRET_KEY', get_random_secret_key())
 #DEBUG = os.getenv("DEBUG", "False") == "True"
+print("DATABASE_URL:", os.getenv("DATABASE_URL"))
 
 #ALLOWED_HOSTS = [
 #    'localhost',
