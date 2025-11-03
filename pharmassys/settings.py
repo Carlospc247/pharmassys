@@ -199,22 +199,20 @@ CELERY_RESULT_BACKEND_USE_SSL = {"ssl_cert_reqs": None}
 # =========================================
 # Database (Postgres explícito)
 # =========================================
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',  # Postgres
-        'NAME': 'vistogestpro_db',                   # Nome do banco
-        'USER': 'admin_master',                      # Usuário
+        'ENGINE': 'django.db.backends.postgresql',  # ESSENCIAL
+        'NAME': 'vistogestpro_db',                  # Nome do banco
+        'USER': 'admin_master',                     # Usuário
         'PASSWORD': 'y5qwcr5hcFu9AgnfcZOZViKWl9D35sds',  # Senha
         'HOST': 'dpg-d3v3rkvdiees73emt0eg-a.oregon-postgres.render.com',  # Host do Render
-        'PORT': '5432',                              # Porta padrão Postgres
+        'PORT': '5432',                             # Porta padrão Postgres
         'OPTIONS': {
-            'sslmode': 'require',                    # SSL obrigatório no Render
+            'sslmode': 'require',                   # Obrigatório no Render
         },
-        'CONN_MAX_AGE': 600,                         # Reuso de conexões
     }
 }
-
-
 
 
 # =========================================
