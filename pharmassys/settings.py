@@ -111,22 +111,15 @@ INSTALLED_APPS = [
 # =========================================
 # Database (Render - PostgreSQL)
 # =========================================
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-if not DATABASE_URL:
-    raise ValueError("❌ Variável de ambiente DATABASE_URL não encontrada no Render!")
-
-# Corrige automaticamente URLs antigas com 'postgres://'
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 DATABASES = {
     'default': dj_database_url.config(
-        default=DATABASE_URL,
+        default='postgresql://admin_master:y5qwcr5hcFu9AgnfcZOZViKWl9D35sds@dpg-d3v3rkvdiees73emt0eg-a.oregon-postgres.render.com:5432/vistogestpro_db',
         conn_max_age=600,
         ssl_require=True
     )
 }
+
 
 # =========================================
 # Cloudinary
