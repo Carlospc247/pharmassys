@@ -96,20 +96,12 @@ INSTALLED_APPS = [
     'apps.compras',
 ]
 
-
-
-
 # =========================================
 # Database (funciona tanto local como Render)
 # =========================================
 
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-
-
-# =========================================
-# Database (Render - PostgreSQL)
-
 
 if not DATABASE_URL:
     raise ValueError("❌ A variável de ambiente DATABASE_URL não foi encontrada no Render!")
@@ -216,37 +208,6 @@ CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_BROKER_USE_SSL = {"ssl_cert_reqs": None}
 CELERY_RESULT_BACKEND_USE_SSL = {"ssl_cert_reqs": None}
-
-
-
-
-# =========================================
-# Database
-# =========================================
-# =========================================
-
-
-
-# =========================================
-# DATABASE (Postgres no Render)
-# =========================================
-#DATABASE_URL = os.getenv("DATABASE_URL")
-
-#if not DATABASE_URL:
-#    raise ValueError("Variável de ambiente DATABASE_URL não encontrada! Configure no Render.")
-
-#DATABASES = {
-#    'default': dj_database_url.config(
-#        default=DATABASE_URL,
-#        conn_max_age=600,  # conexões persistentes
-#        ssl_require=True   # força SSL
-#    )
-#}
-# =========================================
-# Database (Postgres explícito)
-# =========================================
-
-
 
 
 # =========================================
