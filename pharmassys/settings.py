@@ -104,31 +104,11 @@ INSTALLED_APPS = [
 # Database (funciona tanto local como Render)
 # =========================================
 
-# Tenta pegar do ambiente (Render define DATABASE_URL automaticamente)
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Se o Render não passar nada, usa a configuração explícita
-if DATABASE_URL:
-    DATABASES = {
-        'default': dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=600,
-            ssl_require=True
-        )
-    }
-else:
-    print("⚠️ Nenhum DATABASE_URL detectado — usando configuração PostgreSQL explícita local.")
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'vistogestpro_db',
-            'USER': 'admin_master',
-            'PASSWORD': 'y5qwcr5hcFu9AgnfcZOZViKWl9D35sds',
-            'HOST': 'dpg-d3v3rkvdiees73emt0eg-a.oregon-postgres.render.com',
-            'PORT': '5432',
-            'OPTIONS': {'sslmode': 'require'},
-        }
-    }
+DATABASES = {'default'{'ENGINE':'dj_database_url.config(default=DATABASE_URL,conn_max_age=600,ssl_require=True)'}'}
+
 
 # =========================================
 # Cloudinary
