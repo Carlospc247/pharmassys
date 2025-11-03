@@ -4,14 +4,13 @@ import django
 from django.core.management.utils import get_random_secret_key
 from celery.schedules import crontab
 from datetime import timedelta
-import dj_database_url
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
 from cloudinary.storage import RawMediaCloudinaryStorage
 from cloudinary_storage.storage import MediaCloudinaryStorage
 from cloudinary_storage.storage import StaticHashedCloudinaryStorage
-
+import dj_database_url
 
 # =========================================
 # Diretórios base
@@ -142,9 +141,6 @@ STATICFILES_STORAGE = 'cloudinary_storage.storage.StaticHashedCloudinaryStorage'
 
 MEDIA_URL = '/media/'
 STATIC_URL = '/static/'
-
-
-
 
 
 # =========================================
@@ -294,7 +290,6 @@ TIME_ZONE = 'Africa/Luanda'
 USE_I18N = True
 USE_TZ = True
 
-
 # =========================================
 # Segurança dinâmica
 # =========================================
@@ -345,13 +340,6 @@ CSRF_TRUSTED_ORIGINS = [
 
 
 # =========================================
-# Redis / Celery
-# =========================================
-# KEY: REDIS_URL foi adicionada em enviroment no render e em Value adicionei o host que foi gerado automaticamente no upstash.
-
-
-
-# =========================================
 # REST Framework / JWT
 # =========================================
 REST_FRAMEWORK = {
@@ -368,3 +356,4 @@ REST_FRAMEWORK = {
 # =========================================
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'core.Usuario'
+
