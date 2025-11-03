@@ -96,16 +96,27 @@ INSTALLED_APPS = [
     'apps.compras',
 ]
 
-# =========================================
-# Database (funciona tanto local como Render)
-# =========================================
 
 
 # =========================================
-# Database (funciona tanto local como Render)
+# Middleware
 # =========================================
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
+    'apps.core.middleware.AccountsProfileRedirectMiddleware',
+]
 
-
+ROOT_URLCONF = 'pharmassys.urls'
+WSGI_APPLICATION = 'pharmassys.wsgi.application'
 
 
 # =========================================
@@ -141,27 +152,6 @@ STATICFILES_STORAGE = 'cloudinary_storage.storage.StaticHashedCloudinaryStorage'
 
 MEDIA_URL = '/media/'
 STATIC_URL = '/static/'
-
-
-# =========================================
-# Middleware
-# =========================================
-MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',
-    'apps.core.middleware.AccountsProfileRedirectMiddleware',
-]
-
-ROOT_URLCONF = 'pharmassys.urls'
-WSGI_APPLICATION = 'pharmassys.wsgi.application'
 
 # =========================================
 # Celery (tarefas agendadas)
