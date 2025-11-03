@@ -112,12 +112,11 @@ DATABASES = {
     }
 }
 
-#Arquivos estáticos e de mídia
 
 # =========================================
 # Cloudinary
 # =========================================
-# Configurações Cloudinary
+
 
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
