@@ -339,6 +339,11 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated'],
 }
 
+# Crispy Forms
+CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"  # se estiveres a usar tailwind
+CRISPY_TEMPLATE_PACK = "tailwind"
+#CRISPY_TEMPLATE_PACK = "bootstrap5"
+
 # =========================================
 # Configuração padrão de PK
 # =========================================
