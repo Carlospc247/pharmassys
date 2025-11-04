@@ -7,7 +7,7 @@ from datetime import timedelta
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
-from cloudinary.storage import RawMediaCloudinaryStorage
+from cloudinary_storage.storage import RawMediaCloudinaryStorage
 from cloudinary_storage.storage import MediaCloudinaryStorage
 from cloudinary_storage.storage import StaticHashedCloudinaryStorage
 import dj_database_url
