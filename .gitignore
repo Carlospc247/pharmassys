@@ -1,13 +1,20 @@
-[core]
-    repositoryformatversion = 0
-    filemode = true
-    bare = false
-    logallrefupdates = true
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
 
-[remote "origin"]
-    url = git@github.com:Carlospc247/vistogest-pro.git
-    fetch = +refs/heads/*:refs/remotes/origin/*
+# Environments
+venv/
+.env/
+*.env
 
-[branch "main"]
-    remote = origin
-    merge = refs/heads/main
+# Django
+db.sqlite3
+media/
+staticfiles/
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
