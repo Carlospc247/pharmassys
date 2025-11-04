@@ -9,4 +9,4 @@ def categorias_api(request):
     
     categorias = Categoria.objects.filter(empresa=user_empresa, ativa=True).order_by('nome')
     data = [{'id': c.id, 'nome': c.nome} for c in categorias]
-    return JsonResponse(data, safe=False)
+    return JsonResponse(data, safe=False)#
