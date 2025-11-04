@@ -1,6 +1,6 @@
 # apps/produtos/api_views.py
 from django.http import JsonResponse
-from core.models import Categoria
+from apps.core.models import Categoria
 
 def categorias_api(request):
     user_empresa = request.user.empresa
