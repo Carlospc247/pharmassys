@@ -115,4 +115,3 @@ yarg==0.1.10
 yarl==1.20.1
 zipp==3.23.0
 zopfli==0.2.3.post1
-cloudinary==1.33.0
