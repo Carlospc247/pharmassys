@@ -140,23 +140,25 @@ WSGI_APPLICATION = 'pharmassys.wsgi.application'
 #    )
 #}
 
-IS_RENDER = os.getenv("RENDER") == "true"
+import os
+import dj_database_url
 
-if IS_RENDER:
-    DATABASE_URL = os.getenv("DATABASE_URL_INTERNAL")
-else:
-    DATABASE_URL = os.getenv("DATABASE_URL_EXTERNAL")
+DATABASE_URL = (
+    os.environ.get("DATABASE_URL_INTERNAL")
+    or os.environ.get("DATABASE_URL_EXTERNAL")
+    or os.environ.get("DATABASE_URL")  # Render usa este
+)
 
-if DATABASE_URL:
-    DATABASES = {
-        'default': dj_database_url.parse(
-            DATABASE_URL,
-            conn_max_age=600,
-            ssl_require=True
-        )
-    }
-else:
-    raise Exception("❌ DATABASE_URL não encontrada! Configure DATABASE_URL_INTERNAL ou DATABASE_URL_EXTERNAL")
+if not DATABASE_URL:
+    raise Exception("❌ DATABASE_URL não encontrada! Configure DATABASE_URL, DATABASE_URL_INTERNAL ou DATABASE_URL_EXTERNAL")
+
+DATABASES = {
+    "default": dj_database_url.parse(
+        DATABASE_URL,
+        conn_max_age=600,
+        ssl_require=True  # força SSL (necessário no Render)
+    )
+}
 
 # =========================================
 # Cloudinary
