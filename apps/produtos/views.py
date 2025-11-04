@@ -57,6 +57,7 @@ from django.core.exceptions import ValidationError
 from apps.fornecedores.models import Fornecedor
 import openpyxl
 from openpyxl import Workbook
+from apps.core.models import Categoria
 
 
 
