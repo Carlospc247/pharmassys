@@ -9,7 +9,16 @@
     {# Assumindo que a view ou o contexto base passa o objeto 'fornecedor_atual' #}
     {% with fornecedor_atual=form.instance.fornecedor %}
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>Nova Avaliação para: <span class="text-primary">{{ fornecedor_atual.nome_exibicao|default:"Fornecedor (PK: {{ view.kwargs.pk }})" }}</span></h2>
+            <h2>Nova Avaliação para: 
+    <span class="text-primary">
+        {% if fornecedor_atual.nome_exibicao %}
+            {{ fornecedor_atual.nome_exibicao }}
+        {% else %}
+            Fornecedor (PK: {{ view.kwargs.pk }})
+        {% endif %}
+    </span>
+</h2>
+
         </div>
 
         <div class="card shadow-sm p-4">
