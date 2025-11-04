@@ -1,19 +1,16 @@
 # apps/produtos/forms.py
-from django import forms
 from .models import Produto, Lote, Categoria, Fabricante
-from django import forms
 from .models import Lote
 from django import forms
 from apps.core.models import Categoria  # Importa o modelo da app 'core'
-from django import forms
 from django.core.exceptions import ValidationError
 from apps.core.models import Categoria
-from django import forms
 from .models import Produto, Fabricante
 from apps.fornecedores.models import Fornecedor
-from django import forms
 from django.core.exceptions import ValidationError
 from apps.core.models import Categoria
+import openpyxl
+from openpyxl import Workbook
 
 
 
@@ -40,7 +37,7 @@ checkbox_classes = (
 
 
 
-from django import forms
+
 
 class ProdutoForm(forms.ModelForm):
     # Adicione o campo 'margem_lucro' aqui para que ele seja processado pelo formulário
