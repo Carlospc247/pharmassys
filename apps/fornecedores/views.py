@@ -27,6 +27,15 @@ from .api.serializers import (
 from django.contrib.auth.mixins import AccessMixin
 
 
+class EmpresaQuerysetMixin:
+    """
+    Filtra automaticamente queryset pelo usuário logado e sua empresa.
+    """
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if hasattr(self.request.user, "empresa"):
+            qs = qs.filter(empresa=self.request.user.empresa)
+        return qs
 
 
 class PermissaoAcaoMixin(AccessMixin):
@@ -293,7 +302,7 @@ class BaseFornecedorMixin(LoginRequiredMixin):
         return self.model.objects.filter(empresa=self.request.user.empresa)
 
 
-class FornecedorListView(BaseFornecedorMixin, ListView):
+class FornecedorListView(EmpresaQuerysetMixin, ListView):
     """
     Lista todos os fornecedores da empresa atual.
     Procura por template: fornecedores/fornecedor_list.html
@@ -302,7 +311,7 @@ class FornecedorListView(BaseFornecedorMixin, ListView):
     template_name = 'fornecedores/fornecedor_list.html'
     context_object_name = 'fornecedores' # Nome da lista no template
 
-class FornecedorDetailView(BaseFornecedorMixin, DetailView):
+class FornecedorDetailView(EmpresaQuerysetMixin, DetailView):
     """
     Exibe os detalhes de um fornecedor específico.
     Procura por template: fornecedores/fornecedor_detail.html
@@ -311,7 +320,7 @@ class FornecedorDetailView(BaseFornecedorMixin, DetailView):
     
     # Não precisa de get_queryset se usar BaseFornecedorMixin
 
-class FornecedorCreateView(BaseFornecedorMixin, CreateView):
+class FornecedorCreateView(EmpresaQuerysetMixin, CreateView):
     model = Fornecedor
     form_class = FornecedorForm
     template_name = 'fornecedores/fornecedor_form.html'
@@ -322,12 +331,12 @@ class FornecedorCreateView(BaseFornecedorMixin, CreateView):
         form.instance.empresa = self.request.user.empresa
         return super().form_valid(form)
 
-class FornecedorUpdateView(BaseFornecedorMixin, UpdateView):
+class FornecedorUpdateView(EmpresaQuerysetMixin, UpdateView):
    
     template_name = 'fornecedores/fornecedor_form.html'
     
 
-class FornecedorDeleteView(BaseFornecedorMixin, DeleteView):
+class FornecedorDeleteView(EmpresaQuerysetMixin, DeleteView):
     
     template_name = 'fornecedores/fornecedor_confirm_delete.html'
     success_url = SUCCESS_URL
@@ -421,7 +430,7 @@ class ContatoDeleteView(DeleteView):
 # =====================================
 # PEDIDOS DE COMPRA CRUD E STATUS
 # =====================================
-class PedidoCompraListView(ListView):
+class PedidoCompraListView(EmpresaQuerysetMixin, ListView):
     model = Pedido
     template_name = "pedidos/lista.html"
     context_object_name = "pedidos"
@@ -600,16 +609,7 @@ class RelatorioPagamentosView(TemplateView):
 # =====================================
 # IMPORTAÇÃO E EXPORTAÇÃO
 # =====================================
-class ImportarFornecedoresView(View):
-    def post(self, request):
-        # lógica de importação CSV/Excel
-        messages.success(request, "Fornecedores importados com sucesso.")
-        return redirect("fornecedores:lista")
 
-class ExportarFornecedoresView(View):
-    def get(self, request):
-        # lógica de exportação CSV/Excel
-        return HttpResponse("Exportação realizada", content_type="text/plain")
 
 # =====================================
 # AJAX
@@ -757,7 +757,7 @@ class ExportarFornecedoresView(View):
         ])
 
         # Dados
-        fornecedores = Fornecedor.objects.all().select_related('condicao_pagamento_padrao')
+        fornecedores = Fornecedor.objects.filter(empresa=self.request.user.empresa).select_related('condicao_pagamento_padrao')
         for f in fornecedores:
             writer.writerow([
                 f.codigo_fornecedor,
@@ -785,7 +785,8 @@ class BuscarFornecedorAjaxView(View):
         term = request.GET.get("q", "")
         # Usando 'razao_social' e 'nome_fantasia' para uma busca mais abrangente
         resultados = Fornecedor.objects.filter(
-            razao_social__icontains=term
+            razao_social__icontains=term,
+            empresa=self.request.user.empresa
         ).annotate(
             nome=F('razao_social') 
         ).values("id", "nome", "nif_bi")[:10] # Limitar a 10 resultados para performance
