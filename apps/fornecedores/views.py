@@ -285,7 +285,7 @@ from .models import Fornecedor
 # from .forms import FornecedorForm # Crie este formulário para as views de edição
 
 # Defina a URL de sucesso centralizada (muda se usar o Django 5.0 com success_url)
-SUCCESS_URL = reverse_lazy('fornecedores:lista_fornecedores') 
+SUCCESS_URL = reverse_lazy('fornecedores:lista') 
 
 # --- MIXINS CRÍTICOS (Garantir Segurança e Filtro por Empresa) ---
 
@@ -321,7 +321,7 @@ class FornecedorCreateView(EmpresaQuerysetMixin, CreateView):
     model = Fornecedor
     form_class = FornecedorForm
     template_name = 'fornecedores/fornecedor_form.html'
-    success_url = reverse_lazy('fornecedores:lista_fornecedores')
+    success_url = reverse_lazy('fornecedores:lista')
 
     def form_valid(self, form):
         # Associa o fornecedor à empresa do usuário logado
