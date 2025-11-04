@@ -32,10 +32,8 @@ class EmpresaQuerysetMixin:
     Filtra automaticamente queryset pelo usuário logado e sua empresa.
     """
     def get_queryset(self):
-        qs = super().get_queryset()
-        if hasattr(self.request.user, "empresa"):
-            qs = qs.filter(empresa=self.request.user.empresa)
-        return qs
+        qs = super().get_queryset()  # super() deve ser ListView com model definido
+        return qs.filter(empresa=self.request.user.empresa)
 
 
 class PermissaoAcaoMixin(AccessMixin):
@@ -303,13 +301,12 @@ class BaseFornecedorMixin(LoginRequiredMixin):
 
 
 class FornecedorListView(EmpresaQuerysetMixin, ListView):
-    """
-    Lista todos os fornecedores da empresa atual.
-    Procura por template: fornecedores/fornecedor_list.html
-    """
+    model = Fornecedor
     paginate_by = 25
     template_name = 'fornecedores/fornecedor_list.html'
-    context_object_name = 'fornecedores' # Nome da lista no template
+    context_object_name = 'fornecedores'
+
+
 
 class FornecedorDetailView(EmpresaQuerysetMixin, DetailView):
     """
