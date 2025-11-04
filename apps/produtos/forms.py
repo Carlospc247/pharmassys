@@ -172,7 +172,6 @@ class CategoriaForm(forms.ModelForm):
         return nome
 
 
-# apps/produtos/forms.py (adicionar ao arquivo existente)
 
 from django import forms
 from .models import Produto, Categoria, Fabricante

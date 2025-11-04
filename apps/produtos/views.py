@@ -27,7 +27,7 @@ from .models import (
     Categoria, Fabricante,
     Produto, Lote, HistoricoPreco
 )
-from .forms import LoteForm, ProdutoForm
+from .forms import ImportarProdutosForm, LoteForm, ProdutoForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
@@ -48,6 +48,14 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from apps.produtos.models import Produto
 from apps.core.models import Empresa
 from django.contrib.auth.mixins import AccessMixin
+import logging
+import pandas as pd
+from decimal import Decimal, InvalidOperation
+from django.utils import timezone
+from django.core.exceptions import ValidationError
+from apps.fornecedores.models import Fornecedor
+
+
 
 
 class PermissaoAcaoMixin(AccessMixin):
@@ -995,14 +1003,8 @@ def listar_categorias_api(request):
         }, status=500)
 
 
-# apps/produtos/views.py (substituir a ImportarProdutosView existente)
 
-import logging
-import pandas as pd
-from decimal import Decimal, InvalidOperation
-from django.utils import timezone
-from django.core.exceptions import ValidationError
-from apps.fornecedores.models import Fornecedor
+
 
 logger = logging.getLogger(__name__)
 
