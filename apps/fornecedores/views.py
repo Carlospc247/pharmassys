@@ -312,14 +312,14 @@ class FornecedorDetailView(BaseFornecedorMixin, DetailView):
     # Não precisa de get_queryset se usar BaseFornecedorMixin
 
 class FornecedorCreateView(BaseFornecedorMixin, CreateView):
-    
+    model = Fornecedor
+    form_class = FornecedorForm
     template_name = 'fornecedores/fornecedor_form.html'
-    
+    success_url = reverse_lazy('fornecedores:lista_fornecedores')
+
     def form_valid(self, form):
-        
-        # Associa o objeto Fornecedor à Empresa do usuário logado
+        # Associa o fornecedor à empresa do usuário logado
         form.instance.empresa = self.request.user.empresa
-        # A lógica de geração de código automático já está no modelo 'save()'
         return super().form_valid(form)
 
 class FornecedorUpdateView(BaseFornecedorMixin, UpdateView):

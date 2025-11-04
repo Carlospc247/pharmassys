@@ -27,6 +27,7 @@ from .models import (
     Categoria, Fabricante,
     Produto, Lote, HistoricoPreco
 )
+from django.db.models import Q
 from .forms import ImportarProdutosForm, LoteForm, ProdutoForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
@@ -1314,11 +1315,15 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
         return fabricante
 
     def obter_fornecedor(self, nome, empresa):
-        """Obtém um fornecedor existente"""
-        try:
-            return Fornecedor.objects.get(nome=nome.strip(), empresa=empresa)
-        except Fornecedor.DoesNotExist:
-            return None
+        """Obtém um fornecedor existente pelo nome fantasia ou razão social"""
+        nome_limpo = nome.strip()
+        return (
+            Fornecedor.objects.filter(
+                Q(nome_fantasia__iexact=nome_limpo) | Q(razao_social__iexact=nome_limpo),
+                empresa=empresa
+            ).first()
+        )
+
 
     # Métodos auxiliares para extração de dados
     def get_string_value(self, row, column, default=''):
