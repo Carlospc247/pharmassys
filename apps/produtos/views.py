@@ -1052,9 +1052,19 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
                         f"Importação concluída: {resultado['importados']} novos, {resultado['atualizados']} atualizados."
                     )
                 
-                # Armazenar resultado na sessão para mostrar na próxima página
-                self.request.session['resultado_importacao'] = resultado
+                # Transformar produtos em dados serializáveis antes de guardar na sessão
+                produtos_serializaveis = [
+                    {
+                        'id': p.id,
+                        'nome_produto': p.nome_produto,
+                        'codigo_barras': p.codigo_barras
+                    }
+                    for p in resultado.get('produtos_processados', [])
+                ]
                 
+                resultado['produtos_processados'] = produtos_serializaveis
+                self.request.session['resultado_importacao'] = resultado
+                    
             else:
                 messages.error(self.request, f"Erro na importação: {resultado['message']}")
                 
@@ -1063,6 +1073,7 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
             messages.error(self.request, f"Erro inesperado: {str(e)}")
         
         return super().form_valid(form)
+
 
     def processar_arquivo(self, arquivo, empresa, atualizar_existentes, validar_apenas):
         """Processa o arquivo Excel/CSV e retorna resultado detalhado"""
@@ -1368,4 +1379,7 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
             context['resultado'] = resultado
         
         return context
+
+
+   
     
