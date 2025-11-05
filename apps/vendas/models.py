@@ -1794,13 +1794,13 @@ class NotaDebito(TimeStampedModel):
         'funcionarios.Funcionario',
         on_delete=models.SET_NULL,
         null=True, blank=True,
-        related_name='notas_credito_aplicadas'
+        related_name='notas_debito_aplicadas'
     )
     aprovada_por = models.ForeignKey(
         'funcionarios.Funcionario',
         on_delete=models.SET_NULL,
         null=True, blank=True,
-        related_name='notas_credito_aprovadas'
+        related_name='notas_debito_aprovadas'
     )
     data_aprovacao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Aprovação")
 

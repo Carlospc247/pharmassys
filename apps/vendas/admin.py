@@ -254,12 +254,11 @@ class NotaCreditoAdmin(admin.ModelAdmin):
         'total', 'status', 'data_emissao', 'get_status_badge'
     )
     list_filter = (
-        'status', 'motivo', 'data_nota', 'empresa', 'requer_aprovacao'
+        'status', 'data_nota', 'empresa', 'requer_aprovacao'
     )
     search_fields = (
         'numero_nota', 'cliente__nome_completo', 'cliente__nif',
-        'descricao_motivo', 'venda_origem__numero_venda', 
-        'fatura_credito_origem__numero_fatura'
+        'venda_origem__numero_venda', 'fatura_credito_origem__numero_fatura'
     )
     readonly_fields = (
         'numero_nota', 'created_at', 'updated_at', 'data_aplicacao',
@@ -427,7 +426,7 @@ class DocumentoTransporteAdmin(admin.ModelAdmin):
         'get_status_badge', 'get_atraso_badge'
     )
     list_filter = (
-        'status', 'tipo_operacao', 'tipo_transporte', 'data_emissao', 
+        'status', 'tipo_operacao', 'tipo_transporte', 'data_documento', 
         'destinatario_provincia', 'empresa'
     )
     search_fields = (
