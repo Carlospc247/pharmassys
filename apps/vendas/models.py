@@ -1588,21 +1588,17 @@ class NotaCredito(TimeStampedModel):
 
     # ✅ Campos de aprovação/aplicação
     requer_aprovacao = models.BooleanField(default=False, verbose_name="Requer Aprovação?")
-    aprovada_por = models.ForeignKey(
-        'funcionarios.Funcionario',
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='notas_debito_aprovadas',
-        verbose_name="Aprovada por"
-    )
-    data_aprovacao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Aprovação")
-
     aplicada_por = models.ForeignKey(
         'funcionarios.Funcionario',
         on_delete=models.SET_NULL,
         null=True, blank=True,
-        related_name='notas_debito_aplicadas',
-        verbose_name="Aplicada por"
+        related_name='notas_credito_aplicadas'
+    )
+    aprovada_por = models.ForeignKey(
+        'funcionarios.Funcionario',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='notas_credito_aprovadas'
     )
     data_aplicacao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Aplicação")
 
@@ -1794,24 +1790,21 @@ class NotaDebito(TimeStampedModel):
 
     # ✅ Campos de aprovação/aplicação
     requer_aprovacao = models.BooleanField(default=False, verbose_name="Requer Aprovação?")
-    aprovada_por = models.ForeignKey(
-        'funcionarios.Funcionario',
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='notas_debito_aprovadas',
-        verbose_name="Aprovada por"
-    )
-    data_aprovacao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Aprovação")
-
     aplicada_por = models.ForeignKey(
         'funcionarios.Funcionario',
         on_delete=models.SET_NULL,
         null=True, blank=True,
-        related_name='notas_debito_aplicadas',
-        verbose_name="Aplicada por"
+        related_name='notas_credito_aplicadas'
     )
-    data_aplicacao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Aplicação")
+    aprovada_por = models.ForeignKey(
+        'funcionarios.Funcionario',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='notas_credito_aprovadas'
+    )
+    data_aprovacao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Aprovação")
 
+    
 
     tem_fatura = models.BooleanField(default=False)
     tem_recibo = models.BooleanField(default=False)
