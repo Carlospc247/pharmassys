@@ -1895,7 +1895,6 @@ class ItemNotaDebito(TimeStampedModel):
     def __str__(self):
         return f"{self.descricao_item} - Qtd: {self.quantidade}"
 
-
 class DocumentoTransporte(TimeStampedModel):
     """Documento de Transporte (GT) - Documento que acompanha mercadorias em trânsito"""
     TIPO_TRANSPORTE_CHOICES = [
@@ -2187,7 +2186,7 @@ class DocumentoTransporte(TimeStampedModel):
         self.data_inicio_transporte = timezone.now()
         self.save()
 
-   
+
 
 class ItemDocumentoTransporte(TimeStampedModel):
     """Itens do Documento de Transporte"""
