@@ -251,7 +251,7 @@ class ItemNotaCreditoInline(admin.TabularInline):
 class NotaCreditoAdmin(admin.ModelAdmin):
     list_display = (
         'numero_nota', 'cliente', 'get_documento_origem', 'motivo', 
-        'total_credito', 'status', 'data_emissao', 'get_status_badge'
+        'total', 'status', 'data_emissao', 'get_status_badge'
     )
     list_filter = (
         'status', 'motivo', 'data_emissao', 'empresa', 'requer_aprovacao'
@@ -279,7 +279,7 @@ class NotaCreditoAdmin(admin.ModelAdmin):
             'fields': ('motivo', 'descricao_motivo', 'observacoes')
         }),
         ('Valores', {
-            'fields': ('subtotal_credito', 'iva_credito', 'total_credito')
+            'fields': ('subtotal_credito', 'iva_credito', 'total')
         }),
         ('Aprovação', {
             'fields': ('requer_aprovacao', 'aprovada_por', 'data_aprovacao'),
@@ -337,7 +337,7 @@ class ItemNotaDebitoInline(admin.TabularInline):
 class NotaDebitoAdmin(admin.ModelAdmin):
     list_display = (
         'numero_nota', 'cliente', 'get_documento_origem', 'motivo', 
-        'total_debito', 'valor_pendente', 'status', 'data_vencimento', 'get_status_badge'
+        'total', 'valor_pendente', 'status', 'data_vencimento', 'get_status_badge'
     )
     list_filter = (
         'status', 'motivo', 'data_emissao', 'data_vencimento', 'empresa', 'requer_aprovacao'
@@ -365,7 +365,7 @@ class NotaDebitoAdmin(admin.ModelAdmin):
             'fields': ('motivo', 'descricao_motivo', 'data_vencimento', 'observacoes')
         }),
         ('Valores', {
-            'fields': ('subtotal_debito', 'iva_debito', 'total_debito', 'valor_pago')
+            'fields': ('subtotal_debito', 'iva_debito', 'total', 'valor_pago')
         }),
         ('Aprovação', {
             'fields': ('requer_aprovacao', 'aprovada_por', 'data_aprovacao'),

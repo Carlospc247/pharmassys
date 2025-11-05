@@ -517,12 +517,12 @@ from apps.produtos.models import Produto
 
 class NotaCreditoForm(forms.ModelForm):
     """Form para criar/editar Nota de Crédito"""
-    
+
     class Meta:
         model = NotaCredito
         fields = [
             'venda_origem', 'fatura_credito_origem', 'cliente', 'vendedor',
-            'observacoes', 'tota'
+            'observacoes', 'total'
         ]
         widgets = {
             'venda_origem': forms.Select(attrs={
@@ -537,15 +537,6 @@ class NotaCreditoForm(forms.ModelForm):
             }),
             'vendedor': forms.Select(attrs={
                 'class': 'text-base w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white'
-            }),
-            'motivo': forms.Select(attrs={
-                'class': 'text-base w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white',
-                'required': True
-            }),
-            'descricao_motivo': forms.Textarea(attrs={
-                'class': 'text-base w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white',
-                'rows': 4,
-                'placeholder': 'Descreva detalhadamente o motivo da emissão desta nota de crédito...'
             }),
             'observacoes': forms.Textarea(attrs={
                 'class': 'text-base w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white',
@@ -563,57 +554,57 @@ class NotaCreditoForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         empresa = kwargs.pop('empresa', None)
         super().__init__(*args, **kwargs)
-        
+
         if empresa:
-            # Filtrar opções por empresa
-            self.fields['cliente'].queryset = Cliente.objects.filter(empresa=empresa, ativo=True)
-            
-            # Vendedores da empresa
+            if 'cliente' in self.fields:
+                self.fields['cliente'].queryset = Cliente.objects.filter(empresa=empresa, ativo=True)
             try:
                 from apps.funcionarios.models import Funcionario
-                self.fields['vendedor'].queryset = Funcionario.objects.filter(empresa=empresa, ativo=True)
+                if 'vendedor' in self.fields:
+                    self.fields['vendedor'].queryset = Funcionario.objects.filter(empresa=empresa, ativo=True)
             except ImportError:
                 pass
-            
-            # Vendas e faturas da empresa
+
             from .models import Venda, FaturaCredito
-            self.fields['venda_origem'].queryset = Venda.objects.filter(
-                empresa=empresa, 
-                status='finalizada'
-            ).order_by('-data_venda')
-            
-            try:
-                self.fields['fatura_credito_origem'].queryset = FaturaCredito.objects.filter(
-                    empresa=empresa
-                ).order_by('-data_emissao')
-            except:
-                self.fields['fatura_credito_origem'].queryset = FaturaCredito.objects.none()
+            if 'venda_origem' in self.fields:
+                self.fields['venda_origem'].queryset = Venda.objects.filter(
+                    empresa=empresa, status='finalizada'
+                ).order_by('-data_venda')
+            if 'fatura_credito_origem' in self.fields:
+                try:
+                    self.fields['fatura_credito_origem'].queryset = FaturaCredito.objects.filter(
+                        empresa=empresa
+                    ).order_by('-data_emissao')
+                except:
+                    self.fields['fatura_credito_origem'].queryset = FaturaCredito.objects.none()
 
     def clean(self):
         cleaned_data = super().clean()
         venda_origem = cleaned_data.get('venda_origem')
         fatura_credito_origem = cleaned_data.get('fatura_credito_origem')
         total = cleaned_data.get('total')
-        
-        # Validação: deve ter pelo menos uma origem
+
+        # Deve haver uma origem
         if not venda_origem and not fatura_credito_origem:
             raise ValidationError("Selecione uma Venda (FR) ou Fatura a Crédito (FT) de origem.")
-        
-        # Validação: não pode ter ambas
+
+        # Não pode haver ambas
         if venda_origem and fatura_credito_origem:
             raise ValidationError("Selecione apenas uma origem: Venda OU Fatura a Crédito, não ambas.")
-        
-        # Validação: valor do crédito não pode ser maior que o documento origem
+
+        # Valor do crédito não pode ser maior que o documento origem
         documento_origem = venda_origem or fatura_credito_origem
         if documento_origem and total:
-            valor_origem = documento_origem.total if hasattr(documento_origem, 'total') else documento_origem.total_faturado
-            if total > valor_origem:
-                raise ValidationError(f"O valor do crédito (Kz {total}) não pode ser maior que o valor do documento de origem (Kz {valor_origem}).")
-        
-        # Auto-preencher cliente se não selecionado
+            valor_origem = getattr(documento_origem, 'total', getattr(documento_origem, 'total_faturado', None))
+            if valor_origem and total > valor_origem:
+                raise ValidationError(
+                    f"O valor do crédito (Kz {total}) não pode ser maior que o documento de origem (Kz {valor_origem})."
+                )
+
+        # Auto-preenche cliente se não selecionado
         if documento_origem and not cleaned_data.get('cliente'):
             cleaned_data['cliente'] = documento_origem.cliente
-        
+
         return cleaned_data
 
 
@@ -682,7 +673,7 @@ class NotaDebitoForm(forms.ModelForm):
         model = NotaDebito
         fields = [
             'venda_origem', 'fatura_credito_origem', 'cliente', 'vendedor',
-            'data_vencimento', 'observacoes', 'total_debito'
+            'data_vencimento', 'observacoes', 'total'
         ]
         widgets = {
             'venda_origem': forms.Select(attrs={
@@ -697,15 +688,6 @@ class NotaDebitoForm(forms.ModelForm):
             }),
             'vendedor': forms.Select(attrs={
                 'class': 'text-base w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white'
-            }),
-            'motivo': forms.Select(attrs={
-                'class': 'text-base w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white',
-                'required': True
-            }),
-            'descricao_motivo': forms.Textarea(attrs={
-                'class': 'text-base w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white',
-                'rows': 4,
-                'placeholder': 'Descreva detalhadamente o motivo da emissão desta nota de débito...'
             }),
             'data_vencimento': forms.DateInput(attrs={
                 'class': 'text-base w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white',

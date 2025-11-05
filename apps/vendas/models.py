@@ -1560,7 +1560,9 @@ class NotaCredito(TimeStampedModel):
     total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     troco = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     valor_pago = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
-    
+    motivo = models.CharField(max_length=255, blank=True, null=True)
+    descricao_motivo = models.TextField(blank=True, null=True)
+
     hash_documento = models.CharField(
         max_length=256, 
         unique=True, 
