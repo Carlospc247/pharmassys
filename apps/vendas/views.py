@@ -23,6 +23,7 @@ from apps.configuracoes.models import DadosBancarios, PersonalizacaoInterface
 from apps.core.utils import gerar_qr_fatura
 from apps.core.views import BaseMPAView
 from apps.financeiro.models import ContaBancaria, MovimentoCaixa
+from apps.fiscal.services import DocumentoFiscalService
 from apps.funcionarios.models import Funcionario
 from apps.produtos.models import Produto
 from apps.servicos.models import Servico
@@ -1949,7 +1950,8 @@ def finalizar_venda_api(request):
                 status='finalizada',
                 observacoes=data.get('observacoes', '')
             )
-            nova_venda.save()
+            nova_venda.save(criar_documento=False)  # evita que o save da model tente criar o documento sozinho
+
             print(f"Venda criada com sucesso. ID: {nova_venda.id}")
 
             print("\nEtapa 3: Criando Itens da Venda e atualizando estoque (produtos).")
@@ -1985,6 +1987,41 @@ def finalizar_venda_api(request):
                         desconto_item=item['desconto_item'],
                         total=item['total_item']
                     )
+            
+
+            # 3.5. CRIAR DOCUMENTO FISCAL
+            linhas_documento = []
+
+            for item in nova_venda.itens.all():  # pega todos os itens da venda
+                linhas_documento.append({
+                    "produto": item.produto,  # None se for serviço
+                    "descricao": item.nome_produto or item.nome_servico,
+                    "quantidade": item.quantidade,
+                    "preco_unitario": item.preco_unitario,
+                    "desconto": item.desconto_item,
+                    "iva_percentual": item.iva_percentual,
+                    "total": item.total,
+                    "tax_type": "IVA",  # ou pega de item.produto/servico se tiveres
+                    "tax_code": "NOR",  # ajustar conforme regra do teu negócio
+                    "tipo_item": "P" if item.produto else "S",
+                    "codigo_item": item.produto.codigo_interno if item.produto else None,
+                })
+
+            documento = DocumentoFiscalService.criar_documento(
+                empresa=empresa,
+                tipo_documento="FT",  # Fatura
+                cliente=cliente,
+                usuario=request.user,
+                linhas=linhas_documento,
+                dados_extra={'data_emissao': nova_venda.data_venda, 'valor_total': total_final}
+            )
+
+            # Atualizar venda com os dados do documento fiscal
+            nova_venda.numero_venda = documento.numero
+            nova_venda.hash_documento = documento.hash_documento
+            nova_venda.atcud = documento.atcud
+            nova_venda.save(update_fields=['numero_venda', 'hash_documento', 'atcud'])
+
 
 
             # 4. Pagamento e Pontos
@@ -3233,135 +3270,6 @@ def documentos_dashboard_view(request):
     
     return render(request, 'vendas/documentos_dashboard.html', context)
 
-@login_required
-def faturas_recibo_lista(request):
-    funcionario = request.user.funcionario
-    if not funcionario.pode_realizar_acao('ver_vendas'):
-         return JsonResponse({'success': False, 'message': 'Você não tem permissão para ver lista de faturas FR.'}, status=403)
-    
-    """Lista das Faturas Recibo (vendas do PDV)"""
-    vendas = Venda.objects.filter(
-        empresa=request.user.empresa
-    ).select_related('cliente', 'forma_pagamento').order_by('-data_venda')
-    
-    context = {
-        'vendas': vendas,
-        'title': 'Faturas Recibo (FR)'
-    }
-    return render(request, 'vendas/faturas_recibo_lista.html', context)
-
-@login_required
-def faturas_credito_lista(request):
-    funcionario = request.user.funcionario
-    if not funcionario.permissoes_cargo.get('emitir_faturacredito', False):
-        return JsonResponse({'success': False, 'message': 'Sem permissão para acessar faturas a crédito.'}, status=403)
-    
-    try:
-        faturas = FaturaCredito.objects.filter(
-            empresa=request.user.empresa
-        ).select_related('cliente').order_by('-data_emissao')
-    except:
-        faturas = []
-    
-    context = {
-        'faturas': faturas,
-        'title': 'Faturas a Crédito (FT)'
-    }
-    return render(request, 'vendas/faturas_credito_lista.html', context)
-
-@login_required
-def recibos_lista(request):
-    funcionario = request.user.funcionario
-    if not funcionario.pode_realizar_acao('emitir_recibo'):
-         return JsonResponse({'success': False, 'message': 'Você não tem permissão para ver lista de recibos.'}, status=403)
-    
-    """Lista dos Recibos"""
-    try:
-        recibos = Recibo.objects.filter(
-            empresa=request.user.empresa
-        ).select_related('fatura__cliente').order_by('-data_recibo')
-    except:
-        recibos = []
-    
-    context = {
-        'recibos': recibos,
-        'title': 'Recibos (REC)'
-    }
-    return render(request, 'vendas/recibos_lista.html', context)
-
-@login_required
-def proformas_lista(request):
-    funcionario = request.user.funcionario
-    if not funcionario.pode_realizar_acao('emitir_proforma'):
-         return JsonResponse({'success': False, 'message': 'Você não tem permissão para ver lista proformas.'}, status=403)
-    
-    """Lista das Proformas"""
-    try:
-        proformas = FaturaProforma.objects.filter(
-            empresa=request.user.empresa
-        ).select_related('cliente').order_by('-data_emissao')
-    except:
-        proformas = []
-    
-    context = {
-        'proformas': proformas,
-        'title': 'Proformas'
-    }
-    return render(request, 'vendas/proformas_lista.html', context)
-
-
-
-    """API para finalizar uma Proforma"""
-    try:
-        data = json.loads(request.body)
-        
-        # Validações básicas
-        if not data.get('cliente_id'):
-            return JsonResponse({'success': False, 'message': 'Cliente é obrigatório para proformas'})
-        
-        if not data.get('data_validade'):
-            return JsonResponse({'success': False, 'message': 'Data de validade é obrigatória'})
-        
-        with transaction.atomic():
-            # Criar a Proforma
-            proforma = FaturaProforma.objects.create(
-                empresa=request.user.empresa,
-                cliente_id=data['cliente_id'],
-                data_validade=data['data_validade'],
-                subtotal=Decimal(str(data.get('subtotal', 0))),
-                desconto_global=Decimal(str(data.get('desconto_global', 0))),
-                iva_valor=Decimal(str(data.get('iva_valor', 0))),
-                total=Decimal(str(data.get('total', 0))),
-                observacoes=data.get('observacoes', '')
-            )
-            
-            # Criar os itens da proforma
-            for item_data in data.get('itens', []):
-                ItemProforma.objects.create(
-                    proforma=proforma,
-                    produto_id=item_data.get('produto_id'),
-                    servico_id=item_data.get('servico_id'),
-                    quantidade=Decimal(str(item_data.get('quantidade', 1))),
-                    preco_unitario=Decimal(str(item_data.get('preco_unitario', 0))),
-                    desconto_item=Decimal(str(item_data.get('desconto_item', 0))),
-                    iva_percentual=Decimal(str(item_data.get('iva_percentual', 0))),
-                    iva_valor=Decimal(str(item_data.get('iva_valor', 0))),
-                    total=Decimal(str(item_data.get('total', 0)))
-                )
-        
-        return JsonResponse({
-            'success': True,
-            'message': 'Proforma criada com sucesso!',
-            'proforma_id': proforma.id,
-            'numero_proforma': proforma.numero_proforma
-        })
-        
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Erro ao criar proforma: {str(e)}'
-        })
-
 
 
 @csrf_exempt
@@ -3794,45 +3702,6 @@ def _converter_para_fatura_recibo(proforma, user):
     
     return venda
 
-def _converter_para_fatura_credito(proforma, user):
-    funcionario = request.user.funcionario
-    if not funcionario.pode_realizar_acao('emitir_faturacredito'):
-         return JsonResponse({'success': False, 'message': 'Você não tem permissão para emitir fatura crédito.'}, status=403)
-    
-    """Converte uma proforma em uma Fatura a Crédito"""
-    
-    # Criar a fatura a crédito (assumindo vencimento em 30 dias)
-    data_vencimento = timezone.now().date() + timedelta(days=30)
-    
-    fatura_credito = FaturaCredito.objects.create(
-        empresa=proforma.empresa,
-        cliente=proforma.cliente,
-        data_vencimento=data_vencimento,
-        subtotal=proforma.subtotal,
-        iva_valor=proforma.iva_valor,
-        total_faturado=proforma.total,
-        observacoes=f'Convertido da Proforma {proforma.numero_proforma}'
-    )
-    
-    # Converter itens da proforma
-    for item_proforma in proforma.itens.all():
-        ItemFatura.objects.create(
-            fatura=fatura_credito,
-            produto=item_proforma.produto,
-            servico=item_proforma.servico,
-            nome_item=item_proforma.produto.nome_produto if item_proforma.produto else (
-                item_proforma.servico.nome if item_proforma.servico else 'Item'
-            ),
-            quantidade=item_proforma.quantidade,
-            preco_unitario=item_proforma.preco_unitario,
-            desconto_item=item_proforma.desconto_item,
-            subtotal=item_proforma.total - item_proforma.iva_valor,
-            iva_percentual=item_proforma.iva_percentual,
-            iva_valor=item_proforma.iva_valor,
-            total=item_proforma.total
-        )
-    
-    return fatura_credito
 
 @csrf_exempt
 @require_http_methods(["POST"])

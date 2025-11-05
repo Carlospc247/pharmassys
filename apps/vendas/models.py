@@ -148,26 +148,28 @@ class Venda(TimeStampedModel):
     tem_fatura_proforma = models.BooleanField(default=False)
 
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, criar_documento=True, **kwargs):
         is_new = self._state.adding  # True se for um novo objeto
         super().save(*args, **kwargs)
 
         # Só gera hash e numeração se for uma nova venda finalizada
-        if is_new and self.status == 'finalizada':
-            from apps.fiscal.models import DocumentoFiscal
+        # e criar_documento=True (ou seja, fora da view finalizando venda)
+        if criar_documento and is_new and self.status == 'finalizada':
+            from apps.fiscal.services import DocumentoFiscalService
 
-            service = DocumentoFiscal(empresa=self.empresa)
-            numero, hash_doc, atcud_doc = service.assinar_e_numerar_documento(
+            service = DocumentoFiscalService()
+            documento = service.criar_documento(
+                empresa=self.empresa,
                 tipo_documento='FR',
-                total_liquido=self.total,
-                data_emissao=self.data_venda
+                cliente=self.cliente,
+                usuario=self.vendedor.user,
+                linhas=[],  # linhas reais serão montadas na view
+                dados_extra={'data_emissao': self.data_venda, 'valor_total': self.total},
             )
 
-            self.numero_venda = numero
-            self.hash_documento = hash_doc
-            self.atcud = atcud_doc
-
-            # Salva novamente apenas os campos alterados
+            self.numero_venda = documento.numero
+            self.hash_documento = documento.hash_documento
+            self.atcud = documento.atcud
             super().save(update_fields=['numero_venda', 'hash_documento', 'atcud'])
 
 
@@ -1091,142 +1093,213 @@ def verificar_meta_vencida(sender, instance, **kwargs):
         instance.status = 'finalizada'
         instance.save(update_fields=['status'])    
 
-class FaturaCredito(models.Model):
-    """
-    Representa uma Fatura (FT) de venda a crédito, gerando uma dívida.
-    """
+
+
+
+class FaturaCredito(TimeStampedModel):
+    """Fatura de Crédito (FT) - Documento de venda a crédito"""
+    TIPO_FATURA_CHOICES = [
+        ('credito', 'Crédito'),
+        ('prazo', 'A Prazo'),
+        ('parcelada', 'Parcelada'),
+        ('outros', 'Outros'),
+    ]
+    
+    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='faturas_credito')
+    loja = models.ForeignKey('core.Loja', on_delete=models.SET_NULL, null=True, blank=True)
+    cliente = models.ForeignKey('clientes.Cliente', on_delete=models.SET_NULL, null=True, blank=True)
+    vendedor = models.ForeignKey('funcionarios.Funcionario', on_delete=models.SET_NULL, null=True, blank=True, related_name='faturas_credito')
+    forma_pagamento = models.ForeignKey('vendas.FormaPagamento', on_delete=models.PROTECT, default=1)
+    
+    iva_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Valor do IVA")
+    
+    # Identificação
+    numero_fatura = models.CharField(max_length=200, unique=True, verbose_name="Nº Fatura")
+    tipo_fatura = models.CharField(max_length=20, choices=TIPO_FATURA_CHOICES, default='credito')
+    observacoes = models.TextField(blank=True, null=True)
+
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    desconto_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    troco = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    valor_pago = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    
+    hash_documento = models.CharField(
+        max_length=256, 
+        unique=True, 
+        null=True, 
+        blank=True,
+        verbose_name="Hash Criptográfico (SAF-T)"
+    )
+    atcud = models.CharField(
+        max_length=100, 
+        null=True, 
+        blank=True,
+        verbose_name="ATCUD (Código Único do Documento)"
+    )
+    
+    data_fatura = models.DateTimeField(auto_now_add=True)
+    data_vencimento = models.DateField(verbose_name="Data de Vencimento")
+
+    # Status
     STATUS_CHOICES = [
-        ('pendente', 'Pendente'),
+        ('emitida', 'Emitida'),
         ('parcial', 'Pago Parcialmente'),
         ('liquidada', 'Liquidada'),
         ('cancelada', 'Cancelada'),
+        ('vencida', 'Vencida'),
     ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='emitida')
 
-    # Relações
-    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='faturas_credito')
-    cliente = models.ForeignKey('clientes.Cliente', on_delete=models.PROTECT, related_name='faturas')
-    
-    # Identificação e Numeração (FT)
-    numero_fatura = models.CharField(max_length=200, unique=True, verbose_name="Número da Fatura (FT)")
-    data_emissao = models.DateTimeField(default=timezone.now)
-    data_vencimento = models.DateField(verbose_name="Data de Vencimento")
-    # No modelo FaturaCredito
-    vendedor = models.ForeignKey(
-        'funcionarios.Funcionario', 
-        on_delete=models.SET_NULL, 
-        null=True, blank=True, 
-        related_name='faturas_credito_emitidas' # Novo related_name
-    )
-    # Valores
-    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
-    iva_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
-    total_faturado = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
-    
-    # Rastreamento de Dívida
-    valor_pago = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Total Recebido")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pendente')
+    tem_fatura = models.BooleanField(default=True)
+    tem_recibo = models.BooleanField(default=False)
+    tem_nota_liquidacao = models.BooleanField(default=False)
+    tem_fatura_proforma = models.BooleanField(default=False)
 
-    observacoes = models.TextField(blank=True, null=True)
-
-    def save(self, *args, **kwargs):
-        if not self.pk:
-            # Geração do número FT (Fatura)
-            TIPO_DOCUMENTO = 'FT' 
-            try:
-                # Usa o serviço centralizado para gerar o número FT
-                self.numero_fatura = gerar_numero_documento(self.empresa, TIPO_DOCUMENTO)
-            except Exception as e:
-                raise Exception(f"Falha na geração do número FT: {e}")
-        
+    def save(self, *args, criar_documento=True, **kwargs):
+        is_new = self._state.adding
         super().save(*args, **kwargs)
 
-    def valor_pendente(self):
-        """Calcula o saldo devedor."""
-        return self.total_faturado - self.valor_pago
-    
+        if criar_documento and is_new and self.status == 'emitida':
+            from apps.fiscal.services import DocumentoFiscalService
+
+            service = DocumentoFiscalService()
+            documento = service.criar_documento(
+                empresa=self.empresa,
+                tipo_documento='FT',
+                cliente=self.cliente,
+                usuario=self.vendedor.user if self.vendedor else None,
+                linhas=[],
+                dados_extra={'data_emissao': self.data_fatura, 'valor_total': self.total},
+            )
+
+            self.numero_fatura = documento.numero
+            self.hash_documento = documento.hash_documento
+            self.atcud = documento.atcud
+            super().save(update_fields=['numero_fatura', 'hash_documento', 'atcud'])
+
     def __str__(self):
-        # CORRIGIDO: Deve retornar a identificação da Fatura (FT)
-        return f"Fatura {self.numero_fatura}" 
+        return f"Fatura {self.numero_fatura}"
 
     class Meta:
-        # CORRIGIDO: Nomenclatura correta
-        verbose_name = 'Fatura Crédito' 
-        verbose_name_plural = 'Faturas Crédito'
+        verbose_name = 'Fatura de Crédito'
+        verbose_name_plural = 'Faturas de Crédito'
+    
+    def desconto_percentual(self):
+        if self.subtotal > Decimal('0.00'):
+            return (self.desconto_valor / self.subtotal) * Decimal('100.00')
+        return Decimal('0.00')
+    
+    def margem_lucro_total(self):
+        return self.total - sum(item.produto.preco_custo * item.quantidade for item in self.itens.all() if item.produto)
+    
+    def quantidade_itens(self):
+        return self.itens.count()
+    
+    def valor_pendente(self):
+        """Calcula o saldo devedor."""
+        return self.total - self.valor_pago
 
-        permissions = [
-            ("liquidar_faturacredito", "Pode liquidar Faturas a Crédito"),
-        ]
 
-class Recibo(models.Model):
-    """
-    Representa um Recibo (REC), prova de pagamento, ligando-se a uma Fatura de Crédito.
-    """
+
+class Recibo(TimeStampedModel):
+    """Recibo (REC) - Documento de quitação de pagamento"""
+    TIPO_RECIBO_CHOICES = [
+        ('pagamento_fatura', 'Pagamento de Fatura'),
+        ('prestacao_servico', 'Prestação de Serviço'),
+        ('venda_avulsa', 'Venda Avulsa'),
+        ('outros', 'Outros'),
+    ]
+    
     empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='recibos')
-    fatura = models.ForeignKey(FaturaCredito, on_delete=models.PROTECT, related_name='recibos', verbose_name="Fatura a Liquidar")
+    loja = models.ForeignKey('core.Loja', on_delete=models.SET_NULL, null=True, blank=True)
+    cliente = models.ForeignKey('clientes.Cliente', on_delete=models.SET_NULL, null=True, blank=True)
+    vendedor = models.ForeignKey('funcionarios.Funcionario', on_delete=models.SET_NULL, null=True, blank=True, related_name='recibos')
+    forma_pagamento = models.ForeignKey('vendas.FormaPagamento', on_delete=models.PROTECT, default=1)
     
-    # Identificação e Numeração (REC)
-    numero_recibo = models.CharField(max_length=200, unique=True, verbose_name="Número do Recibo (REC)")
-    data_recibo = models.DateTimeField(default=timezone.now)
-
-    # Valores
-    valor_recebido = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Valor Recebido")
-    forma_pagamento = models.ForeignKey(FormaPagamento, on_delete=models.PROTECT, verbose_name="Forma de Pagamento")
-    # No modelo FaturaCredito
+    iva_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Valor do IVA")
     
+    # Identificação
+    numero_recibo = models.CharField(max_length=200, unique=True, verbose_name="Nº Recibo")
+    tipo_recibo = models.CharField(max_length=20, choices=TIPO_RECIBO_CHOICES, default='venda_avulsa')
     observacoes = models.TextField(blank=True, null=True)
 
-    def save(self, *args, **kwargs):
-        if not self.pk:
-            # Geração do número REC (Recibo)
-            TIPO_DOCUMENTO = 'REC' 
-            try:
-                # Usa o serviço centralizado para gerar o número REC
-                self.numero_recibo = gerar_numero_documento(self.empresa, TIPO_DOCUMENTO)
-            except Exception as e:
-                raise Exception(f"Falha na geração do número REC: {e}")
-            
-        super().save(*args, **kwargs)
-        
-        # Lógica PIONEIRA (Obrigatória): Atualizar o status da Fatura
-        self._atualizar_status_fatura()
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    desconto_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    troco = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    valor_pago = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    
+    hash_documento = models.CharField(
+        max_length=256, 
+        unique=True, 
+        null=True, 
+        blank=True,
+        verbose_name="Hash Criptográfico (SAF-T)"
+    )
+    atcud = models.CharField(
+        max_length=100, 
+        null=True, 
+        blank=True,
+        verbose_name="ATCUD (Código Único do Documento)"
+    )
+    
+    data_recibo = models.DateTimeField(auto_now_add=True)
 
-    def _atualizar_status_fatura(self):
-        """Atualiza o total pago na Fatura e o seu status."""
-        
-        # 1. Trava a Fatura para evitar concorrência
-        fatura = FaturaCredito.objects.select_for_update().get(pk=self.fatura.pk)
-        
-        # 2. Atualiza o valor pago total
-        fatura.valor_pago += self.valor_recebido
-        
-        # 3. Define o status
-        saldo_devedor = fatura.total_faturado - fatura.valor_pago
-        
-        if saldo_devedor <= Decimal('0.00'):
-            fatura.status = 'liquidada'
-        elif fatura.valor_pago > Decimal('0.00'):
-            fatura.status = 'parcial'
-        else:
-            fatura.status = 'pendente'
-            
-        fatura.save()
+    # Status
+    STATUS_CHOICES = [
+        ('emitido', 'Emitido'),
+        ('cancelado', 'Cancelado'),
+        ('pendente', 'Pendente'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='emitido')
+
+    tem_fatura = models.BooleanField(default=False)
+    tem_recibo = models.BooleanField(default=True)
+    tem_nota_liquidacao = models.BooleanField(default=False)
+    tem_fatura_proforma = models.BooleanField(default=False)
+
+    def save(self, *args, criar_documento=True, **kwargs):
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+
+        if criar_documento and is_new and self.status == 'emitido':
+            from apps.fiscal.services import DocumentoFiscalService
+
+            service = DocumentoFiscalService()
+            documento = service.criar_documento(
+                empresa=self.empresa,
+                tipo_documento='REC',
+                cliente=self.cliente,
+                usuario=self.vendedor.user if self.vendedor else None,
+                linhas=[],
+                dados_extra={'data_emissao': self.data_recibo, 'valor_total': self.total},
+            )
+
+            self.numero_recibo = documento.numero
+            self.hash_documento = documento.hash_documento
+            self.atcud = documento.atcud
+            super().save(update_fields=['numero_recibo', 'hash_documento', 'atcud'])
 
     def __str__(self):
-        return f"Recibo {self.fatura}"
-    
-    @property
-    def cliente(self):
-        """
-        Propriedade de compatibilidade. Garante que qualquer função que espere 
-        Recibo.cliente (como o seu gerador QR) consiga aceder ao cliente
-        da fatura liquidada.
-        """
-        # Retorna o cliente que está na Fatura (FaturaCredito) que este Recibo liquida.
-        return self.fatura.cliente
+        return f"Recibo {self.numero_recibo}"
 
     class Meta:
         verbose_name = 'Recibo'
         verbose_name_plural = 'Recibos'
+    
+    def desconto_percentual(self):
+        if self.subtotal > Decimal('0.00'):
+            return (self.desconto_valor / self.subtotal) * Decimal('100.00')
+        return Decimal('0.00')
+    
+    def margem_lucro_total(self):
+        return self.total - sum(item.produto.preco_custo * item.quantidade for item in self.itens.all() if item.produto)
+    
+    def quantidade_itens(self):
+        return self.itens.count()
+
+
 
 class ItemFatura(models.Model):
     """
@@ -1301,90 +1374,108 @@ class ItemFatura(models.Model):
         verbose_name = 'Item da Fatura de Crédito'
         verbose_name_plural = 'Itens da Fatura de Crédito'
 
-class FaturaProforma(models.Model):
-    """
-    Representa uma Fatura Proforma (Orçamento formal).
-    É um documento não-fiscal que precede uma Venda ou Fatura real.
-    """
-    STATUS_CHOICES = (
-        ('emitida', 'Emitida (Pendente)'),
+
+
+class FaturaProforma(TimeStampedModel):
+    """Fatura Proforma (FP) - Documento de orçamento formal"""
+    TIPO_PROFORMA_CHOICES = [
+        ('orcamento', 'Orçamento'),
+        ('proposta', 'Proposta'),
+        ('cotacao', 'Cotação'),
+        ('outros', 'Outros'),
+    ]
+    
+    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='faturas_proforma')
+    loja = models.ForeignKey('core.Loja', on_delete=models.SET_NULL, null=True, blank=True)
+    cliente = models.ForeignKey('clientes.Cliente', on_delete=models.SET_NULL, null=True, blank=True)
+    vendedor = models.ForeignKey('funcionarios.Funcionario', on_delete=models.SET_NULL, null=True, blank=True, related_name='faturas_proforma')
+    forma_pagamento = models.ForeignKey('vendas.FormaPagamento', on_delete=models.PROTECT, default=1)
+    
+    iva_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Valor do IVA")
+    
+    # Identificação
+    numero_proforma = models.CharField(max_length=200, unique=True, verbose_name="Nº Proforma")
+    tipo_proforma = models.CharField(max_length=20, choices=TIPO_PROFORMA_CHOICES, default='orcamento')
+    observacoes = models.TextField(blank=True, null=True)
+
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    desconto_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    troco = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    valor_pago = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    
+    hash_documento = models.CharField(
+        max_length=256, 
+        unique=True, 
+        null=True, 
+        blank=True,
+        verbose_name="Hash Criptográfico (SAF-T)"
+    )
+    atcud = models.CharField(
+        max_length=100, 
+        null=True, 
+        blank=True,
+        verbose_name="ATCUD (Código Único do Documento)"
+    )
+    
+    data_proforma = models.DateTimeField(auto_now_add=True)
+    data_validade = models.DateField(verbose_name="Data de Validade")
+
+    # Status
+    STATUS_CHOICES = [
+        ('emitida', 'Emitida'),
         ('aceite', 'Aceite'),
         ('rejeitada', 'Rejeitada'),
-        ('convertida', 'Convertida em Vatura/Venda'),
-    )
+        ('convertida', 'Convertida'),
+        ('cancelada', 'Cancelada'),
+        ('expirada', 'Expirada'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='emitida')
 
-    # Relações de Negócio Essenciais
-    cliente = models.ForeignKey(
-        'clientes.Cliente',
-        on_delete=models.PROTECT, 
-        related_name='proformas_emitidas',
-        verbose_name='Cliente'
-    )
-    empresa = models.ForeignKey(
-        'core.Empresa',
-        on_delete=models.PROTECT, 
-        related_name='proformas_proprias',
-        verbose_name='Empresa Emitente'
-    )
-    
-    # Dados do Documento
-    numero_proforma = models.CharField(
-        max_length=50, 
-        unique=True, 
-        db_index=True,
-        verbose_name='Número da Proforma'
-    )
-    data_emissao = models.DateTimeField(default=timezone.now, verbose_name='Data de Emissão')
+    tem_fatura = models.BooleanField(default=False)
+    tem_recibo = models.BooleanField(default=False)
+    tem_nota_liquidacao = models.BooleanField(default=False)
+    tem_fatura_proforma = models.BooleanField(default=True)
 
-    data_validade = models.DateField(
-        verbose_name='Data de Validade',
-        help_text='Prazo para o cliente aceitar o orçamento.'
-    )
-    status = models.CharField(
-        max_length=15, 
-        choices=STATUS_CHOICES, 
-        default='emitida',
-        verbose_name='Status'
-    )
-    observacoes = models.TextField(
-        blank=True, 
-        null=True, 
-        verbose_name='Observações'
-    )
-    
-    
-    # Campos de Totais (Denormalização para Relatórios Rápidos)
-    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    desconto_global = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    iva_valor = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
+    def save(self, *args, criar_documento=True, **kwargs):
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+
+        if criar_documento and is_new and self.status == 'emitida':
+            from apps.fiscal.services import DocumentoFiscalService
+
+            service = DocumentoFiscalService()
+            documento = service.criar_documento(
+                empresa=self.empresa,
+                tipo_documento='FP',
+                cliente=self.cliente,
+                usuario=self.vendedor.user if self.vendedor else None,
+                linhas=[],
+                dados_extra={'data_emissao': self.data_proforma, 'valor_total': self.total},
+            )
+
+            self.numero_proforma = documento.numero
+            self.hash_documento = documento.hash_documento
+            self.atcud = documento.atcud
+            super().save(update_fields=['numero_proforma', 'hash_documento', 'atcud'])
+
+    def __str__(self):
+        return f"Proforma {self.numero_proforma}"
 
     class Meta:
         verbose_name = 'Fatura Proforma'
         verbose_name_plural = 'Faturas Proforma'
-        ordering = ['-data_emissao', 'numero_proforma']
-        permissions = [
-            ("aprovar_faturaproforma", "Pode aprovar Faturas Proforma"),
-            ("imprimir_faturaproforma", "Pode imprimir Faturas Proforma"),
-        ]
-
-
-    def __str__(self):
-        return f"Proforma {self.numero_proforma} - {self.cliente.nome_completo if self.cliente else 'N/A'}"
-        
-    # =======================================================
-    # MÉTODOS REQUERIDOS PELA proforma_pdf_view
-    # =======================================================
-    def save(self, *args, **kwargs):
-        if not self.numero_proforma:
-            if not self.empresa:
-                raise ValueError("Empresa deve estar definida antes de gerar o número da proforma.")
-            self.numero_proforma = gerar_numero_documento(
-                empresa=self.empresa,
-                tipo_documento='FP'  # Prefixo Proforma
-            )
-        super().save(*args, **kwargs)
+    
+    def desconto_percentual(self):
+        if self.subtotal > Decimal('0.00'):
+            return (self.desconto_valor / self.subtotal) * Decimal('100.00')
+        return Decimal('0.00')
+    
+    def margem_lucro_total(self):
+        return self.total - sum(item.produto.preco_custo * item.quantidade for item in self.itens.all() if item.produto)
+    
+    def quantidade_itens(self):
+        return self.itens.count()
 
     def get_itens_proforma(self):
         from django.db.models import F, Value
@@ -1404,29 +1495,7 @@ class FaturaProforma(models.Model):
             )
         )
 
-        
-    def calcular_totais(self):
-        """
-        Recalcula e retorna os totais. 
-        Recomendado chamar este método antes de salvar/gerar o PDF.
-        """
-        # Assume-se que os itens são calculados individualmente no save() do ItemProforma
-        self.subtotal = self.itens.aggregate(sum_subtotal=Sum(F('quantidade') * F('preco_unitario')))['sum_subtotal'] or 0
-        self.desconto_global = self.itens.aggregate(sum_desconto=Sum('desconto_item'))['sum_desconto'] or 0
-        self.iva_valor = self.itens.aggregate(sum_iva=Sum('iva_valor'))['sum_iva'] or 0
-        
-        # O total é o subtotal menos o desconto mais o IVA
-        self.total = (self.subtotal - self.desconto_global) + self.iva_valor
-        
-        # Salva (opcionalmente) os valores denormalizados para persistência
-        self.save(update_fields=['subtotal', 'desconto_global', 'iva_valor', 'total'])
 
-        return {
-            'subtotal': self.subtotal,
-            'desconto_valor': self.desconto_global,
-            'iva_valor': self.iva_valor,
-            'total': self.total,
-        }
 
 class ItemProforma(models.Model):
     """
@@ -1463,36 +1532,66 @@ class ItemProforma(models.Model):
         self.proforma.calcular_totais()
 
 
-class NotaCredito(TimeStampedModel):
-    """
-    Nota de Crédito (NC) - Documento que reduz o valor de uma fatura emitida anteriormente.
-    Usado para devoluções, descontos concedidos, correções de erro, etc.
-    """
-    MOTIVO_CHOICES = [
-        ('devolucao_total', 'Devolução Total de Mercadoria'),
-        ('devolucao_parcial', 'Devolução Parcial de Mercadoria'),
-        ('desconto_comercial', 'Desconto Comercial Concedido'),
-        ('desconto_quantidade', 'Desconto por Quantidade'),
-        ('correcao_preco', 'Correção de Preço (Erro na Fatura)'),
-        ('cancelamento_servico', 'Cancelamento de Serviço'),
-        ('erro_calculo', 'Erro de Cálculo na Fatura Original'),
-        ('acordo_comercial', 'Acordo Comercial Posterior'),
-        ('defeito_mercadoria', 'Defeito na Mercadoria'),
-        ('outros', 'Outros Motivos'),
-    ]
 
+class NotaCredito(TimeStampedModel):
+    """Nota de Crédito (NC) - Documento que reduz o valor de uma fatura"""
+    TIPO_NOTA_CHOICES = [
+        ('devolucao', 'Devolução'),
+        ('desconto', 'Desconto'),
+        ('correcao', 'Correção'),
+        ('outros', 'Outros'),
+    ]
+    
+    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='notas_credito')
+    loja = models.ForeignKey('core.Loja', on_delete=models.SET_NULL, null=True, blank=True)
+    cliente = models.ForeignKey('clientes.Cliente', on_delete=models.SET_NULL, null=True, blank=True)
+    vendedor = models.ForeignKey('funcionarios.Funcionario', on_delete=models.SET_NULL, null=True, blank=True, related_name='notas_credito')
+    forma_pagamento = models.ForeignKey('vendas.FormaPagamento', on_delete=models.PROTECT, default=1)
+    
+    iva_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Valor do IVA")
+    
+    # Identificação
+    numero_nota = models.CharField(max_length=200, unique=True, verbose_name="Nº Nota de Crédito")
+    tipo_nota = models.CharField(max_length=20, choices=TIPO_NOTA_CHOICES, default='devolucao')
+    observacoes = models.TextField(blank=True, null=True)
+
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    desconto_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    troco = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    valor_pago = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    
+    hash_documento = models.CharField(
+        max_length=256, 
+        unique=True, 
+        null=True, 
+        blank=True,
+        verbose_name="Hash Criptográfico (SAF-T)"
+    )
+    atcud = models.CharField(
+        max_length=100, 
+        null=True, 
+        blank=True,
+        verbose_name="ATCUD (Código Único do Documento)"
+    )
+    
+    data_nota = models.DateTimeField(auto_now_add=True)
+
+    # Status
     STATUS_CHOICES = [
-        ('rascunho', 'Rascunho'),
         ('emitida', 'Emitida'),
         ('aplicada', 'Aplicada'),
         ('cancelada', 'Cancelada'),
+        ('pendente', 'Pendente'),
     ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='emitida')
 
-    # Identificação
-    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='notas_credito')
-    numero_nota = models.CharField(max_length=200, unique=True, verbose_name="Número da Nota de Crédito")
-    
-    # Documento de Origem
+    tem_fatura = models.BooleanField(default=False)
+    tem_recibo = models.BooleanField(default=False)
+    tem_nota_liquidacao = models.BooleanField(default=False)
+    tem_fatura_proforma = models.BooleanField(default=False)
+
+    # Documento de origem
     venda_origem = models.ForeignKey(
         'Venda', 
         on_delete=models.PROTECT, 
@@ -1507,87 +1606,46 @@ class NotaCredito(TimeStampedModel):
         related_name='notas_credito_origem',
         verbose_name="Fatura Crédito de Origem (FT)"
     )
-    
-    # Cliente e Dados
-    cliente = models.ForeignKey('clientes.Cliente', on_delete=models.PROTECT, related_name='notas_credito')
-    vendedor = models.ForeignKey(
-        'funcionarios.Funcionario', 
-        on_delete=models.SET_NULL, 
-        null=True, blank=True,
-        related_name='notas_credito_emitidas'
-    )
-    
-    # Datas
-    data_emissao = models.DateTimeField(default=timezone.now)
-    data_aplicacao = models.DateTimeField(null=True, blank=True, verbose_name="Data de Aplicação")
-    
-    # Motivo e Detalhes
-    motivo = models.CharField(max_length=30, choices=MOTIVO_CHOICES, verbose_name="Motivo da Nota")
-    descricao_motivo = models.TextField(verbose_name="Descrição Detalhada do Motivo")
-    observacoes = models.TextField(blank=True, verbose_name="Observações Adicionais")
-    
-    # Valores
-    subtotal_credito = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
-    iva_credito = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
-    total_credito = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Valor Total do Crédito")
-    
-    # Status e Controle
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='rascunho')
-    
-    # Aprovação (para valores altos)
-    requer_aprovacao = models.BooleanField(default=False)
-    aprovada_por = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='notas_credito_aprovadas'
-    )
-    data_aprovacao = models.DateTimeField(null=True, blank=True)
-    
-    # Auditoria
-    emitida_por = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name='notas_credito_emitidas'
-    )
-    aplicada_por = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='notas_credito_aplicadas'
-    )
+
+    def save(self, *args, criar_documento=True, **kwargs):
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+
+        if criar_documento and is_new and self.status == 'emitida':
+            from apps.fiscal.services import DocumentoFiscalService
+
+            service = DocumentoFiscalService()
+            documento = service.criar_documento(
+                empresa=self.empresa,
+                tipo_documento='NC',
+                cliente=self.cliente,
+                usuario=self.vendedor.user if self.vendedor else None,
+                linhas=[],
+                dados_extra={'data_emissao': self.data_nota, 'valor_total': self.total},
+            )
+
+            self.numero_nota = documento.numero
+            self.hash_documento = documento.hash_documento
+            self.atcud = documento.atcud
+            super().save(update_fields=['numero_nota', 'hash_documento', 'atcud'])
+
+    def __str__(self):
+        return f"NC {self.numero_nota}"
 
     class Meta:
         verbose_name = 'Nota de Crédito'
         verbose_name_plural = 'Notas de Crédito'
-        ordering = ['-data_emissao']
-        permissions = [
-            ("emitir_notacredito", "Pode emitir Notas de Crédito"),
-            ("aprovar_notacredito", "Pode aprovar Notas de Crédito"),
-            ("aplicar_notacredito", "Pode aplicar Notas de Crédito"),
-        ]
-
-    def save(self, *args, **kwargs):
-        if not self.pk and not self.numero_nota:
-            self.numero_nota = gerar_numero_documento(self.empresa, 'NC')
-        
-        # Verificar se requer aprovação (valores acima de 50.000 AKZ)
-        if self.total_credito > Decimal('50000.00'):
-            self.requer_aprovacao = True
-        
-        super().save(*args, **kwargs)
-
-    def clean(self):
-        # Validação: deve ter pelo menos uma origem
-        if not self.venda_origem and not self.fatura_credito_origem:
-            raise ValidationError("A Nota de Crédito deve estar associada a uma Venda (FR) ou Fatura a Crédito (FT).")
-        
-        # Validação: não pode ter ambas as origens
-        if self.venda_origem and self.fatura_credito_origem:
-            raise ValidationError("A Nota de Crédito não pode estar associada simultaneamente a uma Venda e uma Fatura a Crédito.")
-
-    def __str__(self):
-        return f"NC {self.numero_nota} - {self.cliente.nome_completo}"
+    
+    def desconto_percentual(self):
+        if self.subtotal > Decimal('0.00'):
+            return (self.desconto_valor / self.subtotal) * Decimal('100.00')
+        return Decimal('0.00')
+    
+    def margem_lucro_total(self):
+        return self.total - sum(item.produto.preco_custo * item.quantidade for item in self.itens.all() if item.produto)
+    
+    def quantidade_itens(self):
+        return self.itens.count()
 
     @property
     def documento_origem(self):
@@ -1602,41 +1660,6 @@ class NotaCredito(TimeStampedModel):
         elif self.fatura_credito_origem:
             return self.fatura_credito_origem.numero_fatura
         return "N/A"
-
-    def pode_ser_aplicada(self):
-        """Verifica se a nota pode ser aplicada"""
-        if self.status != 'emitida':
-            return False, "Nota não está no status 'emitida'"
-        
-        if self.requer_aprovacao and not self.aprovada_por:
-            return False, "Nota requer aprovação prévia"
-        
-        return True, "Pode ser aplicada"
-
-    def aplicar_credito(self, usuario):
-        """Aplica o crédito da nota ao documento de origem"""
-        pode_aplicar, motivo = self.pode_ser_aplicada()
-        if not pode_aplicar:
-            raise ValidationError(motivo)
-        
-        with transaction.atomic():
-            documento_origem = self.documento_origem
-            
-            if isinstance(documento_origem, Venda):
-                # Aplicar crédito à venda (ajustar valores)
-                documento_origem.total -= self.total_credito
-                documento_origem.save()
-            
-            elif isinstance(documento_origem, FaturaCredito):
-                # Aplicar crédito à fatura (reduzir saldo devedor)
-                documento_origem.total_faturado -= self.total_credito
-                documento_origem.save()
-            
-            # Atualizar status da nota
-            self.status = 'aplicada'
-            self.data_aplicacao = timezone.now()
-            self.aplicada_por = usuario
-            self.save()
 
 
 class ItemNotaCredito(TimeStampedModel):
@@ -1691,36 +1714,69 @@ class ItemNotaCredito(TimeStampedModel):
         return f"{self.descricao_item} - Qtd: {self.quantidade_creditada}"
 
 
-class NotaDebito(TimeStampedModel):
-    """
-    Nota de Débito (ND) - Documento que aumenta o valor de uma fatura emitida anteriormente.
-    Usado para cobranças adicionais, juros, correções de erro, etc.
-    """
-    MOTIVO_CHOICES = [
-        ('cobranca_adicional', 'Cobrança Adicional de Serviços'),
-        ('juros_mora', 'Juros de Mora'),
-        ('multa_atraso', 'Multa por Atraso'),
-        ('correcao_preco', 'Correção de Preço (Valor Menor Cobrado)'),
-        ('servicos_extras', 'Serviços Extras Prestados'),
-        ('erro_calculo', 'Correção de Erro de Cálculo'),
-        ('reajuste_contratual', 'Reajuste Contratual'),
-        ('despesas_extras', 'Despesas Extras'),
-        ('imposto_adicional', 'Imposto Adicional'),
-        ('outros', 'Outros Motivos'),
-    ]
 
+class NotaDebito(TimeStampedModel):
+    """Nota de Débito (ND) - Documento que aumenta o valor de uma fatura"""
+    TIPO_NOTA_CHOICES = [
+        ('cobranca', 'Cobrança Adicional'),
+        ('juros', 'Juros'),
+        ('multa', 'Multa'),
+        ('correcao', 'Correção'),
+        ('outros', 'Outros'),
+    ]
+    
+    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='notas_debito')
+    loja = models.ForeignKey('core.Loja', on_delete=models.SET_NULL, null=True, blank=True)
+    cliente = models.ForeignKey('clientes.Cliente', on_delete=models.SET_NULL, null=True, blank=True)
+    vendedor = models.ForeignKey('funcionarios.Funcionario', on_delete=models.SET_NULL, null=True, blank=True, related_name='notas_debito')
+    forma_pagamento = models.ForeignKey('vendas.FormaPagamento', on_delete=models.PROTECT, default=1)
+    
+    iva_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Valor do IVA")
+    
+    # Identificação
+    numero_nota = models.CharField(max_length=200, unique=True, verbose_name="Nº Nota de Débito")
+    tipo_nota = models.CharField(max_length=20, choices=TIPO_NOTA_CHOICES, default='cobranca')
+    observacoes = models.TextField(blank=True, null=True)
+
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    desconto_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    troco = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    valor_pago = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    
+    hash_documento = models.CharField(
+        max_length=256, 
+        unique=True, 
+        null=True, 
+        blank=True,
+        verbose_name="Hash Criptográfico (SAF-T)"
+    )
+    atcud = models.CharField(
+        max_length=100, 
+        null=True, 
+        blank=True,
+        verbose_name="ATCUD (Código Único do Documento)"
+    )
+    
+    data_nota = models.DateTimeField(auto_now_add=True)
+    data_vencimento = models.DateField(verbose_name="Data de Vencimento")
+
+    # Status
     STATUS_CHOICES = [
-        ('rascunho', 'Rascunho'),
         ('emitida', 'Emitida'),
         ('aplicada', 'Aplicada'),
+        ('paga', 'Paga'),
         ('cancelada', 'Cancelada'),
+        ('vencida', 'Vencida'),
     ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='emitida')
 
-    # Identificação
-    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='notas_debito')
-    numero_nota = models.CharField(max_length=200, unique=True, verbose_name="Número da Nota de Débito")
-    
-    # Documento de Origem
+    tem_fatura = models.BooleanField(default=False)
+    tem_recibo = models.BooleanField(default=False)
+    tem_nota_liquidacao = models.BooleanField(default=False)
+    tem_fatura_proforma = models.BooleanField(default=False)
+
+    # Documento de origem
     venda_origem = models.ForeignKey(
         'Venda', 
         on_delete=models.PROTECT, 
@@ -1735,91 +1791,46 @@ class NotaDebito(TimeStampedModel):
         related_name='notas_debito_origem',
         verbose_name="Fatura Crédito de Origem (FT)"
     )
-    
-    # Cliente e Dados
-    cliente = models.ForeignKey('clientes.Cliente', on_delete=models.PROTECT, related_name='notas_debito')
-    vendedor = models.ForeignKey(
-        'funcionarios.Funcionario', 
-        on_delete=models.SET_NULL, 
-        null=True, blank=True,
-        related_name='notas_debito_emitidas'
-    )
-    
-    # Datas
-    data_emissao = models.DateTimeField(default=timezone.now)
-    data_aplicacao = models.DateTimeField(null=True, blank=True, verbose_name="Data de Aplicação")
-    data_vencimento = models.DateField(verbose_name="Data de Vencimento", help_text="Prazo para pagamento do débito")
-    
-    # Motivo e Detalhes
-    motivo = models.CharField(max_length=30, choices=MOTIVO_CHOICES, verbose_name="Motivo da Nota")
-    descricao_motivo = models.TextField(verbose_name="Descrição Detalhada do Motivo")
-    observacoes = models.TextField(blank=True, verbose_name="Observações Adicionais")
-    
-    # Valores
-    subtotal_debito = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
-    iva_debito = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
-    total_debito = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Valor Total do Débito")
-    
-    # Pagamento
-    valor_pago = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
-    
-    # Status e Controle
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='rascunho')
-    
-    # Aprovação (para valores altos)
-    requer_aprovacao = models.BooleanField(default=False)
-    aprovada_por = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='notas_debito_aprovadas'
-    )
-    data_aprovacao = models.DateTimeField(null=True, blank=True)
-    
-    # Auditoria
-    emitida_por = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name='notas_debito_emitidas'
-    )
-    aplicada_por = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='notas_debito_aplicadas'
-    )
+
+    def save(self, *args, criar_documento=True, **kwargs):
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+
+        if criar_documento and is_new and self.status == 'emitida':
+            from apps.fiscal.services import DocumentoFiscalService
+
+            service = DocumentoFiscalService()
+            documento = service.criar_documento(
+                empresa=self.empresa,
+                tipo_documento='ND',
+                cliente=self.cliente,
+                usuario=self.vendedor.user if self.vendedor else None,
+                linhas=[],
+                dados_extra={'data_emissao': self.data_nota, 'valor_total': self.total},
+            )
+
+            self.numero_nota = documento.numero
+            self.hash_documento = documento.hash_documento
+            self.atcud = documento.atcud
+            super().save(update_fields=['numero_nota', 'hash_documento', 'atcud'])
+
+    def __str__(self):
+        return f"ND {self.numero_nota}"
 
     class Meta:
         verbose_name = 'Nota de Débito'
         verbose_name_plural = 'Notas de Débito'
-        ordering = ['-data_emissao']
-        permissions = [
-            ("emitir_notadebito", "Pode emitir Notas de Débito"),
-            ("aprovar_notadebito", "Pode aprovar Notas de Débito"),
-            ("aplicar_notadebito", "Pode aplicar Notas de Débito"),
-        ]
-
-    def save(self, *args, **kwargs):
-        if not self.pk and not self.numero_nota:
-            self.numero_nota = gerar_numero_documento(self.empresa, 'ND')
-        
-        # Verificar se requer aprovação (valores acima de 25.000 AKZ)
-        if self.total_debito > Decimal('25000.00'):
-            self.requer_aprovacao = True
-        
-        super().save(*args, **kwargs)
-
-    def clean(self):
-        # Validação: deve ter pelo menos uma origem
-        if not self.venda_origem and not self.fatura_credito_origem:
-            raise ValidationError("A Nota de Débito deve estar associada a uma Venda (FR) ou Fatura a Crédito (FT).")
-        
-        # Validação: não pode ter ambas as origens
-        if self.venda_origem and self.fatura_credito_origem:
-            raise ValidationError("A Nota de Débito não pode estar associada simultaneamente a uma Venda e uma Fatura a Crédito.")
-
-    def __str__(self):
-        return f"ND {self.numero_nota} - {self.cliente.nome_completo}"
+    
+    def desconto_percentual(self):
+        if self.subtotal > Decimal('0.00'):
+            return (self.desconto_valor / self.subtotal) * Decimal('100.00')
+        return Decimal('0.00')
+    
+    def margem_lucro_total(self):
+        return self.total - sum(item.produto.preco_custo * item.quantidade for item in self.itens.all() if item.produto)
+    
+    def quantidade_itens(self):
+        return self.itens.count()
 
     @property
     def documento_origem(self):
@@ -1838,47 +1849,13 @@ class NotaDebito(TimeStampedModel):
     @property
     def valor_pendente(self):
         """Calcula o valor pendente de pagamento"""
-        return self.total_debito - self.valor_pago
+        return self.total - self.valor_pago
 
     @property
     def esta_paga(self):
         """Verifica se a nota de débito está totalmente paga"""
         return self.valor_pendente <= Decimal('0.00')
 
-    def pode_ser_aplicada(self):
-        """Verifica se a nota pode ser aplicada"""
-        if self.status != 'emitida':
-            return False, "Nota não está no status 'emitida'"
-        
-        if self.requer_aprovacao and not self.aprovada_por:
-            return False, "Nota requer aprovação prévia"
-        
-        return True, "Pode ser aplicada"
-
-    def aplicar_debito(self, usuario):
-        """Aplica o débito da nota ao documento de origem"""
-        pode_aplicar, motivo = self.pode_ser_aplicada()
-        if not pode_aplicar:
-            raise ValidationError(motivo)
-        
-        with transaction.atomic():
-            documento_origem = self.documento_origem
-            
-            if isinstance(documento_origem, Venda):
-                # Aplicar débito à venda (aumentar valores)
-                documento_origem.total += self.total_debito
-                documento_origem.save()
-            
-            elif isinstance(documento_origem, FaturaCredito):
-                # Aplicar débito à fatura (aumentar saldo devedor)
-                documento_origem.total_faturado += self.total_debito
-                documento_origem.save()
-            
-            # Atualizar status da nota
-            self.status = 'aplicada'
-            self.data_aplicacao = timezone.now()
-            self.aplicada_por = usuario
-            self.save()
 
 
 class ItemNotaDebito(TimeStampedModel):
@@ -1920,23 +1897,13 @@ class ItemNotaDebito(TimeStampedModel):
 
 
 class DocumentoTransporte(TimeStampedModel):
-    """
-    Documento de Transporte (GT) - Documento que acompanha mercadorias em trânsito.
-    """
+    """Documento de Transporte (GT) - Documento que acompanha mercadorias em trânsito"""
     TIPO_TRANSPORTE_CHOICES = [
         ('proprio', 'Transporte Próprio'),
         ('terceirizado', 'Transporte Terceirizado'),
         ('correios', 'Correios'),
         ('transportadora', 'Transportadora'),
         ('entrega_propria', 'Entrega Própria'),
-    ]
-
-    STATUS_CHOICES = [
-        ('preparando', 'Preparando Carga'),
-        ('em_transito', 'Em Trânsito'),
-        ('entregue', 'Entregue'),
-        ('devolvido', 'Devolvido'),
-        ('cancelado', 'Cancelado'),
     ]
 
     TIPO_OPERACAO_CHOICES = [
@@ -1948,11 +1915,62 @@ class DocumentoTransporte(TimeStampedModel):
         ('garantia', 'Garantia'),
         ('outros', 'Outros'),
     ]
-
-    # Identificação
-    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='documentos_transporte')
-    numero_documento = models.CharField(max_length=200, unique=True, verbose_name="Número do Documento de Transporte")
     
+    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='documentos_transporte')
+    loja = models.ForeignKey('core.Loja', on_delete=models.SET_NULL, null=True, blank=True)
+    cliente = models.ForeignKey('clientes.Cliente', on_delete=models.SET_NULL, null=True, blank=True)
+    vendedor = models.ForeignKey('funcionarios.Funcionario', on_delete=models.SET_NULL, null=True, blank=True, related_name='documentos_transporte')
+    forma_pagamento = models.ForeignKey('vendas.FormaPagamento', on_delete=models.PROTECT, default=1)
+    
+    iva_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Valor do IVA")
+    
+    # Identificação
+    numero_documento = models.CharField(max_length=200, unique=True, verbose_name="Nº Documento de Transporte")
+    tipo_operacao = models.CharField(max_length=20, choices=TIPO_OPERACAO_CHOICES, default='venda')
+    tipo_transporte = models.CharField(max_length=20, choices=TIPO_TRANSPORTE_CHOICES, default='proprio')
+    observacoes = models.TextField(blank=True, null=True)
+
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    desconto_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    troco = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    valor_pago = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    
+    hash_documento = models.CharField(
+        max_length=256, 
+        unique=True, 
+        null=True, 
+        blank=True,
+        verbose_name="Hash Criptográfico (SAF-T)"
+    )
+    atcud = models.CharField(
+        max_length=100, 
+        null=True, 
+        blank=True,
+        verbose_name="ATCUD (Código Único do Documento)"
+    )
+    
+    # Data
+    data_documento = models.DateTimeField(auto_now_add=True)
+    data_inicio_transporte = models.DateTimeField(verbose_name="Data/Hora de Início do Transporte")
+    data_previsao_entrega = models.DateTimeField(verbose_name="Previsão de Entrega")
+    data_entrega_real = models.DateTimeField(null=True, blank=True, verbose_name="Data/Hora da Entrega Real")
+
+    # Status
+    STATUS_CHOICES = [
+        ('preparando', 'Preparando Carga'),
+        ('em_transito', 'Em Trânsito'),
+        ('entregue', 'Entregue'),
+        ('devolvido', 'Devolvido'),
+        ('cancelado', 'Cancelado'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='preparando')
+
+    tem_fatura = models.BooleanField(default=False)
+    tem_recibo = models.BooleanField(default=False)
+    tem_nota_liquidacao = models.BooleanField(default=False)
+    tem_fatura_proforma = models.BooleanField(default=False)
+
     # Documento de Origem
     venda_origem = models.ForeignKey(
         'Venda', 
@@ -1968,17 +1986,7 @@ class DocumentoTransporte(TimeStampedModel):
         related_name='documentos_transporte',
         verbose_name="Fatura Crédito de Origem"
     )
-    
-    # Dados do Transporte
-    data_emissao = models.DateTimeField(default=timezone.now)
-    data_inicio_transporte = models.DateTimeField(verbose_name="Data/Hora de Início do Transporte")
-    data_previsao_entrega = models.DateTimeField(verbose_name="Previsão de Entrega")
-    data_entrega_real = models.DateTimeField(null=True, blank=True, verbose_name="Data/Hora da Entrega Real")
-    
-    # Tipo de Operação
-    tipo_operacao = models.CharField(max_length=20, choices=TIPO_OPERACAO_CHOICES, default='venda')
-    tipo_transporte = models.CharField(max_length=20, choices=TIPO_TRANSPORTE_CHOICES, default='proprio')
-    
+
     # === REMETENTE (Empresa) ===
     remetente_nome = models.CharField(max_length=200, verbose_name="Nome do Remetente")
     remetente_nif = models.CharField(max_length=20, verbose_name="NIF do Remetente")
@@ -2015,7 +2023,7 @@ class DocumentoTransporte(TimeStampedModel):
     local_descarga = models.CharField(max_length=300, verbose_name="Local de Descarga")
     itinerario = models.TextField(verbose_name="Itinerário Detalhado")
     
-    # === VALORES ===
+    # === VALORES ADICIONAIS DE TRANSPORTE ===
     valor_transporte = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
@@ -2036,9 +2044,7 @@ class DocumentoTransporte(TimeStampedModel):
     )
     quantidade_volumes = models.PositiveIntegerField(default=1, verbose_name="Quantidade de Volumes")
     
-    # Status e Controle
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='preparando')
-    observacoes = models.TextField(blank=True, verbose_name="Observações Gerais")
+    # Instruções e Controle
     instrucoes_especiais = models.TextField(blank=True, verbose_name="Instruções Especiais")
     
     # Assinaturas e Confirmações
@@ -2059,18 +2065,8 @@ class DocumentoTransporte(TimeStampedModel):
         related_name='documentos_transporte_confirmados'
     )
 
-    class Meta:
-        verbose_name = 'Documento de Transporte'
-        verbose_name_plural = 'Documentos de Transporte'
-        ordering = ['-data_emissao']
-        permissions = [
-            ("emitir_documentotransporte", "Pode emitir Documentos de Transporte"),
-            ("confirmar_entrega", "Pode confirmar entregas"),
-        ]
-
-    def save(self, *args, **kwargs):
-        if not self.pk and not self.numero_documento:
-            self.numero_documento = gerar_numero_documento(self.empresa, 'GT')
+    def save(self, *args, criar_documento=True, **kwargs):
+        is_new = self._state.adding
         
         # Preencher dados do remetente automaticamente
         if not self.remetente_nome and self.empresa:
@@ -2093,11 +2089,53 @@ class DocumentoTransporte(TimeStampedModel):
             if endereco_principal:
                 self.destinatario_endereco = endereco_principal.endereco_completo
                 self.destinatario_provincia = endereco_principal.provincia
-        
+
         super().save(*args, **kwargs)
 
+        # Só gera hash e numeração se for um novo documento
+        if criar_documento and is_new and self.status in ['preparando', 'em_transito']:
+            from apps.fiscal.services import DocumentoFiscalService
+
+            service = DocumentoFiscalService()
+            documento = service.criar_documento(
+                empresa=self.empresa,
+                tipo_documento='GT',
+                cliente=self.cliente or self.destinatario_cliente,
+                usuario=self.vendedor.user if self.vendedor else self.emitido_por,
+                linhas=[],
+                dados_extra={'data_emissao': self.data_documento, 'valor_total': self.total},
+            )
+
+            self.numero_documento = documento.numero
+            self.hash_documento = documento.hash_documento
+            self.atcud = documento.atcud
+            super().save(update_fields=['numero_documento', 'hash_documento', 'atcud'])
+
     def __str__(self):
-        return f"GT {self.numero_documento} - {self.destinatario_nome}"
+        return f"GT {self.numero_documento}"
+
+    class Meta:
+        verbose_name = 'Documento de Transporte'
+        verbose_name_plural = 'Documentos de Transporte'
+        ordering = ['-data_documento']
+        permissions = [
+            ("emitir_documentotransporte", "Pode emitir Documentos de Transporte"),
+            ("confirmar_entrega", "Pode confirmar entregas"),
+        ]
+    
+    def desconto_percentual(self):
+        if self.subtotal > Decimal('0.00'):
+            return (self.desconto_valor / self.subtotal) * Decimal('100.00')
+        return Decimal('0.00')
+    desconto_percentual.short_description = 'Desconto %'
+    
+    def margem_lucro_total(self):
+        return self.total - sum(item.produto.preco_custo * item.quantidade for item in self.itens.all() if item.produto)
+    margem_lucro_total.short_description = 'Margem de Lucro'
+    
+    def quantidade_itens(self):
+        return self.itens.count()
+    quantidade_itens.short_description = 'Qtd Itens'
 
     @property
     def documento_origem(self):
@@ -2149,6 +2187,7 @@ class DocumentoTransporte(TimeStampedModel):
         self.data_inicio_transporte = timezone.now()
         self.save()
 
+   
 
 class ItemDocumentoTransporte(TimeStampedModel):
     """Itens do Documento de Transporte"""

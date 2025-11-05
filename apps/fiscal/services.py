@@ -12,14 +12,87 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.backends import default_backend
 import base64
-
 from .models import TaxaIVAAGT, AssinaturaDigital, RetencaoFonte
 from apps.core.models import Empresa
 from apps.financeiro.models import LancamentoFinanceiro, PlanoContas
 from apps.vendas.models import Venda
+from django.db import transaction
+from apps.fiscal.models import DocumentoFiscal, DocumentoFiscalLinha
+from django.core.exceptions import ValidationError
 
-# Configuração de logging
+
 logger = logging.getLogger('fiscais')
+
+
+
+class DocumentoFiscalService:
+    """
+    Serviço responsável pela criação, confirmação e gestão de Documentos Fiscais.
+    Encapsula regras de negócio fora do Model e das Views.
+    """
+
+    @staticmethod
+    @transaction.atomic
+    def criar_documento(empresa, tipo_documento, cliente, linhas, usuario, **dados_extra):
+        """
+        Cria um novo Documento Fiscal e suas linhas.
+        """
+        documento = DocumentoFiscal.objects.create(
+            empresa=empresa,
+            tipo_documento=tipo_documento,
+            cliente=cliente,
+            usuario_criacao=usuario,
+            **dados_extra
+        )
+
+        for idx, linha in enumerate(linhas, start=1):
+            DocumentoFiscalLinha.objects.create(
+                documento=documento,
+                numero_linha=idx,
+                **linha
+            )
+
+        # Atualiza totais
+        DocumentoFiscalService.recalcular_totais(documento)
+
+        return documento
+
+    @staticmethod
+    def confirmar_documento(documento: DocumentoFiscal, usuario):
+        """
+        Confirma e assina digitalmente o documento.
+        """
+        if documento.status != 'draft':
+            raise ValidationError("Apenas documentos em rascunho podem ser confirmados.")
+
+        documento.confirmar_documento(usuario)
+        return documento
+
+    @staticmethod
+    def cancelar_documento(documento: DocumentoFiscal, usuario, motivo=''):
+        """
+        Cancela um documento fiscal.
+        """
+        documento.cancelar_documento(usuario, motivo)
+        return documento
+
+    @staticmethod
+    def recalcular_totais(documento: DocumentoFiscal):
+        """
+        Recalcula os totais do documento com base nas linhas.
+        """
+        linhas = documento.linhas.all()
+
+        valor_base = sum([l.valor_liquido for l in linhas])
+        valor_iva = sum([l.valor_iva_linha for l in linhas])
+        valor_total = sum([l.valor_total_linha for l in linhas])
+
+        documento.valor_base = valor_base
+        documento.valor_iva = valor_iva
+        documento.valor_total = valor_total
+        documento.save(update_fields=['valor_base', 'valor_iva', 'valor_total'])
+        return documento
+
 
 class FiscalServiceError(Exception):
     """Exceção personalizada para erros nos serviços fiscais"""
