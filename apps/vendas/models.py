@@ -1740,9 +1740,12 @@ class NotaDebito(TimeStampedModel):
 
     subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     desconto_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
-    total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    total_debito = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     troco = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     valor_pago = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    motivo = models.CharField(max_length=100, blank=True, null=True)
+    descricao_motivo = models.TextField(blank=True, null=True)
+
     
     hash_documento = models.CharField(
         max_length=256, 
@@ -1778,14 +1781,14 @@ class NotaDebito(TimeStampedModel):
 
     # Documento de origem
     venda_origem = models.ForeignKey(
-        'Venda', 
+        Venda, 
         on_delete=models.PROTECT, 
         null=True, blank=True,
         related_name='notas_debito_origem',
         verbose_name="Venda de Origem (FR)"
     )
     fatura_credito_origem = models.ForeignKey(
-        'FaturaCredito', 
+        FaturaCredito, 
         on_delete=models.PROTECT, 
         null=True, blank=True,
         related_name='notas_debito_origem',
@@ -2194,12 +2197,12 @@ class ItemDocumentoTransporte(TimeStampedModel):
     
     # Referência ao item original
     item_venda_original = models.ForeignKey(
-        'ItemVenda', 
+        ItemVenda, 
         on_delete=models.PROTECT, 
         null=True, blank=True
     )
     item_fatura_original = models.ForeignKey(
-        'ItemFatura', 
+        ItemFatura, 
         on_delete=models.PROTECT, 
         null=True, blank=True
     )
