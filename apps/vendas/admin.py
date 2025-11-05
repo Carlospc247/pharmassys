@@ -254,7 +254,7 @@ class NotaCreditoAdmin(admin.ModelAdmin):
         'total', 'status', 'data_emissao', 'get_status_badge'
     )
     list_filter = (
-        'status', 'motivo', 'data_emissao', 'empresa', 'requer_aprovacao'
+        'status', 'motivo', 'data_nota', 'empresa', 'requer_aprovacao'
     )
     search_fields = (
         'numero_nota', 'cliente__nome_completo', 'cliente__nif',
@@ -276,7 +276,7 @@ class NotaCreditoAdmin(admin.ModelAdmin):
             'fields': ('cliente', 'vendedor')
         }),
         ('Motivo e Descrição', {
-            'fields': ('motivo', 'descricao_motivo', 'observacoes')
+            'fields': ('observacoes')
         }),
         ('Valores', {
             'fields': ('subtotal_credito', 'iva_credito', 'total')
@@ -336,11 +336,11 @@ class ItemNotaDebitoInline(admin.TabularInline):
 @admin.register(NotaDebito)
 class NotaDebitoAdmin(admin.ModelAdmin):
     list_display = (
-        'numero_nota', 'cliente', 'get_documento_origem', 'motivo', 
+        'numero_nota', 'cliente', 'get_documento_origem', 
         'total', 'valor_pendente', 'status', 'data_vencimento', 'get_status_badge'
     )
     list_filter = (
-        'status', 'motivo', 'data_emissao', 'data_vencimento', 'empresa', 'requer_aprovacao'
+        'status', 'data_nota', 'data_vencimento', 'empresa', 'requer_aprovacao'
     )
     search_fields = (
         'numero_nota', 'cliente__nome_completo', 'cliente__nif',
@@ -447,7 +447,7 @@ class DocumentoTransporteAdmin(admin.ModelAdmin):
             'fields': ('venda_origem', 'fatura_credito_origem')
         }),
         ('Datas e Prazos', {
-            'fields': ('data_emissao', 'data_inicio_transporte', 'data_previsao_entrega', 'data_entrega_real')
+            'fields': ('data_documento', 'data_inicio_transporte', 'data_previsao_entrega', 'data_entrega_real')
         }),
         ('Remetente', {
             'fields': ('remetente_nome', 'remetente_nif', 'remetente_endereco', 'remetente_telefone', 'remetente_provincia'),

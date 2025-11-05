@@ -1560,9 +1560,7 @@ class NotaCredito(TimeStampedModel):
     total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     troco = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     valor_pago = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
-    motivo = models.CharField(max_length=255, blank=True, null=True)
-    descricao_motivo = models.TextField(blank=True, null=True)
-
+    
     hash_documento = models.CharField(
         max_length=256, 
         unique=True, 
@@ -1587,6 +1585,26 @@ class NotaCredito(TimeStampedModel):
         ('pendente', 'Pendente'),
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='emitida')
+
+    # ✅ Campos de aprovação/aplicação
+    requer_aprovacao = models.BooleanField(default=False, verbose_name="Requer Aprovação?")
+    aprovada_por = models.ForeignKey(
+        'funcionarios.Funcionario',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='notas_debito_aprovadas',
+        verbose_name="Aprovada por"
+    )
+    data_aprovacao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Aprovação")
+
+    aplicada_por = models.ForeignKey(
+        'funcionarios.Funcionario',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='notas_debito_aplicadas',
+        verbose_name="Aplicada por"
+    )
+    data_aplicacao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Aplicação")
 
     tem_fatura = models.BooleanField(default=False)
     tem_recibo = models.BooleanField(default=False)
@@ -1773,6 +1791,27 @@ class NotaDebito(TimeStampedModel):
         ('vencida', 'Vencida'),
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='emitida')
+
+    # ✅ Campos de aprovação/aplicação
+    requer_aprovacao = models.BooleanField(default=False, verbose_name="Requer Aprovação?")
+    aprovada_por = models.ForeignKey(
+        'funcionarios.Funcionario',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='notas_debito_aprovadas',
+        verbose_name="Aprovada por"
+    )
+    data_aprovacao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Aprovação")
+
+    aplicada_por = models.ForeignKey(
+        'funcionarios.Funcionario',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='notas_debito_aplicadas',
+        verbose_name="Aplicada por"
+    )
+    data_aplicacao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Aplicação")
+
 
     tem_fatura = models.BooleanField(default=False)
     tem_recibo = models.BooleanField(default=False)
