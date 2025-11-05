@@ -3792,7 +3792,7 @@ class NotaCreditoListView(BaseVendaView, ListView):
         
         # Estatísticas
         stats = NotaCredito.objects.filter(empresa=empresa).aggregate(
-            total_creditos=Sum('total_credito'),
+            total_creditos=Sum('total'),
             quantidade_total=Count('id'),
             pendentes_aprovacao=Count('id', filter=Q(requer_aprovacao=True, aprovada_por__isnull=True)),
             aplicadas=Count('id', filter=Q(status='aplicada'))
@@ -4350,7 +4350,7 @@ class DocumentosFiscaisAnalyticsView(BaseVendaView, TemplateView):
             data_emissao__gte=data_inicio
         ).aggregate(
             total_nc=Count('id'),
-            valor_total_nc=Sum('total_credito'),
+            valor_total_nc=Sum('total'),
             aplicadas=Count('id', filter=Q(status='aplicada')),
             pendentes_aprovacao=Count('id', filter=Q(requer_aprovacao=True, aprovada_por__isnull=True))
         )
@@ -4389,7 +4389,7 @@ class DocumentosFiscaisAnalyticsView(BaseVendaView, TemplateView):
             data_emissao__gte=data_inicio
         ).values('motivo').annotate(
             quantidade=Count('id'),
-            valor_total=Sum('total_credito')
+            valor_total=Sum('total')
         ).order_by('-valor_total')
         
         # Documentos de transporte por status
@@ -4440,21 +4440,21 @@ class RelatorioNotasCreditoView(BaseVendaView, TemplateView):
         
         # Agregações
         totais = queryset.aggregate(
-            total_creditos=Sum('total_credito'),
+            total_creditos=Sum('total'),
             quantidade=Count('id'),
-            credito_medio=Avg('total_credito')
+            credito_medio=Avg('total')
         )
         
         # Agrupamentos
         por_cliente = queryset.values(
             'cliente__nome_completo'
         ).annotate(
-            total=Sum('total_credito'),
+            total=Sum('total'),
             quantidade=Count('id')
         ).order_by('-total')[:10]
         
         por_motivo = queryset.values('motivo').annotate(
-            total=Sum('total_credito'),
+            total=Sum('total'),
             quantidade=Count('id')
         ).order_by('-total')
         
@@ -4561,7 +4561,7 @@ def finalizar_nota_credito_api(request):
         data = json.loads(request.body)
         
         # Validações básicas
-        required_fields = ['cliente_id', 'motivo', 'total_credito']
+        required_fields = ['cliente_id', 'motivo', 'total']
         if not all(field in data for field in required_fields):
             return JsonResponse({
                 'success': False, 
@@ -4575,7 +4575,7 @@ def finalizar_nota_credito_api(request):
                 'cliente_id': data['cliente_id'],
                 'motivo': data['motivo'],
                 'descricao_motivo': data.get('descricao_motivo', ''),
-                'total_credito': Decimal(str(data['total_credito'])),
+                'total': Decimal(str(data['total'])),
                 'observacoes': data.get('observacoes', ''),
                 'emitida_por': request.user
             }
@@ -5037,7 +5037,7 @@ def adicionar_item_nota_credito_api(request):
             'success': True,
             'message': 'Item adicionado com sucesso!',
             'item_id': item.id,
-            'novo_total': float(nota.total_credito)
+            'novo_total': float(nota.total)
         })
         
     except Exception as e:
@@ -5280,7 +5280,7 @@ def remover_item_nota_credito_api(request, item_id):
         return JsonResponse({
             'success': True,
             'message': 'Item removido com sucesso!',
-            'novo_total': float(nota.total_credito)
+            'novo_total': float(nota.total)
         })
         
     except Exception as e:
@@ -5381,7 +5381,7 @@ def estatisticas_rapidas_api(request):
             data_emissao__date=hoje
         ).aggregate(
             quantidade=Count('id'),
-            valor_total=Sum('total_credito')
+            valor_total=Sum('total')
         )
         
         # Notas de Débito
@@ -5390,7 +5390,7 @@ def estatisticas_rapidas_api(request):
             data_emissao__date=hoje
         ).aggregate(
             quantidade=Count('id'),
-            valor_total=Sum('total_debito')
+            valor_total=Sum('total')
         )
         
         # Documentos de Transporte

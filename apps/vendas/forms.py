@@ -522,7 +522,7 @@ class NotaCreditoForm(forms.ModelForm):
         model = NotaCredito
         fields = [
             'venda_origem', 'fatura_credito_origem', 'cliente', 'vendedor',
-            'observacoes', 'total_credito'
+            'observacoes', 'tota'
         ]
         widgets = {
             'venda_origem': forms.Select(attrs={
@@ -593,7 +593,7 @@ class NotaCreditoForm(forms.ModelForm):
         cleaned_data = super().clean()
         venda_origem = cleaned_data.get('venda_origem')
         fatura_credito_origem = cleaned_data.get('fatura_credito_origem')
-        total_credito = cleaned_data.get('total_credito')
+        total = cleaned_data.get('total')
         
         # Validação: deve ter pelo menos uma origem
         if not venda_origem and not fatura_credito_origem:
@@ -605,10 +605,10 @@ class NotaCreditoForm(forms.ModelForm):
         
         # Validação: valor do crédito não pode ser maior que o documento origem
         documento_origem = venda_origem or fatura_credito_origem
-        if documento_origem and total_credito:
+        if documento_origem and total:
             valor_origem = documento_origem.total if hasattr(documento_origem, 'total') else documento_origem.total_faturado
-            if total_credito > valor_origem:
-                raise ValidationError(f"O valor do crédito (Kz {total_credito}) não pode ser maior que o valor do documento de origem (Kz {valor_origem}).")
+            if total > valor_origem:
+                raise ValidationError(f"O valor do crédito (Kz {total}) não pode ser maior que o valor do documento de origem (Kz {valor_origem}).")
         
         # Auto-preencher cliente se não selecionado
         if documento_origem and not cleaned_data.get('cliente'):
