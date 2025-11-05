@@ -522,7 +522,7 @@ class NotaCreditoForm(forms.ModelForm):
         model = NotaCredito
         fields = [
             'venda_origem', 'fatura_credito_origem', 'cliente', 'vendedor',
-            'motivo', 'descricao_motivo', 'observacoes', 'total_credito'
+            'observacoes', 'total_credito'
         ]
         widgets = {
             'venda_origem': forms.Select(attrs={
@@ -552,7 +552,7 @@ class NotaCreditoForm(forms.ModelForm):
                 'rows': 3,
                 'placeholder': 'Observações adicionais (opcional)...'
             }),
-            'total_credito': forms.NumberInput(attrs={
+            'total': forms.NumberInput(attrs={
                 'class': 'text-base w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white',
                 'step': '0.01',
                 'min': '0.01',
@@ -682,7 +682,7 @@ class NotaDebitoForm(forms.ModelForm):
         model = NotaDebito
         fields = [
             'venda_origem', 'fatura_credito_origem', 'cliente', 'vendedor',
-            'motivo', 'descricao_motivo', 'data_vencimento', 'observacoes', 'total_debito'
+            'data_vencimento', 'observacoes', 'total_debito'
         ]
         widgets = {
             'venda_origem': forms.Select(attrs={
@@ -717,7 +717,7 @@ class NotaDebitoForm(forms.ModelForm):
                 'rows': 3,
                 'placeholder': 'Observações adicionais (opcional)...'
             }),
-            'total_debito': forms.NumberInput(attrs={
+            'total': forms.NumberInput(attrs={
                 'class': 'text-base w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white',
                 'step': '0.01',
                 'min': '0.01',

@@ -1740,12 +1740,10 @@ class NotaDebito(TimeStampedModel):
 
     subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     desconto_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
-    total_debito = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     troco = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     valor_pago = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
-    motivo = models.CharField(max_length=100, blank=True, null=True)
-    descricao_motivo = models.TextField(blank=True, null=True)
-
+    
     
     hash_documento = models.CharField(
         max_length=256, 
