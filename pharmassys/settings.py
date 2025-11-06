@@ -148,7 +148,7 @@ from pathlib import Path
 # Banco de dados remoto
 # ========================
 # Defina diretamente a URL do banco remoto do Render
-DATABASE_URL = os.getenv("DATABASE_URL", "postgres://admin_master:y5qwcr5hcFu9AgnfcZOZViKWl9D35sds@dpg-d3v3rkvdiees73emt0eg-a.oregon-postgres.render.com:5432/vistogestpro_db")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgres://admin_master:YX3R9ZL8MBjzhTXqgHHZmauckw79zQMB@dpg-d46fc1fdiees739q5nvg-a.oregon-postgres.render.com:5432/vistogestpro")
 
 if not DATABASE_URL or DATABASE_URL.strip() == "":
     raise Exception("❌ DATABASE_URL não encontrada ou vazia!")
