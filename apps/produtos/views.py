@@ -1019,7 +1019,7 @@ from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views.generic.edit import FormView
 from django.contrib.auth.mixins import LoginRequiredMixin
-
+import unicodedata
 
 logger = logging.getLogger(__name__)
 
@@ -1076,7 +1076,7 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
         """Processa o arquivo Excel/CSV e retorna resultado detalhado"""
         try:
             if arquivo.name.endswith('.csv'):
-                df = pd.read_csv(arquivo, encoding='utf-8-sig')
+                df = pd.read_csv(arquivo, encoding='utf-8', errors='replace')
             else:
                 df = pd.read_excel(arquivo)
 
@@ -1632,21 +1632,26 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
         )
         return fabricante
 
+    
+
     def obter_fornecedor(self, nome, empresa):
-        """Obtém um fornecedor existente pelo nome fantasia ou razão social. Retorna None se não existir."""
         if not nome:
             return None
-        nome_limpo = nome.strip()
         try:
-            return (
-                Fornecedor.objects.filter(
-                    Q(nome_fantasia__iexact=nome_limpo) | Q(razao_social__iexact=nome_limpo),
-                    empresa=empresa
-                ).first()
+            nome_limpo = (
+                unicodedata.normalize('NFKC', str(nome))
+                .encode('utf-8', 'ignore')
+                .decode('utf-8', 'ignore')
+                .strip()
             )
+            return Fornecedor.objects.filter(
+                Q(nome_fantasia__iexact=nome_limpo) | Q(razao_social__iexact=nome_limpo),
+                empresa=empresa
+            ).first()
         except Exception as e:
-            logger.warning(f"Erro ao buscar fornecedor '{nome_limpo}': {str(e)}")
+            logger.warning(f"Erro ao buscar fornecedor '{nome}': {str(e)}")
             return None
+
 
 
 
