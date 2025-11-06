@@ -1007,19 +1007,18 @@ def listar_categorias_api(request):
         }, status=500)
 
 
-import logging
-import traceback
-from decimal import Decimal, InvalidOperation
-
+import os
 import pandas as pd
-from django.contrib import messages
-from django.db import transaction
-from django.db.models import Q
-from django.shortcuts import redirect
-from django.urls import reverse_lazy
+import unicodedata
+import logging
 from django.views.generic.edit import FormView
 from django.contrib.auth.mixins import LoginRequiredMixin
-import unicodedata
+from django.urls import reverse_lazy
+from django.db.models import Q
+from django.contrib import messages
+from django.utils.encoding import force_str
+from produtos.forms import ImportarProdutosForm
+from produtos.models import Produto, Categoria, Fornecedor
 
 logger = logging.getLogger(__name__)
 
@@ -1030,675 +1029,117 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
     acao_requerida = 'editar_produtos'
 
     def get_empresa(self):
+        """Obtém a empresa associada ao utilizador autenticado."""
         user = self.request.user
-        if hasattr(user, 'funcionario') and user.funcionario and user.funcionario.empresa:
+        if hasattr(user, 'funcionario') and user.funcionario.empresa:
             return user.funcionario.empresa
-        if user.is_superuser:
-            return Empresa.objects.first()
         return None
 
-    def dispatch(self, request, *args, **kwargs):
-        if not self.get_empresa():
-            messages.error(request, "Seu usuário não está associado a nenhuma empresa.")
-            return redirect('core:dashboard')
-        return super().dispatch(request, *args, **kwargs)
-
-    def form_valid(self, form):
-        empresa = self.get_empresa()
-        arquivo = form.cleaned_data['arquivo']
-        atualizar_existentes = form.cleaned_data['atualizar_existentes']
-        validar_apenas = form.cleaned_data['validar_apenas']
-
+    def sanitize_text(self, text):
+        """Remove caracteres inválidos e normaliza encoding."""
+        if not text:
+            return ''
         try:
-            resultado = self.processar_arquivo(arquivo, empresa, atualizar_existentes, validar_apenas)
-
-            if resultado['success']:
-                if validar_apenas:
-                    messages.success(
-                        self.request,
-                        f"Validação concluída: {resultado['validos']} produtos válidos, {len(resultado['erros'])} com erros."
-                    )
-                else:
-                    messages.success(
-                        self.request,
-                        f"Importação concluída: {resultado['importados']} novos, {resultado['atualizados']} atualizados."
-                    )
-
-                self.request.session['resultado_importacao'] = resultado
-
+            text = str(text)
+            text = unicodedata.normalize('NFKC', text)
+            text = text.encode('utf-8', 'ignore').decode('utf-8', 'ignore')
+            return text.strip()
         except Exception as e:
-            logger.error(f"Erro na importação de produtos: {str(e)}\n{traceback.format_exc()}")
-            messages.error(self.request, f"Erro inesperado: {str(e)}")
+            logger.warning(f"Erro ao limpar texto: {text} | {str(e)}")
+            return ''
 
-        return super().form_valid(form)
-
-    def processar_arquivo(self, arquivo, empresa, atualizar_existentes, validar_apenas):
-        """Processa o arquivo Excel/CSV e retorna resultado detalhado"""
-        try:
-            if arquivo.name.endswith('.csv'):
-                df = pd.read_csv(arquivo, encoding='utf-8', errors='replace')
-            else:
-                df = pd.read_excel(arquivo)
-
-            resultado_validacao = self.validar_estrutura_arquivo(df)
-            if not resultado_validacao['valid']:
-                return {
-                    'success': False,
-                    'message': resultado_validacao['message'],
-                    'erros': resultado_validacao['erros']
-                }
-
-            # Processar linhas dentro de uma transação
-            with transaction.atomic():
-                return self.processar_linhas(df, empresa, atualizar_existentes, validar_apenas)
-
-        except Exception as e:
-            logger.error(f"Erro ao processar arquivo: {str(e)}\n{traceback.format_exc()}")
-            return {
-                'success': False,
-                'message': f'Erro ao ler arquivo: {str(e)}',
-                'erros': [str(e)]
-            }
-
-    def validar_estrutura_arquivo(self, df):
-        colunas_obrigatorias = ['nome_produto', 'codigo_barras', 'categoria', 'preco_custo', 'preco_venda']
-        colunas_opcionais = [
-            'nome_comercial', 'codigo_interno', 'fabricante', 'fornecedor',
-            'estoque_atual', 'estoque_minimo', 'estoque_maximo', 'margem_lucro',
-            'desconto_percentual', 'observacoes', 'ativo'
-        ]
-
-        df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
-        erros = []
-
-        for coluna in colunas_obrigatorias:
-            if coluna not in df.columns:
-                erros.append(f"Coluna obrigatória '{coluna}' não encontrada")
-        if df.empty:
-            erros.append("O arquivo está vazio")
-
-        if erros:
-            return {'valid': False, 'message': 'Estrutura do arquivo inválida', 'erros': erros}
-
-        return {'valid': True, 'message': 'Estrutura válida', 'erros': []}
-
-    def processar_linhas(self, df, empresa, atualizar_existentes, validar_apenas):
-        importados = 0
-        atualizados = 0
-        validos = 0
-        erros = []
-        produtos_processados = []
-
-        for index, row in df.iterrows():
-            linha = index + 2
-            try:
-                dados_validos, erros_linha = self.validar_linha(row, linha, empresa)
-                if erros_linha:
-                    erros.extend(erros_linha)
-                    continue
-
-                validos += 1
-
-                if not validar_apenas:
-                    resultado = self.criar_ou_atualizar_produto(dados_validos, empresa, atualizar_existentes)
-                    if resultado['created']:
-                        importados += 1
-                    elif resultado['updated']:
-                        atualizados += 1
-
-                    produto = resultado['produto']
-                    produtos_processados.append({
-                        'id': produto.id,
-                        'nome_produto': produto.nome_produto,
-                        'codigo_barras': produto.codigo_barras
-                    })
-
-            except Exception as e:
-                logger.error(f"Erro na linha {linha}: {str(e)}\n{traceback.format_exc()}")
-                erros.append(f"Linha {linha}: Erro inesperado - {str(e)}")
-
-        return {
-            'success': True,
-            'importados': importados,
-            'atualizados': atualizados,
-            'validos': validos,
-            'total_linhas': len(df),
-            'erros': erros,
-            'produtos_processados': produtos_processados
-        }
-
-    def validar_linha(self, row, linha, empresa):
-        erros = []
-        dados = {}
-
-        nome_produto = self.get_string_value(row, 'nome_produto')
-        if not nome_produto:
-            erros.append(f"Linha {linha}: Nome do produto é obrigatório")
-        else:
-            dados['nome_produto'] = nome_produto
-
-        codigo_barras = self.get_string_value(row, 'codigo_barras')
-        if not codigo_barras:
-            erros.append(f"Linha {linha}: Código de barras é obrigatório")
-        else:
-            dados['codigo_barras'] = codigo_barras
-
-        # Categoria obrigatória
-        categoria_nome = self.get_string_value(row, 'categoria')
-        if not categoria_nome:
-            erros.append(f"Linha {linha}: Categoria é obrigatória")
-        else:
-            dados['categoria'] = self.obter_ou_criar_categoria(categoria_nome, empresa)
-
-        # Preços obrigatórios
-        preco_custo = self.get_decimal_value(row, 'preco_custo')
-        if preco_custo is None or preco_custo < 0:
-            erros.append(f"Linha {linha}: Preço de custo inválido")
-        else:
-            dados['preco_custo'] = preco_custo
-
-        preco_venda = self.get_decimal_value(row, 'preco_venda')
-        if preco_venda is None or preco_venda <= 0:
-            erros.append(f"Linha {linha}: Preço de venda inválido")
-        else:
-            dados['preco_venda'] = preco_venda
-
-        # Campos opcionais
-        dados['nome_comercial'] = self.get_string_value(row, 'nome_comercial') or nome_produto
-        dados['codigo_interno'] = self.get_string_value(row, 'codigo_interno') or codigo_barras
-        dados['estoque_atual'] = self.get_decimal_value(row, 'estoque_atual', 0)
-        dados['estoque_minimo'] = self.get_decimal_value(row, 'estoque_minimo', 1)
-        dados['estoque_maximo'] = self.get_decimal_value(row, 'estoque_maximo', 100)
-        dados['margem_lucro'] = self.get_decimal_value(row, 'margem_lucro', 0)
-        dados['desconto_percentual'] = self.get_decimal_value(row, 'desconto_percentual', 0)
-        dados['observacoes'] = self.get_string_value(row, 'observacoes', '')
-        dados['ativo'] = self.get_boolean_value(row, 'ativo', True)
-
-        fabricante_nome = self.get_string_value(row, 'fabricante')
-        if fabricante_nome:
-            dados['fabricante'] = self.obter_ou_criar_fabricante(fabricante_nome, empresa)
-
-        fornecedor_nome = self.get_string_value(row, 'fornecedor')
-        if fornecedor_nome:
-            fornecedor = self.obter_fornecedor(fornecedor_nome, empresa)
-            if fornecedor:
-                dados['fornecedor'] = fornecedor
-            else:
-                erros.append(f"Linha {linha}: fornecedor '{fornecedor_nome}' não encontrado")
-
-        return dados, erros
-
-    def criar_ou_atualizar_produto(self, dados, empresa, atualizar_existentes):
-        codigo_barras = dados['codigo_barras']
-        produto_existente = Produto.objects.filter(codigo_barras=codigo_barras, empresa=empresa).first()
-
-        if produto_existente and atualizar_existentes:
-            for campo, valor in dados.items():
-                if campo != 'empresa':
-                    setattr(produto_existente, campo, valor)
-            produto_existente.empresa = empresa
-            produto_existente.save()
-            return {'produto': produto_existente, 'created': False, 'updated': True}
-
-        elif not produto_existente:
-            dados['empresa'] = empresa
-            produto = Produto.objects.create(**dados)
-            return {'produto': produto, 'created': True, 'updated': False}
-
-        return {'produto': produto_existente, 'created': False, 'updated': False}
-
-    def obter_ou_criar_categoria(self, nome, empresa):
+    def obter_categoria(self, nome, empresa):
+        """Obtém ou cria uma categoria sanitizada."""
+        nome_limpo = self.sanitize_text(nome)
+        if not nome_limpo:
+            return None
         categoria, _ = Categoria.objects.get_or_create(
-            nome=nome.strip(),
-            empresa=empresa,
-            defaults={'ativa': True, 'descricao': f'Categoria importada: {nome}'}
+            nome__iexact=nome_limpo,
+            defaults={'nome': nome_limpo, 'empresa': empresa},
+            empresa=empresa
         )
         return categoria
 
-    def obter_ou_criar_fabricante(self, nome, empresa):
-        fabricante, _ = Fabricante.objects.get_or_create(
-            nome=nome.strip(),
-            empresa=empresa,
-            defaults={'ativo': True}
-        )
-        return fabricante
-
     def obter_fornecedor(self, nome, empresa):
-        if not nome:
+        """Obtém o fornecedor sanitizado ou None se não existir."""
+        nome_limpo = self.sanitize_text(nome)
+        if not nome_limpo:
             return None
-        nome_limpo = nome.strip()
         try:
-            return Fornecedor.objects.filter(
+            fornecedor = Fornecedor.objects.filter(
                 Q(nome_fantasia__iexact=nome_limpo) | Q(razao_social__iexact=nome_limpo),
                 empresa=empresa
             ).first()
+            return fornecedor
         except Exception as e:
             logger.warning(f"Erro ao buscar fornecedor '{nome_limpo}': {str(e)}")
             return None
 
-    # Métodos auxiliares
-    def get_string_value(self, row, column, default=''):
+    def processar_arquivo(self, arquivo, empresa):
+        """Processa o CSV com tolerância a erros de encoding."""
         try:
-            value = row.get(column, default)
-            if pd.isna(value):
-                return default
-            return str(value).strip()
-        except:
-            return default
+            df = pd.read_csv(arquivo, encoding='utf-8', errors='replace')
+        except UnicodeDecodeError:
+            df = pd.read_csv(arquivo, encoding='latin1', errors='replace')
 
-    def get_decimal_value(self, row, column, default=None):
-        try:
-            value = row.get(column, default)
-            if pd.isna(value):
-                return default
-            return Decimal(str(value))
-        except:
-            return default
+        registros_criados, registros_atualizados = 0, 0
 
-    def get_boolean_value(self, row, column, default=False):
-        try:
-            value = row.get(column, default)
-            if pd.isna(value):
-                return default
-            if isinstance(value, bool):
-                return value
-            return str(value).lower().strip() in ['1', 'true', 'sim', 'yes', 'ativo', 'verdadeiro']
-        except:
-            return default
+        for _, row in df.iterrows():
+            try:
+                nome = self.sanitize_text(row.get('nome'))
+                preco = row.get('preco', 0)
+                categoria_nome = self.sanitize_text(row.get('categoria'))
+                fornecedor_nome = self.sanitize_text(row.get('fornecedor'))
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = 'Importar Produtos via Excel'
-        resultado = self.request.session.pop('resultado_importacao', None)
-        if resultado:
-            context['resultado'] = resultado
-        return context
+                if not nome:
+                    continue
 
+                categoria = self.obter_categoria(categoria_nome, empresa)
+                fornecedor = self.obter_fornecedor(fornecedor_nome, empresa)
 
+                produto, criado = Produto.objects.update_or_create(
+                    nome__iexact=nome,
+                    empresa=empresa,
+                    defaults={
+                        'nome': nome,
+                        'preco': preco,
+                        'categoria': categoria,
+                        'fornecedor': fornecedor,
+                    },
+                )
 
-    template_name = 'produtos/importar_produtos.html'
-    form_class = ImportarProdutosForm
-    success_url = reverse_lazy('produtos:produto_list')
-    acao_requerida = 'editar_produtos'
+                if criado:
+                    registros_criados += 1
+                else:
+                    registros_atualizados += 1
 
-    def get_empresa(self):
-        user = self.request.user
-        if hasattr(user, 'funcionario') and user.funcionario and user.funcionario.empresa:
-            return user.funcionario.empresa
-        if user.is_superuser:
-            return Empresa.objects.first()
-        return None
+            except Exception as e:
+                logger.error(f"Erro ao processar linha {row.to_dict()}: {str(e)}")
 
-    def dispatch(self, request, *args, **kwargs):
-        if not self.get_empresa():
-            messages.error(request, "Seu usuário não está associado a nenhuma empresa.")
-            return redirect('core:dashboard')
-        return super().dispatch(request, *args, **kwargs)
+        return registros_criados, registros_atualizados
 
     def form_valid(self, form):
         empresa = self.get_empresa()
-        arquivo = form.cleaned_data['arquivo']
-        atualizar_existentes = form.cleaned_data['atualizar_existentes']
-        validar_apenas = form.cleaned_data['validar_apenas']
-        
+        if not empresa:
+            messages.error(self.request, "Empresa não associada ao utilizador.")
+            return self.form_invalid(form)
+
+        arquivo = form.cleaned_data.get('arquivo')
+        if not arquivo:
+            messages.error(self.request, "Nenhum arquivo CSV foi enviado.")
+            return self.form_invalid(form)
+
         try:
-            resultado = self.processar_arquivo(arquivo, empresa, atualizar_existentes, validar_apenas)
-            
-            if resultado['success']:
-                if validar_apenas:
-                    messages.success(
-                        self.request, 
-                        f"Validação concluída: {resultado['validos']} produtos válidos, {len(resultado['erros'])} com erros."
-                    )
-                else:
-                    messages.success(
-                        self.request,
-                        f"Importação concluída: {resultado['importados']} novos, {resultado['atualizados']} atualizados."
-                    )
-                
-                # Guardar resultado diretamente, já está serializável
-                self.request.session['resultado_importacao'] = resultado
-
-        except Exception as e:
-            logger.error(f"Erro na importação de produtos: {str(e)}")
-            messages.error(self.request, f"Erro inesperado: {str(e)}")
-        
-        return super().form_valid(form)
-
-
-    def processar_arquivo(self, arquivo, empresa, atualizar_existentes, validar_apenas):
-        """Processa o arquivo Excel/CSV e retorna resultado detalhado"""
-        try:
-            # Ler arquivo
-            if arquivo.name.endswith('.csv'):
-                df = pd.read_csv(arquivo, encoding='utf-8-sig') #evitar problemas com acentuação
-            else:
-                df = pd.read_excel(arquivo)
-            
-            # Validar estrutura do arquivo
-            resultado_validacao = self.validar_estrutura_arquivo(df)
-            if not resultado_validacao['valid']:
-                return {
-                    'success': False,
-                    'message': resultado_validacao['message'],
-                    'erros': resultado_validacao['erros']
-                }
-            
-            # Processar linhas
-            return self.processar_linhas(df, empresa, atualizar_existentes, validar_apenas)
-            
-        except Exception as e:
-            logger.error(f"Erro ao processar arquivo: {str(e)}")
-            return {
-                'success': False,
-                'message': f'Erro ao ler arquivo: {str(e)}',
-                'erros': [str(e)]
-            }
-
-    def validar_estrutura_arquivo(self, df):
-        """Valida se o arquivo tem a estrutura correta"""
-        colunas_obrigatorias = [
-            'nome_produto', 'codigo_barras', 'categoria', 'preco_custo', 'preco_venda'
-        ]
-        
-        colunas_opcionais = [
-            'nome_comercial', 'codigo_interno', 'fabricante', 'fornecedor',
-            'estoque_atual', 'estoque_minimo', 'estoque_maximo', 'margem_lucro',
-            'desconto_percentual', 'observacoes', 'ativo'
-        ]
-        
-        # Normalizar nomes das colunas (remover espaços, converter para minúsculas)
-        df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
-        
-        erros = []
-        
-        # Verificar colunas obrigatórias
-        for coluna in colunas_obrigatorias:
-            if coluna not in df.columns:
-                erros.append(f"Coluna obrigatória '{coluna}' não encontrada")
-        
-        # Verificar se o arquivo não está vazio
-        if df.empty:
-            erros.append("O arquivo está vazio")
-        
-        if erros:
-            return {
-                'valid': False,
-                'message': 'Estrutura do arquivo inválida',
-                'erros': erros
-            }
-        
-        return {
-            'valid': True,
-            'message': 'Estrutura válida',
-            'erros': []
-        }
-
-    def processar_linhas(self, df, empresa, atualizar_existentes, validar_apenas):
-        """Processa cada linha do DataFrame"""
-        importados = 0
-        atualizados = 0
-        validos = 0
-        erros = []
-        produtos_processados = []
-        
-        for index, row in df.iterrows():
-            linha = index + 2  # +2 porque o Excel começa em 1 e temos cabeçalho
-            
-            try:
-                # Validar linha
-                dados_validos, erros_linha = self.validar_linha(row, linha, empresa)
-                
-                if erros_linha:
-                    erros.extend(erros_linha)
-                    continue
-                
-                validos += 1
-                
-                if not validar_apenas:
-                    # Processar produto
-                    resultado = self.criar_ou_atualizar_produto(dados_validos, empresa, atualizar_existentes)
-                    
-                    if resultado['created']:
-                        importados += 1
-                    elif resultado['updated']:
-                        atualizados += 1
-                    
-                    
-                    produto = resultado['produto']
-                    produtos_processados.append({
-                        'id': produto.id,
-                        'nome_produto': produto.nome_produto,
-                        'codigo_barras': produto.codigo_barras
-                    })
-
-                
-            except Exception as e:
-                logger.error(f"Erro na linha {linha}: {str(e)}")
-                erros.append(f"Linha {linha}: Erro inesperado - {str(e)}")
-        
-        return {
-            'success': True,
-            'importados': importados,
-            'atualizados': atualizados,
-            'validos': validos,
-            'total_linhas': len(df),
-            'erros': erros,
-            'produtos_processados': produtos_processados
-        }
-
-    def validar_linha(self, row, linha, empresa):
-        """Valida uma linha individual do arquivo"""
-        erros = []
-        dados = {}
-        
-        # Validações obrigatórias
-        nome_produto = self.get_string_value(row, 'nome_produto')
-        if not nome_produto:
-            erros.append(f"Linha {linha}: Nome do produto é obrigatório")
-        else:
-            dados['nome_produto'] = nome_produto
-        
-        codigo_barras = self.get_string_value(row, 'codigo_barras')
-        if not codigo_barras:
-            erros.append(f"Linha {linha}: Código de barras é obrigatório")
-        else:
-            dados['codigo_barras'] = codigo_barras
-        
-        fornecedor_nome = self.get_string_value(row, 'fornecedor')
-        if fornecedor_nome:
-            fornecedor = self.obter_fornecedor(fornecedor_nome, empresa)
-            if fornecedor:
-                dados['fornecedor'] = fornecedor
-            else:
-                erros.append(f"Linha {linha}: fornecedor '{fornecedor_nome}' não encontrado")
-
-        
-        # Validar preços
-        try:
-            preco_custo = self.get_decimal_value(row, 'preco_custo')
-            if preco_custo is None or preco_custo < 0:
-                erros.append(f"Linha {linha}: Preço de custo deve ser maior ou igual a zero")
-            else:
-                dados['preco_custo'] = preco_custo
-        except (ValueError, InvalidOperation):
-            erros.append(f"Linha {linha}: Preço de custo inválido")
-        
-        try:
-            preco_venda = self.get_decimal_value(row, 'preco_venda')
-            if preco_venda is None or preco_venda <= 0:
-                erros.append(f"Linha {linha}: Preço de venda deve ser maior que zero")
-            else:
-                dados['preco_venda'] = preco_venda
-        except (ValueError, InvalidOperation):
-            erros.append(f"Linha {linha}: Preço de venda inválido")
-        
-        # Validar categoria
-        categoria_nome = self.get_string_value(row, 'categoria')
-        if not categoria_nome:
-            erros.append(f"Linha {linha}: Categoria é obrigatória")
-        else:
-            categoria = self.obter_ou_criar_categoria(categoria_nome, empresa)
-            dados['categoria'] = categoria
-        
-        # Campos opcionais
-        dados['nome_comercial'] = self.get_string_value(row, 'nome_comercial') or nome_produto
-        dados['codigo_interno'] = self.get_string_value(row, 'codigo_interno') or codigo_barras
-        dados['estoque_atual'] = self.get_decimal_value(row, 'estoque_atual', 0)
-        dados['estoque_minimo'] = self.get_decimal_value(row, 'estoque_minimo', 1)
-        dados['estoque_maximo'] = self.get_decimal_value(row, 'estoque_maximo', 100)
-        dados['margem_lucro'] = self.get_decimal_value(row, 'margem_lucro', 0)
-        dados['desconto_percentual'] = self.get_decimal_value(row, 'desconto_percentual', 0)
-        dados['observacoes'] = self.get_string_value(row, 'observacoes', '')
-        dados['ativo'] = self.get_boolean_value(row, 'ativo', True)
-        
-        # Fabricante (opcional)
-        fabricante_nome = self.get_string_value(row, 'fabricante')
-        if fabricante_nome:
-            fabricante = self.obter_ou_criar_fabricante(fabricante_nome, empresa)
-            dados['fabricante'] = fabricante
-        
-        # Fornecedor (opcional)
-        fornecedor_nome = self.get_string_value(row, 'fornecedor')
-        if fornecedor_nome:
-            fornecedor = self.obter_fornecedor(fornecedor_nome, empresa)
-            if fornecedor:
-                dados['fornecedor'] = fornecedor
-        
-        return dados, erros
-
-    def criar_ou_atualizar_produto(self, dados, empresa, atualizar_existentes):
-        """Cria ou atualiza um produto"""
-        codigo_barras = dados['codigo_barras']
-        
-        # Verificar se produto já existe
-        produto_existente = Produto.objects.filter(
-            codigo_barras=codigo_barras,
-            empresa=empresa
-        ).first()
-        
-        if produto_existente and atualizar_existentes:
-            # Atualizar produto existente
-            for campo, valor in dados.items():
-                if campo != 'empresa':
-                    setattr(produto_existente, campo, valor)
-            
-            produto_existente.empresa = empresa
-            produto_existente.save()
-            
-            return {
-                'produto': produto_existente,
-                'created': False,
-                'updated': True
-            }
-        
-        elif not produto_existente:
-            # Criar novo produto
-            dados['empresa'] = empresa
-            produto = Produto.objects.create(**dados)
-            
-            return {
-                'produto': produto,
-                'created': True,
-                'updated': False
-            }
-        
-        else:
-            # Produto existe mas não deve ser atualizado
-            return {
-                'produto': produto_existente,
-                'created': False,
-                'updated': False
-            }
-
-    def obter_ou_criar_categoria(self, nome, empresa):
-        """Obtém ou cria uma categoria"""
-        categoria, created = Categoria.objects.get_or_create(
-            nome=nome.strip(),
-            empresa=empresa,
-            defaults={
-                'ativa': True,
-                'descricao': f'Categoria importada: {nome}'
-            }
-        )
-        return categoria
-
-    def obter_ou_criar_fabricante(self, nome, empresa):
-        """Obtém ou cria um fabricante"""
-        fabricante, created = Fabricante.objects.get_or_create(
-            nome=nome.strip(),
-            empresa=empresa,
-            defaults={'ativo': True}
-        )
-        return fabricante
-
-    
-
-    def obter_fornecedor(self, nome, empresa):
-        if not nome:
-            return None
-        try:
-            nome_limpo = (
-                unicodedata.normalize('NFKC', str(nome))
-                .encode('utf-8', 'ignore')
-                .decode('utf-8', 'ignore')
-                .strip()
+            registros_criados, registros_atualizados = self.processar_arquivo(arquivo, empresa)
+            messages.success(
+                self.request,
+                f"Importação concluída com sucesso. {registros_criados} produtos criados, {registros_atualizados} atualizados."
             )
-            return Fornecedor.objects.filter(
-                Q(nome_fantasia__iexact=nome_limpo) | Q(razao_social__iexact=nome_limpo),
-                empresa=empresa
-            ).first()
         except Exception as e:
-            logger.warning(f"Erro ao buscar fornecedor '{nome}': {str(e)}")
-            return None
+            logger.exception(f"Erro geral ao importar produtos: {str(e)}")
+            messages.error(self.request, f"Erro ao importar produtos: {str(e)}")
 
-
-
-
-    # Métodos auxiliares para extração de dados
-    def get_string_value(self, row, column, default=''):
-        try:
-            value = row.get(column, default)
-            if pd.isna(value):
-                return default
-            return str(value).strip()
-        except:
-            return default
-
-    def get_decimal_value(self, row, column, default=None):
-        try:
-            value = row.get(column, default)
-            if pd.isna(value):
-                return default
-            return Decimal(str(value))
-        except:
-            return default
-
-    def get_boolean_value(self, row, column, default=False):
-        try:
-            value = row.get(column, default)
-            if pd.isna(value):
-                return default
-            
-            if isinstance(value, bool):
-                return value
-            
-            value_str = str(value).lower().strip()
-            return value_str in ['1', 'true', 'sim', 'yes', 'ativo', 'verdadeiro']
-        except:
-            return default
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = 'Importar Produtos via Excel'
-        
-        # Adicionar resultado da sessão se existir
-        resultado = self.request.session.pop('resultado_importacao', None)
-        if resultado:
-            context['resultado'] = resultado
-        
-        return context
-
+        return super().form_valid(form)
 
    
     
