@@ -1076,11 +1076,29 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
             return None
 
     def processar_arquivo(self, arquivo, empresa):
-        """Processa o CSV com tolerância a erros de encoding."""
+        """Processa o CSV com leitura compatível e tolerante a erros de encoding."""
+        import io
+
         try:
-            df = pd.read_csv(arquivo, encoding='utf-8', errors='replace')
-        except UnicodeDecodeError:
-            df = pd.read_csv(arquivo, encoding='latin1', errors='replace')
+            # Lê o conteúdo binário do arquivo
+            conteudo = arquivo.read()
+
+            try:
+                texto = conteudo.decode('utf-8')
+            except UnicodeDecodeError:
+                try:
+                    texto = conteudo.decode('latin1')
+                except Exception as e:
+                    logger.error(f"Erro ao decodificar arquivo CSV: {str(e)}")
+                    raise ValueError("Falha ao decodificar o arquivo CSV. Tente exportar em UTF-8.")
+
+            # Recarrega o texto limpo num buffer de string
+            buffer = io.StringIO(texto)
+            df = pd.read_csv(buffer)
+
+        except Exception as e:
+            logger.exception(f"Erro ao ler CSV: {str(e)}")
+            raise ValueError(f"Erro ao ler CSV: {str(e)}")
 
         registros_criados, registros_atualizados = 0, 0
 
@@ -1117,6 +1135,7 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
                 logger.error(f"Erro ao processar linha {row.to_dict()}: {str(e)}")
 
         return registros_criados, registros_atualizados
+
 
     def form_valid(self, form):
         empresa = self.get_empresa()
