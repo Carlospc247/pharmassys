@@ -1018,7 +1018,7 @@ from django.db.models import Q
 from django.contrib import messages
 from django.utils.encoding import force_str
 from apps.produtos.forms import ImportarProdutosForm
-from apps.produtos.models import Produto, Categoria, Fornecedor
+
 
 logger = logging.getLogger(__name__)
 
