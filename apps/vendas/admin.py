@@ -250,8 +250,8 @@ class ItemNotaCreditoInline(admin.TabularInline):
 @admin.register(NotaCredito)
 class NotaCreditoAdmin(admin.ModelAdmin):
     list_display = (
-        'numero_nota', 'cliente', 'get_documento_origem', 'motivo', 
-        'total', 'status', 'data_emissao', 'get_status_badge'
+        'numero_nota', 'cliente', 'get_documento_origem', 
+        'total', 'status', 'data_nota', 'get_status_badge'
     )
     list_filter = (
         'status', 'data_nota', 'empresa', 'requer_aprovacao'
