@@ -53,7 +53,7 @@ class Produto(TimeStampedModel):
         null=True,
         blank=True,
         related_name='produtos',
-        default=14,
+        default=1,
         verbose_name="Taxa de IVA/Imposto Legal (AGT)"
     )
     
