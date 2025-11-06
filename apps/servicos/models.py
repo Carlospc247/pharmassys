@@ -43,6 +43,13 @@ class Servico(TimeStampedModel):
         default=0.00,
         verbose_name="IVA (%)"
     )
+    taxa_iva = models.ForeignKey(
+        'fiscal.TaxaIVAAGT',  # modelo da tabela de taxas
+        on_delete=models.PROTECT,
+        verbose_name="Regime Fiscal (AGT)",
+        default=5  # ou algum valor válido
+    )
+
     instrucoes_padrao = models.TextField(blank=True, help_text="Instruções para o cliente ou para o funcionário.")
     ativo = models.BooleanField(default=True)
     
