@@ -292,6 +292,8 @@ class Fornecedor(TimeStampedModel):
             return self.data_validade_licenca < date.today()
         return False"""
 
+
+
 class ContatoFornecedor(TimeStampedModel):
     """Contatos do fornecedor"""
     TIPO_CONTATO_CHOICES = [

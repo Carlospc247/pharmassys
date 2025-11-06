@@ -1081,7 +1081,7 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
         try:
             # Ler arquivo
             if arquivo.name.endswith('.csv'):
-                df = pd.read_csv(arquivo, encoding='utf-8')
+                df = pd.read_csv(arquivo, encoding='utf-8-sig') #evitar problemas com acentuação
             else:
                 df = pd.read_excel(arquivo)
             
@@ -1208,6 +1208,15 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
         else:
             dados['codigo_barras'] = codigo_barras
         
+        fornecedor_nome = self.get_string_value(row, 'fornecedor')
+        if fornecedor_nome:
+            fornecedor = self.obter_fornecedor(fornecedor_nome, empresa)
+            if fornecedor:
+                dados['fornecedor'] = fornecedor
+            else:
+                erros.append(f"Linha {linha}: fornecedor '{fornecedor_nome}' não encontrado")
+
+        
         # Validar preços
         try:
             preco_custo = self.get_decimal_value(row, 'preco_custo')
@@ -1327,14 +1336,21 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
         return fabricante
 
     def obter_fornecedor(self, nome, empresa):
-        """Obtém um fornecedor existente pelo nome fantasia ou razão social"""
+        """Obtém um fornecedor existente pelo nome fantasia ou razão social. Retorna None se não existir."""
+        if not nome:
+            return None
         nome_limpo = nome.strip()
-        return (
-            Fornecedor.objects.filter(
-                Q(nome_fantasia__iexact=nome_limpo) | Q(razao_social__iexact=nome_limpo),
-                empresa=empresa
-            ).first()
-        )
+        try:
+            return (
+                Fornecedor.objects.filter(
+                    Q(nome_fantasia__iexact=nome_limpo) | Q(razao_social__iexact=nome_limpo),
+                    empresa=empresa
+                ).first()
+            )
+        except Exception as e:
+            logger.warning(f"Erro ao buscar fornecedor '{nome_limpo}': {str(e)}")
+            return None
+
 
 
     # Métodos auxiliares para extração de dados
