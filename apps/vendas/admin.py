@@ -275,7 +275,7 @@ class NotaCreditoAdmin(admin.ModelAdmin):
             'fields': ('cliente', 'vendedor')
         }),
         ('Motivo e Descrição', {
-            'fields': ('observacoes')
+            'fields': ('observacoes',)
         }),
         ('Valores', {
             'fields': ('subtotal_credito', 'iva_credito', 'total')
