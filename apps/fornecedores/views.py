@@ -328,10 +328,26 @@ class FornecedorCreateView(EmpresaQuerysetMixin, CreateView):
         form.instance.empresa = self.request.user.empresa
         return super().form_valid(form)
 
+from django.views.generic.edit import UpdateView
+from .models import Fornecedor
+
 class FornecedorUpdateView(EmpresaQuerysetMixin, UpdateView):
-   
+    model = Fornecedor  # informa o modelo
     template_name = 'fornecedores/fornecedor_form.html'
-    
+    fields = [
+        'codigo_fornecedor', 'razao_social', 'nome_fantasia', 'tipo_pessoa',
+        'categoria', 'porte', 'foto', 'nif_bi', 'endereco', 'numero',
+        'bairro', 'cidade', 'provincia', 'postal', 'pais',
+        'telefone_principal', 'telefone_secundario', 'whatsapp', 'email_principal',
+        'email_financeiro', 'email_comercial', 'site', 'condicao_pagamento_padrao',
+        'prazo_entrega_dias', 'valor_minimo_pedido', 'banco_principal', 'agencia',
+        'conta_corrente', 'permite_devolucao', 'prazo_devolucao_dias',
+        'trabalha_consignacao', 'aceita_cartao', 'entrega_proprio', 'nota_avaliacao',
+        'pontualidade_entrega', 'qualidade_produtos', 'ativo', 'bloqueado',
+        'motivo_bloqueio', 'observacoes', 'observacoes_internas'
+    ]
+    success_url = '/fornecedores/'  # ou reverse_lazy('fornecedores:list')
+   
 
 class FornecedorDeleteView(EmpresaQuerysetMixin, DeleteView):
     
