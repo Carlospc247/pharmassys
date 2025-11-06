@@ -262,7 +262,7 @@ class NotaCreditoAdmin(admin.ModelAdmin):
     )
     readonly_fields = (
         'numero_nota', 'created_at', 'updated_at', 'data_aplicacao',
-        'aprovada_por', 'data_aprovacao', 'aplicada_por'
+        'aprovada_por', 'aplicada_por', 'data_aprovacao'
     )
     fieldsets = (
         ('Identificação', {

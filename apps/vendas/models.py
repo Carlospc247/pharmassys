@@ -1601,6 +1601,7 @@ class NotaCredito(TimeStampedModel):
         related_name='notas_credito_aprovadas'
     )
     data_aplicacao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Aplicação")
+    data_aprovacao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Aprovação")
 
     tem_fatura = models.BooleanField(default=False)
     tem_recibo = models.BooleanField(default=False)
@@ -1803,6 +1804,7 @@ class NotaDebito(TimeStampedModel):
         related_name='notas_debito_aprovadas'
     )
     data_aprovacao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Aprovação")
+    data_aplicacao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Aprovação")
 
     
 
@@ -1929,6 +1931,7 @@ class ItemNotaDebito(TimeStampedModel):
 
     def __str__(self):
         return f"{self.descricao_item} - Qtd: {self.quantidade}"
+
 
 class DocumentoTransporte(TimeStampedModel):
     """Documento de Transporte (GT) - Documento que acompanha mercadorias em trânsito"""
@@ -2313,7 +2316,4 @@ class ItemDocumentoTransporte(TimeStampedModel):
     def tem_divergencia(self):
         """Verifica se há divergência na quantidade"""
         return self.divergencia_quantidade != Decimal('0.00')
-
-
-
 
