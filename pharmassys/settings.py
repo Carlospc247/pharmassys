@@ -139,26 +139,29 @@ WSGI_APPLICATION = 'pharmassys.wsgi.application'
 #        ssl_require=True
 #    )
 #}
-
 import os
 import dj_database_url
+from pathlib import Path
 
-DATABASE_URL = (
-    os.environ.get("DATABASE_URL_INTERNAL")
-    or os.environ.get("DATABASE_URL_EXTERNAL")
-    or os.environ.get("DATABASE_URL")  # Render usa este
-)
 
-if not DATABASE_URL:
-    raise Exception("❌ DATABASE_URL não encontrada! Configure DATABASE_URL, DATABASE_URL_INTERNAL ou DATABASE_URL_EXTERNAL")
+# ========================
+# Banco de dados remoto
+# ========================
+# Defina diretamente a URL do banco remoto do Render
+DATABASE_URL = os.getenv("DATABASE_URL", "postgres://admin_master:y5qwcr5hcFu9AgnfcZOZViKWl9D35sds@dpg-d3v3rkvdiees73emt0eg-a.oregon-postgres.render.com:5432/vistogestpro_db")
+
+if not DATABASE_URL or DATABASE_URL.strip() == "":
+    raise Exception("❌ DATABASE_URL não encontrada ou vazia!")
 
 DATABASES = {
     "default": dj_database_url.parse(
         DATABASE_URL,
         conn_max_age=600,
-        ssl_require=True  # força SSL (necessário no Render)
+        ssl_require=True  # necessário no Render
     )
 }
+
+print("Conectando ao banco remoto:", DATABASES["default"]["NAME"])
 
 # =========================================
 # Cloudinary

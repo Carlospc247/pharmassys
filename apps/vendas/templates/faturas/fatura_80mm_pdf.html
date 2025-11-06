@@ -252,7 +252,7 @@
                         <td class="text-center">{{ item.quantidade }}</td>
                         <td class="text-right">{{ item.preco_unitario|floatformat:2 }} Kz</td>
                         <td class="text-center">{{ item.desconto_percentual|floatformat:1 }}%</td>
-                        <td class="text-center">{{ item.iva_percentual|floatformat:1 }}%</td>
+                        <td class="text-center">{{ item.taxa_iva.percentual|floatformat:1 }}%</td>
                         <td class="text-right">{{ item.total|floatformat:2 }} Kz</td>
                     </tr>
                     {% endfor %}

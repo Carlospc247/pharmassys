@@ -57,7 +57,7 @@ class ProdutoForm(forms.ModelForm):
             'categoria', 'fabricante', 'fornecedor',
             'preco_custo', 'preco_venda', 'margem_lucro', # Adicionamos a margem de lucro
             'estoque_minimo', 'estoque_maximo',
-            'ativo', 'foto', 'iva_percentual', 'desconto_percentual'
+            'ativo', 'foto', 'taxa_iva', 'desconto_percentual'
         ]
         labels = {
             'nome_produto': 'Nome Comercial do Produto',
@@ -68,7 +68,7 @@ class ProdutoForm(forms.ModelForm):
             'estoque_minimo': 'Nível Mínimo de Estoque',
             'estoque_maximo': 'Nível Máximo de Estoque',
             'ativo': 'Produto Ativo (disponível para venda)',
-            'iva_percentual': 'Escreva a percentagem do IVA',
+            'taxa_iva': 'Escreva a percentagem do IVA',
             'desconto_percentual': 'Escreva a percentagem do desconto promocional',
         }
         widgets = {

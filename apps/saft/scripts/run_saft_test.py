@@ -4,7 +4,7 @@ import django
 from datetime import datetime, date
 
 # Configuração do Ambiente Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'seu_projeto.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'pharmassys.settings')
 django.setup()
 
 # Imports Necessários

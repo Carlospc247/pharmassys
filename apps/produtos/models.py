@@ -47,7 +47,7 @@ class Produto(TimeStampedModel):
     nome_produto = models.CharField(max_length=200)
     nome_comercial = models.CharField(max_length=200)
 
-    iva_percentual = models.ForeignKey(
+    taxa_iva = models.ForeignKey(
         'fiscal.TaxaIVAAGT',
         on_delete=models.SET_NULL,
         null=True,
