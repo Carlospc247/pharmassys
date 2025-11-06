@@ -1017,8 +1017,8 @@ from django.urls import reverse_lazy
 from django.db.models import Q
 from django.contrib import messages
 from django.utils.encoding import force_str
-from produtos.forms import ImportarProdutosForm
-from produtos.models import Produto, Categoria, Fornecedor
+from apps.produtos.forms import ImportarProdutosForm
+from apps.produtos.models import Produto, Categoria, Fornecedor
 
 logger = logging.getLogger(__name__)
 
