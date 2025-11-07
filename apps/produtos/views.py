@@ -1072,17 +1072,25 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
         """
         Processa um arquivo Excel (.xlsx/.xls) ou CSV exportado pelo template.
         Cria ou atualiza produtos, categorias e associa fornecedores existentes.
+        Corrige duplicação de colunas e ambiguidade de Series.
         """
-
         import io
         import pandas as pd
         import unicodedata
         import logging
+        import csv
 
+        logger = logging.getLogger(__name__)
         registros_criados, registros_atualizados = 0, 0
 
+        def get_val(row, col, default=None):
+            """Garante valor escalar mesmo se vier como Series."""
+            val = row.get(col, default)
+            if isinstance(val, (pd.Series, list)):
+                val = val.iloc[0] if hasattr(val, 'iloc') else (val[0] if val else default)
+            return val if pd.notna(val) else default
+
         try:
-            # Lê o conteúdo do arquivo
             conteudo = arquivo.read()
 
             # Detecta tipo e decodifica
@@ -1091,84 +1099,52 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
             except UnicodeDecodeError:
                 texto = conteudo.decode('latin1', errors='ignore')
 
-            # Detecta extensão para pandas
             nome_ext = arquivo.name.lower()
             buffer = io.BytesIO(conteudo)
 
+            # === Lê arquivo ===
             if nome_ext.endswith(('.xlsx', '.xls')):
                 df = pd.read_excel(buffer)
             else:
-                # CSV: detecta separador
-                import csv
-                sniffer = csv.Sniffer()
                 try:
-                    dialect = sniffer.sniff(texto.splitlines()[0])
-                    sep = dialect.delimiter
+                    sniffer = csv.Sniffer()
+                    sep = sniffer.sniff(texto.splitlines()[0]).delimiter
                 except Exception:
                     sep = ';' if texto.count(';') > texto.count(',') else ','
+                df = pd.read_csv(io.StringIO(texto), sep=sep, on_bad_lines='skip')
 
-                try:
-                    df = pd.read_csv(io.StringIO(texto), sep=sep, on_bad_lines='skip')
-                except TypeError:
-                    df = pd.read_csv(io.StringIO(texto), sep=sep, error_bad_lines=False)
-
-            # Se estiver vazio
             if df.empty:
                 logger.warning("O CSV/Excel foi lido mas não contém dados!")
                 return 0, 0
 
-            # === Normaliza cabeçalhos ===
+            # === Normaliza cabeçalhos e remove duplicadas ===
             df.columns = [str(c).strip().lower() for c in df.columns]
+            df = df.loc[:, ~df.columns.duplicated()]
 
-            # === Mapeamento flexível de colunas ===
+            # === Mapeamento flexível ===
             col_map = {
-                'nome_produto': 'nome',
-                'produto': 'nome',
-                'nome': 'nome',
-                'descricao': 'nome',
-                'descrição': 'nome',
-
-                'preco': 'preco',
-                'preço': 'preco',
-                'preco_custo': 'preco',
-                'preco_venda': 'preco',
-                'preço unitário': 'preco',
-                'valor': 'preco',
-
-                'categoria': 'categoria',
-                'categoria_produto': 'categoria',
-                'grupo': 'categoria',
-
-                'fornecedor': 'fornecedor',
-                'nome_fornecedor': 'fornecedor',
-                'nome do fornecedor': 'fornecedor',
-
-                'codigo_barras': 'codigo_barras',
-                'codigo_interno': 'codigo_interno',
-                'nome_comercial': 'nome_comercial',
-                'fabricante': 'fabricante',
-                'estoque_atual': 'estoque_atual',
-                'estoque_minimo': 'estoque_minimo',
-                'estoque_maximo': 'estoque_maximo',
-                'margem_lucro': 'margem_lucro',
-                'desconto_percentual': 'desconto_percentual',
-                'observacoes': 'observacoes',
-                'ativo': 'ativo',
+                'nome_produto': 'nome', 'produto': 'nome', 'nome': 'nome', 'descricao': 'nome', 'descrição': 'nome',
+                'preco': 'preco', 'preço': 'preco', 'preco_custo': 'preco', 'preco_venda': 'preco', 'preço unitário': 'preco', 'valor': 'preco',
+                'categoria': 'categoria', 'categoria_produto': 'categoria', 'grupo': 'categoria',
+                'fornecedor': 'fornecedor', 'nome_fornecedor': 'fornecedor', 'nome do fornecedor': 'fornecedor',
+                'codigo_barras': 'codigo_barras', 'codigo_interno': 'codigo_interno',
+                'nome_comercial': 'nome_comercial', 'fabricante': 'fabricante',
+                'estoque_atual': 'estoque_atual', 'estoque_minimo': 'estoque_minimo', 'estoque_maximo': 'estoque_maximo',
+                'margem_lucro': 'margem_lucro', 'desconto_percentual': 'desconto_percentual',
+                'observacoes': 'observacoes', 'ativo': 'ativo',
             }
-
             df.rename(columns=lambda x: col_map.get(x, x), inplace=True)
 
             logger.info(f"Colunas detectadas após mapeamento: {list(df.columns)}")
             logger.info(f"Primeiras linhas lidas: {df.head(5).to_dict(orient='records')}")
 
-            # === Processa linha a linha ===
+            # === Processamento linha a linha ===
             for _, row in df.iterrows():
                 try:
-                    # Sanitiza campos
-                    nome = self.sanitize_text(row.get('nome'))
-                    preco = row.get('preco') or 0
-                    categoria_nome = self.sanitize_text(row.get('categoria'))
-                    fornecedor_nome = self.sanitize_text(row.get('fornecedor'))
+                    nome = self.sanitize_text(get_val(row, 'nome'))
+                    preco = float(get_val(row, 'preco', 0) or 0)
+                    categoria_nome = self.sanitize_text(get_val(row, 'categoria'))
+                    fornecedor_nome = self.sanitize_text(get_val(row, 'fornecedor'))
 
                     if not nome:
                         continue
@@ -1176,27 +1152,25 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
                     categoria = self.obter_categoria(categoria_nome, empresa)
                     fornecedor = self.obter_fornecedor(fornecedor_nome, empresa)
 
-                    # Campos adicionais opcionais
-                    codigo_barras = self.sanitize_text(row.get('codigo_barras'))
-                    codigo_interno = self.sanitize_text(row.get('codigo_interno'))
-                    nome_comercial = self.sanitize_text(row.get('nome_comercial')) or nome
-                    fabricante = self.sanitize_text(row.get('fabricante'))
-                    estoque_atual = int(row.get('estoque_atual') or 0)
-                    estoque_minimo = int(row.get('estoque_minimo') or 1)
-                    estoque_maximo = int(row.get('estoque_maximo') or 100)
-                    margem_lucro = float(row.get('margem_lucro') or 0)
-                    desconto_percentual = float(row.get('desconto_percentual') or 0)
-                    observacoes = self.sanitize_text(row.get('observacoes'))
-                    ativo = row.get('ativo')
+                    codigo_barras = self.sanitize_text(get_val(row, 'codigo_barras'))
+                    codigo_interno = self.sanitize_text(get_val(row, 'codigo_interno'))
+                    nome_comercial = self.sanitize_text(get_val(row, 'nome_comercial')) or nome
+                    fabricante = self.sanitize_text(get_val(row, 'fabricante'))
+                    estoque_atual = int(get_val(row, 'estoque_atual', 0) or 0)
+                    estoque_minimo = int(get_val(row, 'estoque_minimo', 1) or 1)
+                    estoque_maximo = int(get_val(row, 'estoque_maximo', 100) or 100)
+                    margem_lucro = float(get_val(row, 'margem_lucro', 0) or 0)
+                    desconto_percentual = float(get_val(row, 'desconto_percentual', 0) or 0)
+                    observacoes = self.sanitize_text(get_val(row, 'observacoes'))
+                    ativo = get_val(row, 'ativo', 1)
                     if isinstance(ativo, str):
-                        ativo = 1 if ativo.lower() in ['1','true','sim','yes'] else 0
+                        ativo = 1 if ativo.lower() in ['1', 'true', 'sim', 'yes'] else 0
                     else:
                         ativo = int(ativo) if ativo is not None else 1
 
-                    # Cria ou atualiza produto
                     produto, criado = Produto.objects.update_or_create(
-                        nome__iexact=nome,
                         empresa=empresa,
+                        nome__iexact=nome,
                         defaults={
                             'nome': nome,
                             'preco': preco,
