@@ -171,43 +171,72 @@ class CategoriaForm(forms.ModelForm):
 
 
 from django import forms
-from .models import Produto, Categoria, Fabricante
+from .models import Produto, Fabricante
+
 
 class ImportarProdutosForm(forms.Form):
     arquivo = forms.FileField(
-        label="Arquivo Excel",
-        help_text="Selecione um arquivo .xlsx ou .csv com os produtos",
+        label="Arquivo de Produtos",
+        help_text="Selecione um arquivo .xlsx, .xls ou .csv com os produtos.",
         widget=forms.FileInput(attrs={
-            'class': 'block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-secondary',
+            'class': (
+                'block w-full text-sm text-gray-500 '
+                'file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 '
+                'file:text-sm file:font-semibold file:bg-primary file:text-white '
+                'hover:file:bg-secondary'
+            ),
             'accept': '.xlsx,.xls,.csv'
         })
     )
-    
+
     atualizar_existentes = forms.BooleanField(
         label="Atualizar produtos existentes",
-        help_text="Se marcado, produtos com mesmo código de barras serão atualizados",
+        help_text="Se marcado, produtos com o mesmo código de barras serão atualizados.",
         required=False,
-        widget=forms.CheckboxInput(attrs={'class': 'rounded border-gray-300 text-primary shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50'})
+        widget=forms.CheckboxInput(attrs={
+            'class': 'rounded border-gray-300 text-primary shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50'
+        })
     )
-    
+
     validar_apenas = forms.BooleanField(
         label="Apenas validar (não importar)",
-        help_text="Se marcado, apenas validará o arquivo sem importar os dados",
+        help_text="Se marcado, o sistema apenas validará o arquivo sem importar os dados.",
         required=False,
-        widget=forms.CheckboxInput(attrs={'class': 'rounded border-gray-300 text-secondary shadow-sm focus:border-secondary focus:ring focus:ring-secondary focus:ring-opacity-50'})
+        widget=forms.CheckboxInput(attrs={
+            'class': 'rounded border-gray-300 text-secondary shadow-sm focus:border-secondary focus:ring focus:ring-secondary focus:ring-opacity-50'
+        })
     )
 
     def clean_arquivo(self):
         arquivo = self.cleaned_data.get('arquivo')
-        if arquivo:
-            if arquivo.size > 10 * 1024 * 1024:  # 10MB
-                raise forms.ValidationError("O arquivo não pode ser maior que 10MB")
-            
-            extensao = arquivo.name.split('.')[-1].lower()
-            if extensao not in ['xlsx', 'xls', 'csv']:
-                raise forms.ValidationError("Apenas arquivos .xlsx, .xls ou .csv são permitidos")
-        
+
+        if not arquivo:
+            raise forms.ValidationError("Nenhum arquivo foi enviado.")
+
+        # Verifica o tamanho
+        if arquivo.size > 10 * 1024 * 1024:  # 10MB
+            raise forms.ValidationError("O arquivo não pode ultrapassar 10 MB.")
+
+        # Normaliza e obtém a extensão
+        nome = getattr(arquivo, 'name', '').lower()
+        extensao = nome.split('.')[-1] if '.' in nome else ''
+
+        # Permite tipos seguros
+        extensoes_permitidas = ['xlsx', 'xls', 'csv']
+        if extensao not in extensoes_permitidas:
+            raise forms.ValidationError(
+                f"Extensão inválida ({extensao}). Envie apenas arquivos: {', '.join(extensoes_permitidas)}."
+            )
+
+        # Corrige o content_type para evitar erro em navegadores diferentes
+        content_type = getattr(arquivo, 'content_type', '')
+        tipos_permitidos = [
+            'text/csv',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ]
+        if content_type and content_type not in tipos_permitidos:
+            raise forms.ValidationError("Tipo de arquivo não suportado para importação.")
+
         return arquivo
-
-
 

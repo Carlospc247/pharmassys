@@ -428,137 +428,6 @@ class ToggleProdutoView(LoginRequiredMixin, View):
 
 # apps/produtos/views.py (substituir a TemplateProdutosView existente)
 
-class TemplateProdutosView(LoginRequiredMixin, View):
-    def get(self, request):
-        try:
-            empresa = self.get_empresa()
-            if not empresa:
-                return HttpResponseBadRequest('Empresa não encontrada')
-            
-            # Criar workbook
-            wb = Workbook()
-            ws = wb.active
-            ws.title = "Produtos"
-            
-            # Definir cabeçalhos
-            headers = [
-                'nome_produto', 'codigo_barras', 'categoria', 'preco_custo', 'preco_venda',
-                'nome_comercial', 'codigo_interno', 'fabricante', 'fornecedor',
-                'estoque_atual', 'estoque_minimo', 'estoque_maximo', 'margem_lucro',
-                'desconto_percentual', 'observacoes', 'ativo'
-            ]
-            
-            # Adicionar cabeçalhos
-            for col, header in enumerate(headers, 1):
-                cell = ws.cell(row=1, column=col, value=header)
-                cell.font = openpyxl.styles.Font(bold=True)
-                cell.fill = openpyxl.styles.PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
-            
-            # Adicionar dados de exemplo
-            exemplo = [
-                'Paracetamol 500mg',    # nome_produto
-                '7891234567890',        # codigo_barras
-                'Medicamentos',         # categoria
-                '2.50',                 # preco_custo
-                '5.00',                 # preco_venda
-                'Paracetamol 500mg',    # nome_comercial
-                'PARA500',              # codigo_interno
-                'EMS',                  # fabricante
-                'Distribuidora ABC',    # fornecedor
-                '100',                  # estoque_atual
-                '10',                   # estoque_minimo
-                '1000',                 # estoque_maximo
-                '100.00',               # margem_lucro
-                '0.00',                 # desconto_percentual
-                'Produto de exemplo',   # observacoes
-                '1'                     # ativo
-            ]
-            
-            for col, value in enumerate(exemplo, 1):
-                ws.cell(row=2, column=col, value=value)
-            
-            # Adicionar instruções em uma nova planilha
-            ws_instrucoes = wb.create_sheet("Instruções")
-            
-            instrucoes = [
-                "INSTRUÇÕES PARA IMPORTAÇÃO DE PRODUTOS",
-                "",
-                "CAMPOS OBRIGATÓRIOS:",
-                "- nome_produto: Nome do produto",
-                "- codigo_barras: Código de barras único",
-                "- categoria: Nome da categoria",
-                "- preco_custo: Preço de custo (formato: 12.50)",
-                "- preco_venda: Preço de venda (formato: 25.00)",
-                "",
-                "CAMPOS OPCIONAIS:",
-                "- nome_comercial: Nome comercial (se vazio, usará nome_produto)",
-                "- codigo_interno: Código interno (se vazio, usará codigo_barras)",
-                "- fabricante: Nome do fabricante",
-                "- fornecedor: Nome do fornecedor (deve existir no sistema)",
-                "- estoque_atual: Quantidade em estoque (padrão: 0)",
-                "- estoque_minimo: Estoque mínimo (padrão: 1)",
-                "- estoque_maximo: Estoque máximo (padrão: 100)",
-                "- margem_lucro: Margem de lucro em % (padrão: 0)",
-                "- desconto_percentual: Desconto em % (padrão: 0)",
-                "- observacoes: Observações sobre o produto",
-                "- ativo: 1 para ativo, 0 para inativo (padrão: 1)",
-                "",
-                "FORMATOS:",
-                "- Preços: Use ponto como separador decimal (ex: 12.50)",
-                "- Booleanos: Use 1/0 ou true/false ou sim/não",
-                "- Texto: Evite caracteres especiais",
-                "",
-                "NOTAS IMPORTANTES:",
-                "- Códigos de barras devem ser únicos",
-                "- Categorias e fabricantes serão criados automaticamente se não existirem",
-                "- Fornecedores devem existir previamente no sistema",
-                "- Linhas com erros serão ignoradas",
-                "- Use a opção 'Validar apenas' para testar antes de importar"
-            ]
-            
-            for row, instrucao in enumerate(instrucoes, 1):
-                ws_instrucoes.cell(row=row, column=1, value=instrucao)
-            
-            # Ajustar largura das colunas
-            for column in ws.columns:
-                max_length = 0
-                column = [cell for cell in column]
-                for cell in column:
-                    try:
-                        if len(str(cell.value)) > max_length:
-                            max_length = len(str(cell.value))
-                    except:
-                        pass
-                adjusted_width = (max_length + 2)
-                ws.column_dimensions[column[0].column_letter].width = adjusted_width
-            
-            # Salvar em buffer
-            buffer = io.BytesIO()
-            wb.save(buffer)
-            buffer.seek(0)
-            
-            # Retornar response
-            response = HttpResponse(
-                buffer.getvalue(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            )
-            response['Content-Disposition'] = f'attachment; filename="template_produtos_{empresa.nome}_{timezone.now().strftime("%Y%m%d")}.xlsx"'
-            
-            return response
-            
-        except Exception as e:
-            logger.error(f"Erro ao gerar template: {str(e)}")
-            return HttpResponseBadRequest(f'Erro ao gerar template: {str(e)}')
-
-    def get_empresa(self):
-        user = self.request.user
-        if hasattr(user, 'funcionario') and user.funcionario and user.funcionario.empresa:
-            return user.funcionario.empresa
-        if user.is_superuser:
-            return Empresa.objects.first()
-        return None
-
-
 class CategoriaBaseView(LoginRequiredMixin):
     """
     View base para garantir que as operações são feitas na empresa correta.
@@ -1007,20 +876,155 @@ def listar_categorias_api(request):
         }, status=500)
 
 
-import os
+
+
+class TemplateProdutosView(LoginRequiredMixin, View):
+    def get(self, request):
+        try:
+            empresa = self.get_empresa()
+            if not empresa:
+                return HttpResponseBadRequest('Empresa não encontrada')
+            
+            # Criar workbook
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Produtos"
+            
+            # Definir cabeçalhos
+            headers = [
+                'nome_produto', 'codigo_barras', 'categoria', 'preco_custo', 'preco_venda',
+                'nome_comercial', 'codigo_interno', 'fabricante', 'fornecedor',
+                'estoque_atual', 'estoque_minimo', 'estoque_maximo', 'margem_lucro',
+                'desconto_percentual', 'observacoes', 'ativo'
+            ]
+            
+            # Adicionar cabeçalhos
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col, value=header)
+                cell.font = openpyxl.styles.Font(bold=True)
+                cell.fill = openpyxl.styles.PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
+            
+            # Adicionar dados de exemplo
+            exemplo = [
+                'Paracetamol 500mg',    # nome_produto
+                '7891234567890',        # codigo_barras
+                'Medicamentos',         # categoria
+                '2.50',                 # preco_custo
+                '5.00',                 # preco_venda
+                'Paracetamol 500mg',    # nome_comercial
+                'PARA500',              # codigo_interno
+                'EMS',                  # fabricante
+                'Distribuidora ABC',    # fornecedor
+                '100',                  # estoque_atual
+                '10',                   # estoque_minimo
+                '1000',                 # estoque_maximo
+                '100.00',               # margem_lucro
+                '0.00',                 # desconto_percentual
+                'Produto de exemplo',   # observacoes
+                '1'                     # ativo
+            ]
+            
+            for col, value in enumerate(exemplo, 1):
+                ws.cell(row=2, column=col, value=value)
+            
+            # Adicionar instruções em uma nova planilha
+            ws_instrucoes = wb.create_sheet("Instruções")
+            
+            instrucoes = [
+                "INSTRUÇÕES PARA IMPORTAÇÃO DE PRODUTOS",
+                "",
+                "CAMPOS OBRIGATÓRIOS:",
+                "- nome_produto: Nome do produto",
+                "- codigo_barras: Código de barras único",
+                "- categoria: Nome da categoria",
+                "- preco_custo: Preço de custo (formato: 12.50)",
+                "- preco_venda: Preço de venda (formato: 25.00)",
+                "",
+                "CAMPOS OPCIONAIS:",
+                "- nome_comercial: Nome comercial (se vazio, usará nome_produto)",
+                "- codigo_interno: Código interno (se vazio, usará codigo_barras)",
+                "- fabricante: Nome do fabricante",
+                "- fornecedor: Nome do fornecedor (deve existir no sistema)",
+                "- estoque_atual: Quantidade em estoque (padrão: 0)",
+                "- estoque_minimo: Estoque mínimo (padrão: 1)",
+                "- estoque_maximo: Estoque máximo (padrão: 100)",
+                "- margem_lucro: Margem de lucro em % (padrão: 0)",
+                "- desconto_percentual: Desconto em % (padrão: 0)",
+                "- observacoes: Observações sobre o produto",
+                "- ativo: 1 para ativo, 0 para inativo (padrão: 1)",
+                "",
+                "FORMATOS:",
+                "- Preços: Use ponto como separador decimal (ex: 12.50)",
+                "- Booleanos: Use 1/0 ou true/false ou sim/não",
+                "- Texto: Evite caracteres especiais",
+                "",
+                "NOTAS IMPORTANTES:",
+                "- Códigos de barras devem ser únicos",
+                "- Categorias e fabricantes serão criados automaticamente se não existirem",
+                "- Fornecedores devem existir previamente no sistema",
+                "- Linhas com erros serão ignoradas",
+                "- Use a opção 'Validar apenas' para testar antes de importar"
+            ]
+            
+            for row, instrucao in enumerate(instrucoes, 1):
+                ws_instrucoes.cell(row=row, column=1, value=instrucao)
+            
+            # Ajustar largura das colunas
+            for column in ws.columns:
+                max_length = 0
+                column = [cell for cell in column]
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = (max_length + 2)
+                ws.column_dimensions[column[0].column_letter].width = adjusted_width
+            
+            # Salvar em buffer
+            buffer = io.BytesIO()
+            wb.save(buffer)
+            buffer.seek(0)
+            
+            # Retornar response
+            response = HttpResponse(
+                buffer.getvalue(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="template_produtos_{empresa.nome}_{timezone.now().strftime("%Y%m%d")}.xlsx"'
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Erro ao gerar template: {str(e)}")
+            return HttpResponseBadRequest(f'Erro ao gerar template: {str(e)}')
+
+    def get_empresa(self):
+        user = self.request.user
+        if hasattr(user, 'funcionario') and user.funcionario and user.funcionario.empresa:
+            return user.funcionario.empresa
+        if user.is_superuser:
+            return Empresa.objects.first()
+        return None
+
+
+
+
+import io
 import pandas as pd
 import unicodedata
 import logging
 from django.views.generic.edit import FormView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
-from django.db.models import Q
 from django.contrib import messages
-from django.utils.encoding import force_str
+from django.db.models import Q
 from apps.produtos.forms import ImportarProdutosForm
 
 
 logger = logging.getLogger(__name__)
+
 
 class ImportarProdutosView(LoginRequiredMixin, FormView):
     template_name = 'produtos/importar_produtos.html'
@@ -1029,27 +1033,22 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
     acao_requerida = 'editar_produtos'
 
     def get_empresa(self):
-        """Obtém a empresa associada ao utilizador autenticado."""
         user = self.request.user
         if hasattr(user, 'funcionario') and user.funcionario.empresa:
             return user.funcionario.empresa
         return None
 
     def sanitize_text(self, text):
-        """Remove caracteres inválidos e normaliza encoding."""
         if not text:
             return ''
         try:
             text = str(text)
             text = unicodedata.normalize('NFKC', text)
-            text = text.encode('utf-8', 'ignore').decode('utf-8', 'ignore')
             return text.strip()
-        except Exception as e:
-            logger.warning(f"Erro ao limpar texto: {text} | {str(e)}")
-            return ''
+        except Exception:
+            return str(text).strip()
 
     def obter_categoria(self, nome, empresa):
-        """Obtém ou cria uma categoria sanitizada."""
         nome_limpo = self.sanitize_text(nome)
         if not nome_limpo:
             return None
@@ -1061,85 +1060,68 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
         return categoria
 
     def obter_fornecedor(self, nome, empresa):
-        """Obtém o fornecedor sanitizado ou None se não existir."""
         nome_limpo = self.sanitize_text(nome)
         if not nome_limpo:
             return None
-        try:
-            fornecedor = Fornecedor.objects.filter(
-                Q(nome_fantasia__iexact=nome_limpo) | Q(razao_social__iexact=nome_limpo),
-                empresa=empresa
-            ).first()
-            return fornecedor
-        except Exception as e:
-            logger.warning(f"Erro ao buscar fornecedor '{nome_limpo}': {str(e)}")
-            return None
+        return Fornecedor.objects.filter(
+            Q(nome_fantasia__iexact=nome_limpo) | Q(razao_social__iexact=nome_limpo),
+            empresa=empresa
+        ).first()
 
     def processar_arquivo(self, arquivo, empresa):
-        """Processa o CSV com detecção automática de separador e tolerância a erros."""
-        import io
-        import csv
-
+        """Processa arquivo Excel (.xlsx) no formato do template gerado."""
         try:
-            conteudo = arquivo.read()
-
-            # Tenta decodificar o conteúdo
-            try:
-                texto = conteudo.decode('utf-8')
-            except UnicodeDecodeError:
-                texto = conteudo.decode('latin1', errors='ignore')
-
-            # Detecta automaticamente o separador (pandas não faz bem isso sozinho)
-            sniffer = csv.Sniffer()
-            try:
-                dialect = sniffer.sniff(texto.splitlines()[0])
-                sep = dialect.delimiter
-            except Exception:
-                # fallback padrão se não detectar
-                sep = ';' if texto.count(';') > texto.count(',') else ','
-
-            buffer = io.StringIO(texto)
-
-            # Compatibilidade com versões antigas do pandas: usa on_bad_lines e sep
-            try:
-                df = pd.read_csv(buffer, sep=sep, on_bad_lines='skip')
-            except TypeError:
-                # pandas < 1.3 não tem on_bad_lines
-                df = pd.read_csv(buffer, sep=sep, error_bad_lines=False)
-
+            df = pd.read_excel(arquivo)
         except Exception as e:
-            logger.exception(f"Erro ao ler CSV: {str(e)}")
-            raise ValueError(f"Erro ao ler CSV: {str(e)}")
+            raise ValueError(f"Erro ao ler o arquivo Excel: {e}")
+
+        if df.empty:
+            raise ValueError("O arquivo Excel está vazio.")
+
+        df.columns = [self.sanitize_text(c).lower().strip() for c in df.columns]
+
+        colunas_esperadas = [
+            'nome_produto', 'codigo_barras', 'categoria', 'preco_custo', 'preco_venda',
+            'nome_comercial', 'codigo_interno', 'fabricante', 'fornecedor',
+            'estoque_atual', 'estoque_minimo', 'estoque_maximo', 'margem_lucro',
+            'desconto_percentual', 'observacoes', 'ativo'
+        ]
+
+        faltando = [c for c in colunas_esperadas if c not in df.columns]
+        if faltando:
+            raise ValueError(f"Colunas ausentes no Excel: {', '.join(faltando)}")
 
         registros_criados, registros_atualizados = 0, 0
 
-        logger.info(f"Colunas detectadas no CSV: {list(df.columns)}")
-        logger.info(f"Primeiras linhas lidas: {df.head(5).to_dict(orient='records')}")
-        if df.empty:
-            logger.warning("O CSV foi lido mas não contém dados!")
-
-
         for _, row in df.iterrows():
             try:
-                nome = self.sanitize_text(row.get('nome'))
-                preco = row.get('preco', 0)
-                categoria_nome = self.sanitize_text(row.get('categoria'))
-                fornecedor_nome = self.sanitize_text(row.get('fornecedor'))
-
+                nome = self.sanitize_text(row.get('nome_produto'))
                 if not nome:
                     continue
 
-                categoria = self.obter_categoria(categoria_nome, empresa)
-                fornecedor = self.obter_fornecedor(fornecedor_nome, empresa)
+                categoria = self.obter_categoria(row.get('categoria'), empresa)
+                fornecedor = self.obter_fornecedor(row.get('fornecedor'), empresa)
 
                 produto, criado = Produto.objects.update_or_create(
                     nome__iexact=nome,
                     empresa=empresa,
                     defaults={
                         'nome': nome,
-                        'preco': preco,
+                        'codigo_barras': self.sanitize_text(row.get('codigo_barras')),
                         'categoria': categoria,
+                        'preco_custo': float(row.get('preco_custo') or 0),
+                        'preco_venda': float(row.get('preco_venda') or 0),
+                        'nome_comercial': self.sanitize_text(row.get('nome_comercial') or nome),
+                        'codigo_interno': self.sanitize_text(row.get('codigo_interno') or row.get('codigo_barras')),
+                        'fabricante': self.sanitize_text(row.get('fabricante')),
                         'fornecedor': fornecedor,
+                        'estoque_atual': int(row.get('estoque_atual') or 0),
+                        'estoque_minimo': int(row.get('estoque_minimo') or 0),
+                        'estoque_maximo': int(row.get('estoque_maximo') or 0),
+                        'margem_lucro': float(row.get('margem_lucro') or 0),
+                        'desconto_percentual': float(row.get('desconto_percentual') or 0),
+                        'observacoes': self.sanitize_text(row.get('observacoes')),
+                        'ativo': bool(int(row.get('ativo'))) if not pd.isna(row.get('ativo')) else True,
                     },
                 )
 
@@ -1153,7 +1135,6 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
 
         return registros_criados, registros_atualizados
 
-
     def form_valid(self, form):
         empresa = self.get_empresa()
         if not empresa:
@@ -1162,14 +1143,14 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
 
         arquivo = form.cleaned_data.get('arquivo')
         if not arquivo:
-            messages.error(self.request, "Nenhum arquivo CSV foi enviado.")
+            messages.error(self.request, "Nenhum arquivo Excel foi enviado.")
             return self.form_invalid(form)
 
         try:
-            registros_criados, registros_atualizados = self.processar_arquivo(arquivo, empresa)
+            criados, atualizados = self.processar_arquivo(arquivo, empresa)
             messages.success(
                 self.request,
-                f"Importação concluída com sucesso. {registros_criados} produtos criados, {registros_atualizados} atualizados."
+                f"Importação concluída. {criados} produtos criados e {atualizados} atualizados."
             )
         except Exception as e:
             logger.exception(f"Erro geral ao importar produtos: {str(e)}")
