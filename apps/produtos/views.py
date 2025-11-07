@@ -1076,25 +1076,36 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
             return None
 
     def processar_arquivo(self, arquivo, empresa):
-        """Processa o CSV com leitura compatível e tolerante a erros de encoding."""
+        """Processa o CSV com detecção automática de separador e tolerância a erros."""
         import io
+        import csv
 
         try:
-            # Lê o conteúdo binário do arquivo
             conteudo = arquivo.read()
 
+            # Tenta decodificar o conteúdo
             try:
                 texto = conteudo.decode('utf-8')
             except UnicodeDecodeError:
-                try:
-                    texto = conteudo.decode('latin1')
-                except Exception as e:
-                    logger.error(f"Erro ao decodificar arquivo CSV: {str(e)}")
-                    raise ValueError("Falha ao decodificar o arquivo CSV. Tente exportar em UTF-8.")
+                texto = conteudo.decode('latin1', errors='ignore')
 
-            # Recarrega o texto limpo num buffer de string
+            # Detecta automaticamente o separador (pandas não faz bem isso sozinho)
+            sniffer = csv.Sniffer()
+            try:
+                dialect = sniffer.sniff(texto.splitlines()[0])
+                sep = dialect.delimiter
+            except Exception:
+                # fallback padrão se não detectar
+                sep = ';' if texto.count(';') > texto.count(',') else ','
+
             buffer = io.StringIO(texto)
-            df = pd.read_csv(buffer)
+
+            # Compatibilidade com versões antigas do pandas: usa on_bad_lines e sep
+            try:
+                df = pd.read_csv(buffer, sep=sep, on_bad_lines='skip')
+            except TypeError:
+                # pandas < 1.3 não tem on_bad_lines
+                df = pd.read_csv(buffer, sep=sep, error_bad_lines=False)
 
         except Exception as e:
             logger.exception(f"Erro ao ler CSV: {str(e)}")
