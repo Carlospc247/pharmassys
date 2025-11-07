@@ -1113,6 +1113,12 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
 
         registros_criados, registros_atualizados = 0, 0
 
+        logger.info(f"Colunas detectadas no CSV: {list(df.columns)}")
+        logger.info(f"Primeiras linhas lidas: {df.head(5).to_dict(orient='records')}")
+        if df.empty:
+            logger.warning("O CSV foi lido mas não contém dados!")
+
+
         for _, row in df.iterrows():
             try:
                 nome = self.sanitize_text(row.get('nome'))
