@@ -518,7 +518,7 @@ class CategoriaUpdateView(CategoriaBaseView, UpdateView):
 
 class CategoriaDeleteView(CategoriaBaseView, DeleteView):
     template_name = 'produtos/categoria_confirm_delete.html'
-    success_url = reverse_lazy('produtos:categoria_lista')
+    success_url = reverse_lazy('produtos:categoria_list')
     
     def post(self, request, *args, **kwargs):
         # O método post é o correto para adicionar a mensagem antes de apagar
