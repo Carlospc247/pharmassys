@@ -1025,6 +1025,26 @@ from apps.produtos.forms import ImportarProdutosForm
 
 logger = logging.getLogger(__name__)
 
+   # apps/produtos/views.py
+import io
+import csv
+import uuid
+import logging
+import unicodedata
+import pandas as pd
+from decimal import Decimal
+from django.db.models import Q
+from django.contrib import messages
+from django.views.generic.edit import FormView
+from django.urls import reverse_lazy
+from django.contrib.auth.mixins import LoginRequiredMixin
+from apps.core.models import Categoria
+from apps.fornecedores.models import Fornecedor
+from .models import Produto, Fabricante
+from .forms import ImportarProdutosForm
+
+logger = logging.getLogger(__name__)
+
 
 class ImportarProdutosView(LoginRequiredMixin, FormView):
     template_name = 'produtos/importar_produtos.html'
@@ -1032,6 +1052,9 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
     success_url = reverse_lazy('produtos:produto_list')
     acao_requerida = 'editar_produtos'
 
+    # ------------------------------
+    # Utilidades auxiliares
+    # ------------------------------
     def get_empresa(self):
         user = self.request.user
         if hasattr(user, 'funcionario') and user.funcionario.empresa:
@@ -1053,9 +1076,9 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
         if not nome_limpo:
             return None
         categoria, _ = Categoria.objects.get_or_create(
+            empresa=empresa,
             nome__iexact=nome_limpo,
-            defaults={'nome': nome_limpo, 'empresa': empresa},
-            empresa=empresa
+            defaults={'nome': nome_limpo, 'empresa': empresa}
         )
         return categoria
 
@@ -1068,23 +1091,24 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
             empresa=empresa
         ).first()
 
-    def processar_arquivo(self, arquivo, empresa):
-        """
-        Processa um arquivo Excel (.xlsx/.xls) ou CSV exportado pelo template.
-        Cria ou atualiza produtos, categorias e associa fornecedores existentes.
-        Corrige duplicação de colunas e ambiguidade de Series.
-        """
-        import io
-        import pandas as pd
-        import unicodedata
-        import logging
-        import csv
+    def obter_fabricante(self, nome, empresa):
+        nome_limpo = self.sanitize_text(nome)
+        if not nome_limpo:
+            return None
+        fabricante, _ = Fabricante.objects.get_or_create(
+            empresa=empresa,
+            nome__iexact=nome_limpo,
+            defaults={'nome': nome_limpo, 'empresa': empresa}
+        )
+        return fabricante
 
-        logger = logging.getLogger(__name__)
+    # ------------------------------
+    # Processamento principal
+    # ------------------------------
+    def processar_arquivo(self, arquivo, empresa):
         registros_criados, registros_atualizados = 0, 0
 
         def get_val(row, col, default=None):
-            """Garante valor escalar mesmo se vier como Series."""
             val = row.get(col, default)
             if isinstance(val, (pd.Series, list)):
                 val = val.iloc[0] if hasattr(val, 'iloc') else (val[0] if val else default)
@@ -1092,20 +1116,17 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
 
         try:
             conteudo = arquivo.read()
-
-            # Detecta tipo e decodifica
-            try:
-                texto = conteudo.decode('utf-8')
-            except UnicodeDecodeError:
-                texto = conteudo.decode('latin1', errors='ignore')
-
             nome_ext = arquivo.name.lower()
-            buffer = io.BytesIO(conteudo)
 
-            # === Lê arquivo ===
+            # --- Detecta e lê ---
             if nome_ext.endswith(('.xlsx', '.xls')):
-                df = pd.read_excel(buffer)
+                df = pd.read_excel(io.BytesIO(conteudo))
             else:
+                try:
+                    texto = conteudo.decode('utf-8')
+                except UnicodeDecodeError:
+                    texto = conteudo.decode('latin1', errors='ignore')
+
                 try:
                     sniffer = csv.Sniffer()
                     sep = sniffer.sniff(texto.splitlines()[0]).delimiter
@@ -1114,72 +1135,70 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
                 df = pd.read_csv(io.StringIO(texto), sep=sep, on_bad_lines='skip')
 
             if df.empty:
-                logger.warning("O CSV/Excel foi lido mas não contém dados!")
+                logger.warning("O arquivo foi lido mas não contém dados!")
                 return 0, 0
 
-            # === Normaliza cabeçalhos e remove duplicadas ===
+            # --- Normaliza colunas ---
             df.columns = [str(c).strip().lower() for c in df.columns]
             df = df.loc[:, ~df.columns.duplicated()]
 
-            # === Mapeamento flexível ===
             col_map = {
-                'nome_produto': 'nome', 'produto': 'nome', 'nome': 'nome', 'descricao': 'nome', 'descrição': 'nome',
-                'preco': 'preco', 'preço': 'preco', 'preco_custo': 'preco', 'preco_venda': 'preco', 'preço unitário': 'preco', 'valor': 'preco',
-                'categoria': 'categoria', 'categoria_produto': 'categoria', 'grupo': 'categoria',
-                'fornecedor': 'fornecedor', 'nome_fornecedor': 'fornecedor', 'nome do fornecedor': 'fornecedor',
+                'nome_produto': 'nome', 'produto': 'nome', 'nome': 'nome',
+                'descricao': 'nome', 'descrição': 'nome',
+                'preco': 'preco_venda', 'preço': 'preco_venda', 'valor': 'preco_venda',
+                'preco_custo': 'preco_custo', 'preco_venda': 'preco_venda',
+                'categoria': 'categoria', 'grupo': 'categoria',
+                'fornecedor': 'fornecedor', 'fabricante': 'fabricante',
                 'codigo_barras': 'codigo_barras', 'codigo_interno': 'codigo_interno',
-                'nome_comercial': 'nome_comercial', 'fabricante': 'fabricante',
-                'estoque_atual': 'estoque_atual', 'estoque_minimo': 'estoque_minimo', 'estoque_maximo': 'estoque_maximo',
-                'margem_lucro': 'margem_lucro', 'desconto_percentual': 'desconto_percentual',
+                'nome_comercial': 'nome_comercial',
+                'estoque_atual': 'estoque_atual', 'estoque_minimo': 'estoque_minimo',
+                'estoque_maximo': 'estoque_maximo', 'margem_lucro': 'margem_lucro',
+                'desconto_percentual': 'desconto_percentual',
                 'observacoes': 'observacoes', 'ativo': 'ativo',
             }
             df.rename(columns=lambda x: col_map.get(x, x), inplace=True)
 
-            logger.info(f"Colunas detectadas após mapeamento: {list(df.columns)}")
-            logger.info(f"Primeiras linhas lidas: {df.head(5).to_dict(orient='records')}")
+            logger.info(f"Colunas mapeadas: {list(df.columns)}")
+            logger.info(f"Amostra: {df.head(3).to_dict(orient='records')}")
 
-            # === Processamento linha a linha ===
+            # --- Processa cada linha ---
             for _, row in df.iterrows():
                 try:
                     nome = self.sanitize_text(get_val(row, 'nome'))
-                    preco = float(get_val(row, 'preco', 0) or 0)
-                    categoria_nome = self.sanitize_text(get_val(row, 'categoria'))
-                    fornecedor_nome = self.sanitize_text(get_val(row, 'fornecedor'))
-
                     if not nome:
                         continue
 
-                    categoria = self.obter_categoria(categoria_nome, empresa)
-                    fornecedor = self.obter_fornecedor(fornecedor_nome, empresa)
+                    categoria = self.obter_categoria(get_val(row, 'categoria'), empresa)
+                    fornecedor = self.obter_fornecedor(get_val(row, 'fornecedor'), empresa)
+                    fabricante = self.obter_fabricante(get_val(row, 'fabricante'), empresa)
 
-                    codigo_barras = self.sanitize_text(get_val(row, 'codigo_barras'))
-                    codigo_interno = self.sanitize_text(get_val(row, 'codigo_interno'))
+                    codigo_barras = self.sanitize_text(get_val(row, 'codigo_barras')) or f"AUTO-{uuid.uuid4().hex[:10]}"
+                    codigo_interno = self.sanitize_text(get_val(row, 'codigo_interno')) or f"INT-{uuid.uuid4().hex[:8]}"
                     nome_comercial = self.sanitize_text(get_val(row, 'nome_comercial')) or nome
-                    fabricante = self.sanitize_text(get_val(row, 'fabricante'))
-                    estoque_atual = int(get_val(row, 'estoque_atual', 0) or 0)
-                    estoque_minimo = int(get_val(row, 'estoque_minimo', 1) or 1)
-                    estoque_maximo = int(get_val(row, 'estoque_maximo', 100) or 100)
-                    margem_lucro = float(get_val(row, 'margem_lucro', 0) or 0)
-                    desconto_percentual = float(get_val(row, 'desconto_percentual', 0) or 0)
+
+                    preco_custo = Decimal(str(get_val(row, 'preco_custo', 0) or 0))
+                    preco_venda = Decimal(str(get_val(row, 'preco_venda', 0) or 0))
+                    estoque_atual = Decimal(str(get_val(row, 'estoque_atual', 0) or 0))
+                    estoque_minimo = Decimal(str(get_val(row, 'estoque_minimo', 1) or 1))
+                    estoque_maximo = Decimal(str(get_val(row, 'estoque_maximo', 100) or 100))
+                    margem_lucro = Decimal(str(get_val(row, 'margem_lucro', 0) or 0))
+                    desconto_percentual = Decimal(str(get_val(row, 'desconto_percentual', 0) or 0))
                     observacoes = self.sanitize_text(get_val(row, 'observacoes'))
                     ativo = get_val(row, 'ativo', 1)
-                    if isinstance(ativo, str):
-                        ativo = 1 if ativo.lower() in ['1', 'true', 'sim', 'yes'] else 0
-                    else:
-                        ativo = int(ativo) if ativo is not None else 1
+                    ativo = bool(str(ativo).lower() in ['1', 'true', 'sim', 'yes']) if ativo is not None else True
 
-                    produto, criado = Produto.objects.update_or_create(
+                    produto, created = Produto.objects.update_or_create(
                         empresa=empresa,
-                        nome__iexact=nome,
+                        codigo_barras=codigo_barras,
                         defaults={
-                            'nome': nome,
-                            'preco': preco,
+                            'codigo_interno': codigo_interno,
+                            'nome_produto': nome,
+                            'nome_comercial': nome_comercial,
                             'categoria': categoria,
                             'fornecedor': fornecedor,
-                            'codigo_barras': codigo_barras,
-                            'codigo_interno': codigo_interno,
-                            'nome_comercial': nome_comercial,
                             'fabricante': fabricante,
+                            'preco_custo': preco_custo,
+                            'preco_venda': preco_venda,
                             'estoque_atual': estoque_atual,
                             'estoque_minimo': estoque_minimo,
                             'estoque_maximo': estoque_maximo,
@@ -1190,21 +1209,23 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
                         }
                     )
 
-                    if criado:
+                    if created:
                         registros_criados += 1
                     else:
                         registros_atualizados += 1
 
                 except Exception as e:
-                    logger.error(f"Erro ao processar linha {row.to_dict()}: {str(e)}")
+                    logger.error(f"Erro ao processar linha {row.to_dict()}: {e}")
 
         except Exception as e:
-            logger.exception(f"Erro geral ao processar arquivo: {str(e)}")
-            raise ValueError(f"Erro ao processar arquivo: {str(e)}")
+            logger.exception(f"Erro geral ao processar arquivo: {e}")
+            raise ValueError(f"Erro ao processar arquivo: {e}")
 
         return registros_criados, registros_atualizados
 
-
+    # ------------------------------
+    # Execução do formulário
+    # ------------------------------
     def form_valid(self, form):
         empresa = self.get_empresa()
         if not empresa:
@@ -1213,20 +1234,18 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
 
         arquivo = form.cleaned_data.get('arquivo')
         if not arquivo:
-            messages.error(self.request, "Nenhum arquivo Excel foi enviado.")
+            messages.error(self.request, "Nenhum arquivo foi enviado.")
             return self.form_invalid(form)
 
         try:
             criados, atualizados = self.processar_arquivo(arquivo, empresa)
             messages.success(
                 self.request,
-                f"Importação concluída. {criados} produtos criados e {atualizados} atualizados."
+                f"Importação concluída: {criados} produtos criados e {atualizados} atualizados."
             )
         except Exception as e:
-            logger.exception(f"Erro geral ao importar produtos: {str(e)}")
-            messages.error(self.request, f"Erro ao importar produtos: {str(e)}")
+            logger.exception(f"Erro ao importar produtos: {e}")
+            messages.error(self.request, f"Erro ao importar produtos: {e}")
 
         return super().form_valid(form)
 
-   
-    
