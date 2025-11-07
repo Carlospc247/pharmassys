@@ -1069,71 +1069,167 @@ class ImportarProdutosView(LoginRequiredMixin, FormView):
         ).first()
 
     def processar_arquivo(self, arquivo, empresa):
-        """Processa arquivo Excel (.xlsx) no formato do template gerado."""
-        try:
-            df = pd.read_excel(arquivo)
-        except Exception as e:
-            raise ValueError(f"Erro ao ler o arquivo Excel: {e}")
+        """
+        Processa um arquivo Excel (.xlsx/.xls) ou CSV exportado pelo template.
+        Cria ou atualiza produtos, categorias e associa fornecedores existentes.
+        """
 
-        if df.empty:
-            raise ValueError("O arquivo Excel está vazio.")
-
-        df.columns = [self.sanitize_text(c).lower().strip() for c in df.columns]
-
-        colunas_esperadas = [
-            'nome_produto', 'codigo_barras', 'categoria', 'preco_custo', 'preco_venda',
-            'nome_comercial', 'codigo_interno', 'fabricante', 'fornecedor',
-            'estoque_atual', 'estoque_minimo', 'estoque_maximo', 'margem_lucro',
-            'desconto_percentual', 'observacoes', 'ativo'
-        ]
-
-        faltando = [c for c in colunas_esperadas if c not in df.columns]
-        if faltando:
-            raise ValueError(f"Colunas ausentes no Excel: {', '.join(faltando)}")
+        import io
+        import pandas as pd
+        import unicodedata
+        import logging
 
         registros_criados, registros_atualizados = 0, 0
 
-        for _, row in df.iterrows():
+        try:
+            # Lê o conteúdo do arquivo
+            conteudo = arquivo.read()
+
+            # Detecta tipo e decodifica
             try:
-                nome = self.sanitize_text(row.get('nome_produto'))
-                if not nome:
-                    continue
+                texto = conteudo.decode('utf-8')
+            except UnicodeDecodeError:
+                texto = conteudo.decode('latin1', errors='ignore')
 
-                categoria = self.obter_categoria(row.get('categoria'), empresa)
-                fornecedor = self.obter_fornecedor(row.get('fornecedor'), empresa)
+            # Detecta extensão para pandas
+            nome_ext = arquivo.name.lower()
+            buffer = io.BytesIO(conteudo)
 
-                produto, criado = Produto.objects.update_or_create(
-                    nome__iexact=nome,
-                    empresa=empresa,
-                    defaults={
-                        'nome': nome,
-                        'codigo_barras': self.sanitize_text(row.get('codigo_barras')),
-                        'categoria': categoria,
-                        'preco_custo': float(row.get('preco_custo') or 0),
-                        'preco_venda': float(row.get('preco_venda') or 0),
-                        'nome_comercial': self.sanitize_text(row.get('nome_comercial') or nome),
-                        'codigo_interno': self.sanitize_text(row.get('codigo_interno') or row.get('codigo_barras')),
-                        'fabricante': self.sanitize_text(row.get('fabricante')),
-                        'fornecedor': fornecedor,
-                        'estoque_atual': int(row.get('estoque_atual') or 0),
-                        'estoque_minimo': int(row.get('estoque_minimo') or 0),
-                        'estoque_maximo': int(row.get('estoque_maximo') or 0),
-                        'margem_lucro': float(row.get('margem_lucro') or 0),
-                        'desconto_percentual': float(row.get('desconto_percentual') or 0),
-                        'observacoes': self.sanitize_text(row.get('observacoes')),
-                        'ativo': bool(int(row.get('ativo'))) if not pd.isna(row.get('ativo')) else True,
-                    },
-                )
+            if nome_ext.endswith(('.xlsx', '.xls')):
+                df = pd.read_excel(buffer)
+            else:
+                # CSV: detecta separador
+                import csv
+                sniffer = csv.Sniffer()
+                try:
+                    dialect = sniffer.sniff(texto.splitlines()[0])
+                    sep = dialect.delimiter
+                except Exception:
+                    sep = ';' if texto.count(';') > texto.count(',') else ','
 
-                if criado:
-                    registros_criados += 1
-                else:
-                    registros_atualizados += 1
+                try:
+                    df = pd.read_csv(io.StringIO(texto), sep=sep, on_bad_lines='skip')
+                except TypeError:
+                    df = pd.read_csv(io.StringIO(texto), sep=sep, error_bad_lines=False)
 
-            except Exception as e:
-                logger.error(f"Erro ao processar linha {row.to_dict()}: {str(e)}")
+            # Se estiver vazio
+            if df.empty:
+                logger.warning("O CSV/Excel foi lido mas não contém dados!")
+                return 0, 0
+
+            # === Normaliza cabeçalhos ===
+            df.columns = [str(c).strip().lower() for c in df.columns]
+
+            # === Mapeamento flexível de colunas ===
+            col_map = {
+                'nome_produto': 'nome',
+                'produto': 'nome',
+                'nome': 'nome',
+                'descricao': 'nome',
+                'descrição': 'nome',
+
+                'preco': 'preco',
+                'preço': 'preco',
+                'preco_custo': 'preco',
+                'preco_venda': 'preco',
+                'preço unitário': 'preco',
+                'valor': 'preco',
+
+                'categoria': 'categoria',
+                'categoria_produto': 'categoria',
+                'grupo': 'categoria',
+
+                'fornecedor': 'fornecedor',
+                'nome_fornecedor': 'fornecedor',
+                'nome do fornecedor': 'fornecedor',
+
+                'codigo_barras': 'codigo_barras',
+                'codigo_interno': 'codigo_interno',
+                'nome_comercial': 'nome_comercial',
+                'fabricante': 'fabricante',
+                'estoque_atual': 'estoque_atual',
+                'estoque_minimo': 'estoque_minimo',
+                'estoque_maximo': 'estoque_maximo',
+                'margem_lucro': 'margem_lucro',
+                'desconto_percentual': 'desconto_percentual',
+                'observacoes': 'observacoes',
+                'ativo': 'ativo',
+            }
+
+            df.rename(columns=lambda x: col_map.get(x, x), inplace=True)
+
+            logger.info(f"Colunas detectadas após mapeamento: {list(df.columns)}")
+            logger.info(f"Primeiras linhas lidas: {df.head(5).to_dict(orient='records')}")
+
+            # === Processa linha a linha ===
+            for _, row in df.iterrows():
+                try:
+                    # Sanitiza campos
+                    nome = self.sanitize_text(row.get('nome'))
+                    preco = row.get('preco') or 0
+                    categoria_nome = self.sanitize_text(row.get('categoria'))
+                    fornecedor_nome = self.sanitize_text(row.get('fornecedor'))
+
+                    if not nome:
+                        continue
+
+                    categoria = self.obter_categoria(categoria_nome, empresa)
+                    fornecedor = self.obter_fornecedor(fornecedor_nome, empresa)
+
+                    # Campos adicionais opcionais
+                    codigo_barras = self.sanitize_text(row.get('codigo_barras'))
+                    codigo_interno = self.sanitize_text(row.get('codigo_interno'))
+                    nome_comercial = self.sanitize_text(row.get('nome_comercial')) or nome
+                    fabricante = self.sanitize_text(row.get('fabricante'))
+                    estoque_atual = int(row.get('estoque_atual') or 0)
+                    estoque_minimo = int(row.get('estoque_minimo') or 1)
+                    estoque_maximo = int(row.get('estoque_maximo') or 100)
+                    margem_lucro = float(row.get('margem_lucro') or 0)
+                    desconto_percentual = float(row.get('desconto_percentual') or 0)
+                    observacoes = self.sanitize_text(row.get('observacoes'))
+                    ativo = row.get('ativo')
+                    if isinstance(ativo, str):
+                        ativo = 1 if ativo.lower() in ['1','true','sim','yes'] else 0
+                    else:
+                        ativo = int(ativo) if ativo is not None else 1
+
+                    # Cria ou atualiza produto
+                    produto, criado = Produto.objects.update_or_create(
+                        nome__iexact=nome,
+                        empresa=empresa,
+                        defaults={
+                            'nome': nome,
+                            'preco': preco,
+                            'categoria': categoria,
+                            'fornecedor': fornecedor,
+                            'codigo_barras': codigo_barras,
+                            'codigo_interno': codigo_interno,
+                            'nome_comercial': nome_comercial,
+                            'fabricante': fabricante,
+                            'estoque_atual': estoque_atual,
+                            'estoque_minimo': estoque_minimo,
+                            'estoque_maximo': estoque_maximo,
+                            'margem_lucro': margem_lucro,
+                            'desconto_percentual': desconto_percentual,
+                            'observacoes': observacoes,
+                            'ativo': ativo,
+                        }
+                    )
+
+                    if criado:
+                        registros_criados += 1
+                    else:
+                        registros_atualizados += 1
+
+                except Exception as e:
+                    logger.error(f"Erro ao processar linha {row.to_dict()}: {str(e)}")
+
+        except Exception as e:
+            logger.exception(f"Erro geral ao processar arquivo: {str(e)}")
+            raise ValueError(f"Erro ao processar arquivo: {str(e)}")
 
         return registros_criados, registros_atualizados
+
 
     def form_valid(self, form):
         empresa = self.get_empresa()

@@ -38,17 +38,56 @@ print("DATABASE_URL:", os.getenv("DATABASE_URL"))
 DEBUG = True
 ALLOWED_HOSTS = ['*']
 
+#LOGGING = {
+#    'version': 1,
+#    'disable_existing_loggers': False,
+#    'handlers': {
+#        'console': {'class': 'logging.StreamHandler'},
+#    },
+#    'root': {
+#        'handlers': ['console'],
+#        'level': 'ERROR',
+#    },
+#}
+
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {'class': 'logging.StreamHandler'},
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name}: {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname}: {message}",
+            "style": "{",
+        },
     },
-    'root': {
-        'handlers': ['console'],
-        'level': 'ERROR',
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "stream": sys.stdout,
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",  # <--- ESSENCIAL: mostra logger.info()
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "produtos": {  # substitui pelo nome do teu app se for outro
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
     },
 }
+
 
 # =========================================
 # Aplicações
