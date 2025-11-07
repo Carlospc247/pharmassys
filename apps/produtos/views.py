@@ -959,6 +959,7 @@ class TemplateProdutosView(LoginRequiredMixin, View):
                 "- Texto: Evite caracteres especiais",
                 "",
                 "NOTAS IMPORTANTES:",
+                "ATT: APENAS É SUPORTADO FICHEIROS COM ATÉ 100 PRODUTOS"
                 "- Códigos de barras devem ser únicos",
                 "- Categorias e fabricantes serão criados automaticamente se não existirem",
                 "- Fornecedores devem existir previamente no sistema",
