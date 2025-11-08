@@ -54,8 +54,50 @@ class PermissaoAcaoMixin(AccessMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
+from functools import wraps
+from django.shortcuts import redirect
+from django.contrib import messages
+from django.urls import reverse_lazy
+from django.http import HttpResponseForbidden
 
-class FuncionarioDashboardView(LoginRequiredMixin, TemplateView):
+def permissao_acao_required(acao_requerida=None):
+    """
+    Decorator para function-based views que verifica:
+    1. Usuário autenticado
+    2. Usuário ligado a um registro Funcionario
+    3. Permissão de ação específica
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                messages.error(request, "Acesso negado. Usuário não autenticado.")
+                return redirect(reverse_lazy('core:login'))  # ou handle customizado
+
+            try:
+                funcionario = request.user.funcionario
+            except Exception:
+                messages.error(
+                    request,
+                    "Acesso negado. O seu usuário não está ligado a um registro de funcionário."
+                )
+                return redirect(reverse_lazy('core:dashboard'))
+
+            if acao_requerida:
+                if not funcionario.pode_realizar_acao(acao_requerida):
+                    messages.error(
+                        request,
+                        f"Acesso negado. O seu cargo não permite realizar a ação de '{acao_requerida}'."
+                    )
+                    return redirect(reverse_lazy('core:dashboard'))
+
+            return view_func(request, *args, **kwargs)
+        return _wrapped_view
+    return decorator
+
+
+class FuncionarioDashboardView(LoginRequiredMixin, PermissaoAcaoMixin,  TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'funcionarios/dashboard.html'
     
     def get_context_data(self, **kwargs):
@@ -76,7 +118,8 @@ class FuncionarioDashboardView(LoginRequiredMixin, TemplateView):
         })
         return context
 
-class FuncionariosView(LoginRequiredMixin, ListView):
+class FuncionariosView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'funcionarios/lista.html'
     context_object_name = 'funcionarios'
@@ -192,7 +235,8 @@ class MeuTurnoView(LoginRequiredMixin, TemplateView):
 # CRUD FUNCIONÁRIOS
 # =====================================
 
-class FuncionarioDetailView(LoginRequiredMixin, DetailView):
+class FuncionarioDetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'funcionarios/detail.html'
     context_object_name = 'funcionario'
@@ -209,7 +253,8 @@ class FuncionarioDetailView(LoginRequiredMixin, DetailView):
         })
         return context
 
-class FuncionarioCreateView(LoginRequiredMixin, CreateView):
+class FuncionarioCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'funcionarios/form.html'
     fields = [
@@ -229,7 +274,8 @@ class FuncionarioCreateView(LoginRequiredMixin, CreateView):
     def get_success_url(self):
         return reverse_lazy('funcionarios:detail', kwargs={'pk': self.object.pk})
 
-class FuncionarioUpdateView(LoginRequiredMixin, UpdateView):
+class FuncionarioUpdateView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'funcionarios/form.html'
     fields = [
@@ -246,7 +292,8 @@ class FuncionarioUpdateView(LoginRequiredMixin, UpdateView):
     def get_success_url(self):
         return reverse_lazy('funcionarios:detail', kwargs={'pk': self.object.pk})
 
-class FuncionarioDeleteView(LoginRequiredMixin, DeleteView):
+class FuncionarioDeleteView(LoginRequiredMixin, PermissaoAcaoMixin, DeleteView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'funcionarios/confirm_delete.html'
     success_url = reverse_lazy('funcionarios:funcionarios')
@@ -260,6 +307,7 @@ class FuncionarioDeleteView(LoginRequiredMixin, DeleteView):
 # =====================================
 
 @login_required
+@permissao_acao_required(acao_requerida='acessar_rh')
 def ativar_funcionario(request, pk):
     funcionario = get_object_or_404(Funcionario, pk=pk)
     funcionario.ativo = True
@@ -268,6 +316,7 @@ def ativar_funcionario(request, pk):
     return redirect('funcionarios:detail', pk=pk)
 
 @login_required
+@permissao_acao_required(acao_requerida='acessar_rh')
 def desativar_funcionario(request, pk):
     funcionario = get_object_or_404(Funcionario, pk=pk)
     funcionario.ativo = False
@@ -275,15 +324,18 @@ def desativar_funcionario(request, pk):
     messages.warning(request, f'{funcionario.nome_completo} foi desativado.')
     return redirect('funcionarios:detail', pk=pk)
 
-class AtivarFuncionarioView(LoginRequiredMixin, TemplateView):
+class AtivarFuncionarioView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     def post(self, request, pk):
         return ativar_funcionario(request, pk)
 
-class DesativarFuncionarioView(LoginRequiredMixin, TemplateView):
+class DesativarFuncionarioView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     def post(self, request, pk):
         return desativar_funcionario(request, pk)
 
-class SuspenderFuncionarioView(LoginRequiredMixin, TemplateView):
+class SuspenderFuncionarioView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     def post(self, request, pk):
         funcionario = get_object_or_404(Funcionario, pk=pk)
         funcionario.afastado = True
@@ -293,7 +345,8 @@ class SuspenderFuncionarioView(LoginRequiredMixin, TemplateView):
         messages.warning(request, f'{funcionario.nome_completo} foi suspenso.')
         return redirect('funcionarios:detail', pk=pk)
 
-class DemitirFuncionarioView(LoginRequiredMixin, TemplateView):
+class DemitirFuncionarioView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     def post(self, request, pk):
         funcionario = get_object_or_404(Funcionario, pk=pk)
         funcionario.ativo = False
@@ -311,7 +364,8 @@ class PerfilFuncionarioView(LoginRequiredMixin, DetailView):
     template_name = 'funcionarios/perfil.html'
     context_object_name = 'funcionario'
 
-class DocumentosFuncionarioView(LoginRequiredMixin, DetailView):
+class DocumentosFuncionarioView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'funcionarios/documentos.html'
     context_object_name = 'funcionario'
@@ -324,7 +378,8 @@ class FotoFuncionarioView(LoginRequiredMixin, UpdateView):
     def get_success_url(self):
         return reverse_lazy('funcionarios:perfil', kwargs={'pk': self.object.pk})
 
-class ContatosFuncionarioView(LoginRequiredMixin, UpdateView):
+class ContatosFuncionarioView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'funcionarios/contatos.html'
     fields = ['telefone', 'whatsapp', 'email_pessoal', 'email_corporativo']
@@ -336,7 +391,8 @@ class ContatosFuncionarioView(LoginRequiredMixin, UpdateView):
 # CARGOS
 # =====================================
 
-class CargoListView(LoginRequiredMixin, ListView):
+class CargoListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = Cargo
     template_name = 'cargos/lista.html'
     context_object_name = 'cargos'
@@ -345,7 +401,8 @@ class CargoListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         return Cargo.objects.filter(empresa=self.request.user.empresa)
 
-class CargoDetailView(LoginRequiredMixin, DetailView):
+class CargoDetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Cargo
     template_name = 'cargos/detail.html'
     context_object_name = 'cargo'
@@ -358,7 +415,8 @@ class CargoDetailView(LoginRequiredMixin, DetailView):
         context['funcionarios'] = self.object.funcionarios.filter(ativo=True)
         return context
 
-class CargoCreateView(LoginRequiredMixin, CreateView):
+class CargoCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_rh'
     model = Cargo
     template_name = 'cargos/form.html'
     fields = [
@@ -375,7 +433,8 @@ class CargoCreateView(LoginRequiredMixin, CreateView):
 
     
 
-class CargoUpdateView(LoginRequiredMixin, UpdateView):
+class CargoUpdateView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'acessar_rh'
     model = Cargo
     template_name = 'cargos/form.html'
     fields = [
@@ -389,7 +448,8 @@ class CargoUpdateView(LoginRequiredMixin, UpdateView):
         return Cargo.objects.filter(empresa=self.request.user.empresa)
     
 
-class CargoDeleteView(LoginRequiredMixin, DeleteView):
+class CargoDeleteView(LoginRequiredMixin, PermissaoAcaoMixin, DeleteView):
+    acao_requerida = 'acessar_rh'
     model = Cargo
     template_name = 'cargos/confirm_delete.html'
     success_url = reverse_lazy('funcionarios:cargo_lista')
@@ -401,12 +461,14 @@ class CargoDeleteView(LoginRequiredMixin, DeleteView):
 # DEPARTAMENTOS
 # =====================================
 
-class DepartamentoListView(LoginRequiredMixin, ListView):
+class DepartamentoListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = Departamento
     template_name = 'departamentos/lista.html'
     context_object_name = 'departamentos'
 
-class DepartamentoDetailView(LoginRequiredMixin, DetailView):
+class DepartamentoDetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Departamento
     template_name = 'departamentos/detail.html'
     context_object_name = 'departamento'
@@ -416,19 +478,22 @@ class DepartamentoDetailView(LoginRequiredMixin, DetailView):
         context['funcionarios'] = self.object.funcionarios.filter(ativo=True)
         return context
 
-class DepartamentoCreateView(LoginRequiredMixin, CreateView):
+class DepartamentoCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_rh'
     model = Departamento
     template_name = 'departamentos/form.html'
     fields = ['nome', 'codigo', 'descricao', 'responsavel', 'loja', 'centro_custo']
     success_url = reverse_lazy('funcionarios:departamento_lista')
 
-class DepartamentoUpdateView(LoginRequiredMixin, UpdateView):
+class DepartamentoUpdateView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'acessar_rh'
     model = Departamento
     template_name = 'departamentos/form.html'
     fields = ['nome', 'descricao', 'responsavel', 'centro_custo']
     success_url = reverse_lazy('funcionarios:departamento_lista')
 
-class FuncionariosDepartamentoView(LoginRequiredMixin, ListView):
+class FuncionariosDepartamentoView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'departamentos/funcionarios.html'
     context_object_name = 'funcionarios'
@@ -446,12 +511,14 @@ class FuncionariosDepartamentoView(LoginRequiredMixin, ListView):
 # JORNADAS E ESCALAS
 # =====================================
 
-class JornadaTrabalhoListView(LoginRequiredMixin, ListView):
+class JornadaTrabalhoListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = JornadaTrabalho
     template_name = 'jornadas/lista.html'
     context_object_name = 'jornadas'
 
-class JornadaTrabalhoCreateView(LoginRequiredMixin, CreateView):
+class JornadaTrabalhoCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_rh'
     model = JornadaTrabalho
     template_name = 'jornadas/form.html'
     fields = [
@@ -460,12 +527,14 @@ class JornadaTrabalhoCreateView(LoginRequiredMixin, CreateView):
     ]
     success_url = reverse_lazy('funcionarios:jornada_lista')
 
-class JornadaFuncionarioView(LoginRequiredMixin, DetailView):
+class JornadaFuncionarioView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'funcionarios/jornada_funcionario.html'
     context_object_name = 'funcionario'
 
-class EscalaTrabalhoView(LoginRequiredMixin, TemplateView):
+class EscalaTrabalhoView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'funcionarios/escala.html'
     
     def get_context_data(self, **kwargs):
@@ -487,6 +556,7 @@ class HorarioTrabalhoView(LoginRequiredMixin, TemplateView):
 # =====================================
 
 class PontoEletronicoView(LoginRequiredMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'ponto/lista.html'
     
     def get_context_data(self, **kwargs):
@@ -575,23 +645,27 @@ class HistoricoPontoView(LoginRequiredMixin, ListView):
             funcionario_id=funcionario_pk
         ).order_by('-data')
 
-class RelatorioPontoView(LoginRequiredMixin, TemplateView):
+class RelatorioPontoView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'ponto/relatorio.html'
 
-class AjustesPontoView(LoginRequiredMixin, TemplateView):
+class AjustesPontoView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'ponto/ajustes.html'
 
 # =====================================
 # FOLHA DE PAGAMENTO
 # =====================================
 
-class FolhaPagamentoView(LoginRequiredMixin, ListView):
+class FolhaPagamentoView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = FolhaPagamento
     template_name = 'folha/lista.html'
     context_object_name = 'folhas'
     paginate_by = 12
 
-class CalcularFolhaView(LoginRequiredMixin, TemplateView):
+class CalcularFolhaView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'folha/calcular.html'
     
     def post(self, request):
@@ -629,7 +703,8 @@ class CalcularFolhaView(LoginRequiredMixin, TemplateView):
         
         return redirect('funcionarios:folha_mensal', mes=mes, ano=ano)
 
-class FolhaMensalView(LoginRequiredMixin, DetailView):
+class FolhaMensalView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = FolhaPagamento
     template_name = 'folha/mensal.html'
     context_object_name = 'folha'
@@ -641,7 +716,8 @@ class FolhaMensalView(LoginRequiredMixin, DetailView):
             ano=self.kwargs['ano']
         )
 
-class HoleriteView(LoginRequiredMixin, DetailView):
+class HoleriteView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = ItemFolhaPagamento
     template_name = 'folha/holerite.html'
     context_object_name = 'item'
@@ -659,7 +735,8 @@ class HoleriteView(LoginRequiredMixin, DetailView):
             funcionario=funcionario
         )
 
-class SalarioFuncionarioView(LoginRequiredMixin, DetailView):
+class SalarioFuncionarioView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'funcionarios/salario.html'
     context_object_name = 'funcionario'
@@ -673,12 +750,14 @@ class SalarioFuncionarioView(LoginRequiredMixin, DetailView):
 # BENEFÍCIOS
 # =====================================
 
-class BeneficioListView(LoginRequiredMixin, ListView):
+class BeneficioListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = Beneficio
     template_name = 'beneficios/lista.html'
     context_object_name = 'beneficios'
 
-class BeneficiosFuncionarioView(LoginRequiredMixin, DetailView):
+class BeneficiosFuncionarioView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'beneficios/funcionario.html'
     context_object_name = 'funcionario'
@@ -688,26 +767,31 @@ class BeneficiosFuncionarioView(LoginRequiredMixin, DetailView):
         context['beneficios'] = self.object.beneficios.filter(ativo=True)
         return context
 
-class ValeTransporteView(LoginRequiredMixin, TemplateView):
+class ValeTransporteView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'beneficios/vale_transporte.html'
 
-class ValeRefeicaoView(LoginRequiredMixin, TemplateView):
+class ValeRefeicaoView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'beneficios/vale_refeicao.html'
 
-class PlanoSaudeView(LoginRequiredMixin, TemplateView):
+class PlanoSaudeView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'beneficios/plano_saude.html'
 
 # =====================================
 # FÉRIAS E AFASTAMENTOS
 # =====================================
 
-class FeriasListView(LoginRequiredMixin, ListView):
+class FeriasListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = Ferias
     template_name = 'ferias/lista.html'
     context_object_name = 'ferias'
     paginate_by = 20
 
-class FeriasFuncionarioView(LoginRequiredMixin, DetailView):
+class FeriasFuncionarioView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'ferias/funcionario.html'
     context_object_name = 'funcionario'
@@ -717,7 +801,8 @@ class FeriasFuncionarioView(LoginRequiredMixin, DetailView):
         context['ferias'] = self.object.ferias.order_by('-data_inicio')
         return context
 
-class PlanejarFeriasView(LoginRequiredMixin, CreateView):
+class PlanejarFeriasView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_rh'
     model = Ferias
     template_name = 'ferias/planejar.html'
     fields = [
@@ -726,12 +811,14 @@ class PlanejarFeriasView(LoginRequiredMixin, CreateView):
     ]
     success_url = reverse_lazy('funcionarios:ferias_lista')
 
-class AfastamentoListView(LoginRequiredMixin, ListView):
+class AfastamentoListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = Afastamento
     template_name = 'afastamentos/lista.html'
     context_object_name = 'afastamentos'
 
-class AfastamentosFuncionarioView(LoginRequiredMixin, DetailView):
+class AfastamentosFuncionarioView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'afastamentos/funcionario.html'
     context_object_name = 'funcionario'
@@ -745,12 +832,14 @@ class AfastamentosFuncionarioView(LoginRequiredMixin, DetailView):
 # TREINAMENTOS E CAPACITAÇÃO
 # =====================================
 
-class TreinamentoListView(LoginRequiredMixin, ListView):
+class TreinamentoListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = Capacitacao
     template_name = 'treinamentos/lista.html'
     context_object_name = 'treinamentos'
 
-class TreinamentoCreateView(LoginRequiredMixin, CreateView):
+class TreinamentoCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_rh'
     model = Capacitacao
     template_name = 'treinamentos/form.html'
     fields = [
@@ -760,12 +849,14 @@ class TreinamentoCreateView(LoginRequiredMixin, CreateView):
     ]
     success_url = reverse_lazy('funcionarios:treinamento_lista')
 
-class TreinamentoDetailView(LoginRequiredMixin, DetailView):
+class TreinamentoDetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Capacitacao
     template_name = 'treinamentos/detail.html'
     context_object_name = 'treinamento'
 
-class TreinamentosFuncionarioView(LoginRequiredMixin, DetailView):
+class TreinamentosFuncionarioView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'treinamentos/funcionario.html'
     context_object_name = 'funcionario'
@@ -775,7 +866,8 @@ class TreinamentosFuncionarioView(LoginRequiredMixin, DetailView):
         context['capacitacoes'] = self.object.capacitacoes.order_by('-data_inicio')
         return context
 
-class CertificacaoListView(LoginRequiredMixin, ListView):
+class CertificacaoListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = Capacitacao
     template_name = 'certificacoes/lista.html'
     context_object_name = 'certificacoes'
@@ -786,7 +878,8 @@ class CertificacaoListView(LoginRequiredMixin, ListView):
             certificado__isnull=False
         )
 
-class ResponsabilidadeTecnicaView(LoginRequiredMixin, ListView):
+class ResponsabilidadeTecnicaView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = ResponsabilidadeTecnica
     template_name = 'responsabilidade_tecnica.html'
     context_object_name = 'responsabilidades'
@@ -795,12 +888,14 @@ class ResponsabilidadeTecnicaView(LoginRequiredMixin, ListView):
 # AVALIAÇÕES DE DESEMPENHO
 # =====================================
 
-class AvaliacaoDesempenhoListView(LoginRequiredMixin, ListView):
+class AvaliacaoDesempenhoListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = AvaliacaoDesempenho
     template_name = 'avaliacoes/lista.html'
     context_object_name = 'avaliacoes'
 
-class AvaliacoesFuncionarioView(LoginRequiredMixin, DetailView):
+class AvaliacoesFuncionarioView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'avaliacoes/funcionario.html'
     context_object_name = 'funcionario'
@@ -810,7 +905,8 @@ class AvaliacoesFuncionarioView(LoginRequiredMixin, DetailView):
         context['avaliacoes'] = self.object.avaliacoes.order_by('-data_avaliacao')
         return context
 
-class NovaAvaliacaoView(LoginRequiredMixin, CreateView):
+class NovaAvaliacaoView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_rh'
     model = AvaliacaoDesempenho
     template_name = 'avaliacoes/form.html'
     fields = [
@@ -828,7 +924,8 @@ class NovaAvaliacaoView(LoginRequiredMixin, CreateView):
     def get_success_url(self):
         return reverse_lazy('funcionarios:funcionario_avaliacoes', kwargs={'pk': self.object.funcionario.pk})
 
-class MetasFuncionarioView(LoginRequiredMixin, ListView):
+class MetasFuncionarioView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = Meta
     template_name = 'funcionarios/metas.html'
     context_object_name = 'metas'
@@ -840,7 +937,8 @@ class MetasFuncionarioView(LoginRequiredMixin, ListView):
 # RECRUTAMENTO E SELEÇÃO
 # =====================================
 
-class RecrutamentoView(LoginRequiredMixin, TemplateView):
+class RecrutamentoView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'recrutamento/dashboard.html'
     
     def get_context_data(self, **kwargs):
@@ -852,17 +950,20 @@ class RecrutamentoView(LoginRequiredMixin, TemplateView):
         })
         return context
 
-class CandidatoListView(LoginRequiredMixin, ListView):
+class CandidatoListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = Candidato
     template_name = 'candidatos/lista.html'
     context_object_name = 'candidatos'
 
-class CandidatoDetailView(LoginRequiredMixin, DetailView):
+class CandidatoDetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Candidato
     template_name = 'candidatos/detail.html'
     context_object_name = 'candidato'
 
-class ProcessoSeletivoView(LoginRequiredMixin, ListView):
+class ProcessoSeletivoView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = ProcessoSeletivo
     template_name = 'processos/lista.html'
     context_object_name = 'processos'
@@ -871,10 +972,12 @@ class ProcessoSeletivoView(LoginRequiredMixin, ListView):
 # RELATÓRIOS
 # =====================================
 
-class FuncionarioRelatoriosView(LoginRequiredMixin, TemplateView):
+class FuncionarioRelatoriosView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'relatorios/dashboard.html'
 
-class RelatorioAniversariantesView(LoginRequiredMixin, TemplateView):
+class RelatorioAniversariantesView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'relatorios/aniversariantes.html'
     
     def get_context_data(self, **kwargs):
@@ -888,35 +991,42 @@ class RelatorioAniversariantesView(LoginRequiredMixin, TemplateView):
         
         return context
 
-class RelatorioAdmissoesView(LoginRequiredMixin, TemplateView):
+class RelatorioAdmissoesView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'relatorios/admissoes.html'
 
-class RelatorioDemissoesView(LoginRequiredMixin, TemplateView):
+class RelatorioDemissoesView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'relatorios/demissoes.html'
 
-class RelatorioFolhaView(LoginRequiredMixin, TemplateView):
+class RelatorioFolhaView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'relatorios/folha.html'
 
 # =====================================
 # DOCUMENTOS TRABALHISTAS
 # =====================================
 
-class CTPSView(LoginRequiredMixin, DetailView):
+class CTPSView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'documentos/ctps.html'
     context_object_name = 'funcionario'
 
-class ContratoTrabalhoView(LoginRequiredMixin, DetailView):
+class ContratoTrabalhoView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'documentos/contrato.html'
     context_object_name = 'funcionario'
 
-class TermoRescisaoView(LoginRequiredMixin, DetailView):
+class TermoRescisaoView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'documentos/rescisao.html'
     context_object_name = 'funcionario'
 
-class DeclaracoesView(LoginRequiredMixin, DetailView):
+class DeclaracoesView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_rh'
     model = Funcionario
     template_name = 'documentos/declaracoes.html'
     context_object_name = 'funcionario'
@@ -925,12 +1035,14 @@ class DeclaracoesView(LoginRequiredMixin, DetailView):
 # COMUNICAÇÃO INTERNA
 # =====================================
 
-class ComunicadoListView(LoginRequiredMixin, ListView):
+class ComunicadoListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = Comunicado
     template_name = 'comunicados/lista.html'
     context_object_name = 'comunicados'
 
-class ComunicadoCreateView(LoginRequiredMixin, CreateView):
+class ComunicadoCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_rh'
     model = Comunicado
     template_name = 'comunicados/form.html'
     fields = ['titulo', 'mensagem']
@@ -941,10 +1053,12 @@ class ComunicadoCreateView(LoginRequiredMixin, CreateView):
     
     success_url = reverse_lazy('funcionarios:comunicado_lista')
 
-class EnviarComunicadoView(LoginRequiredMixin, TemplateView):
+class EnviarComunicadoView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'comunicados/enviar.html'
 
-class MuralEletronicoView(LoginRequiredMixin, ListView):
+class MuralEletronicoView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_rh'
     model = Comunicado
     template_name = 'funcionarios/mural.html'
     context_object_name = 'comunicados'
@@ -956,7 +1070,8 @@ class MuralEletronicoView(LoginRequiredMixin, ListView):
 # AJAX E UTILITÁRIOS
 # =====================================
 
-class BuscarFuncionarioAjaxView(LoginRequiredMixin, TemplateView):
+class BuscarFuncionarioAjaxView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     def get(self, request):
         termo = request.GET.get('q', '')
         funcionarios = Funcionario.objects.filter(
@@ -976,7 +1091,8 @@ class BuscarFuncionarioAjaxView(LoginRequiredMixin, TemplateView):
         
         return JsonResponse({'funcionarios': resultados})
 
-class CalcularSalarioView(LoginRequiredMixin, TemplateView):
+class CalcularSalarioView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     def post(self, request):
         cargo_id = request.POST.get('cargo_id')
         if cargo_id:
@@ -988,13 +1104,15 @@ class CalcularSalarioView(LoginRequiredMixin, TemplateView):
             })
         return JsonResponse({'error': 'Cargo não encontrado'})
 
-class VerificarBIFuncionarioView(LoginRequiredMixin, TemplateView):
+class VerificarBIFuncionarioView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     def get(self, request):
         bi = request.GET.get('bi')
         existe = Funcionario.objects.filter(bi=bi).exists()
         return JsonResponse({'existe': existe})
 
-class ConsultarPOSTALFuncionarioView(LoginRequiredMixin, TemplateView):
+class ConsultarPOSTALFuncionarioView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     def get(self, request):
         postal = request.GET.get('postal')
         # Lógica de consulta de postal (mock)
@@ -1009,10 +1127,12 @@ class ConsultarPOSTALFuncionarioView(LoginRequiredMixin, TemplateView):
 # IMPORTAÇÃO E EXPORTAÇÃO
 # =====================================
 
-class ImportarFuncionariosView(LoginRequiredMixin, TemplateView):
+class ImportarFuncionariosView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     template_name = 'funcionarios/importar.html'
 
-class ExportarFuncionariosView(LoginRequiredMixin, TemplateView):
+class ExportarFuncionariosView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_rh'
     def get(self, request):
         # Lógica de exportação
         funcionarios = Funcionario.objects.filter(ativo=True)

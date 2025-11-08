@@ -179,9 +179,9 @@ def buscar_produtos_api(request):
         
         # Limitar resultados apenas se houver busca específica
         if busca:
-            produtos = produtos[:20]
+            produtos = produtos[:50]
         else:
-            produtos = produtos[:100]  # Limite maior para listagem geral
+            produtos = produtos[:300]  # Limite maior para listagem geral
         
         produtos_data = []
         for produto in produtos:
@@ -224,7 +224,7 @@ class ProdutosView(LoginRequiredMixin, ListView):
     template_name = 'produtos/produto_list.html'
     model = Produto
     context_object_name = 'produtos'
-    paginate_by = 20
+    #paginate_by = 20
 
     def get_empresa(self):
         """ Método seguro para obter a empresa do utilizador logado. """
@@ -875,6 +875,52 @@ def listar_categorias_api(request):
             'message': f'Erro interno: {str(e)}'
         }, status=500)
 
+from django.urls import reverse_lazy
+from django.views.generic import ListView, CreateView, UpdateView, DetailView, DeleteView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from .models import Fabricante
+from .forms import FabricanteForm
+
+# Lista de fabricantes
+class FabricanteListView(LoginRequiredMixin, ListView):
+    model = Fabricante
+    template_name = 'fabricantes/fabricante_lista.html'
+    context_object_name = 'fabricantes'
+    paginate_by = 25  # opcional
+    ordering = ['nome']
+
+    def get_queryset(self):
+        return Fabricante.objects.filter(empresa=self.request.user.funcionario.empresa)
+
+# Criar fabricante
+class FabricanteCreateView(LoginRequiredMixin, CreateView):
+    model = Fabricante
+    form_class = FabricanteForm
+    template_name = 'fabricantes/form.html'
+    success_url = reverse_lazy('fabricantes:fabricante_lista')
+
+    def form_valid(self, form):
+        form.instance.empresa = self.request.user.funcionario.empresa
+        return super().form_valid(form)
+
+# Editar fabricante
+class FabricanteUpdateView(LoginRequiredMixin, UpdateView):
+    model = Fabricante
+    form_class = FabricanteForm
+    template_name = 'fabricantes/form.html'
+    success_url = reverse_lazy('fabricantes:fabricante_lista')
+
+# Detalhes do fabricante
+class FabricanteDetailView(LoginRequiredMixin, DetailView):
+    model = Fabricante
+    template_name = 'fabricantes/detail.html'
+    context_object_name = 'fabricante'
+
+# Excluir fabricante
+class FabricanteDeleteView(LoginRequiredMixin, DeleteView):
+    model = Fabricante
+    template_name = 'fabricantes/confirm_delete.html'
+    success_url = reverse_lazy('fabricantes:fabricante_lista')
 
 
 
@@ -908,19 +954,19 @@ class TemplateProdutosView(LoginRequiredMixin, View):
             exemplo = [
                 'Paracetamol 500mg',    # nome_produto
                 '7891234567890',        # codigo_barras
-                'Medicamentos',         # categoria
-                '2.50',                 # preco_custo
-                '5.00',                 # preco_venda
+                'Analgésicos',         # categoria
+                '105.50',                 # preco_custo
+                '200.00',                 # preco_venda
                 'Paracetamol 500mg',    # nome_comercial
                 'PARA500',              # codigo_interno
-                'EMS',                  # fabricante
-                'Distribuidora ABC',    # fornecedor
+                'NEWAY FARMÁCIA',                  # fabricante
+                'NEWAY MED',    # fornecedor
                 '100',                  # estoque_atual
                 '10',                   # estoque_minimo
                 '1000',                 # estoque_maximo
                 '100.00',               # margem_lucro
                 '0.00',                 # desconto_percentual
-                'Produto de exemplo',   # observacoes
+                'Produto de template',   # observacoes
                 '1'                     # ativo
             ]
             
@@ -959,7 +1005,7 @@ class TemplateProdutosView(LoginRequiredMixin, View):
                 "- Texto: Evite caracteres especiais",
                 "",
                 "NOTAS IMPORTANTES:",
-                "ATT: APENAS É SUPORTADO FICHEIROS COM ATÉ 100 PRODUTOS"
+                "ATT: APENAS SÃO SUPORTADOS FICHEIROS COM ATÉ 100 LINHAS DE PRODUTOS/SERVIÇOS"
                 "- Códigos de barras devem ser únicos",
                 "- Categorias e fabricantes serão criados automaticamente se não existirem",
                 "- Fornecedores devem existir previamente no sistema",
@@ -1012,16 +1058,6 @@ class TemplateProdutosView(LoginRequiredMixin, View):
 
 
 
-import io
-import pandas as pd
-import unicodedata
-import logging
-from django.views.generic.edit import FormView
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.urls import reverse_lazy
-from django.contrib import messages
-from django.db.models import Q
-from apps.produtos.forms import ImportarProdutosForm
 
 
 logger = logging.getLogger(__name__)

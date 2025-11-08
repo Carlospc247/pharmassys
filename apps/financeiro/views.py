@@ -43,6 +43,14 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .models import PlanoContas
 from .forms import PlanoContasForm
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from functools import wraps
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+from django.http import HttpResponseForbidden
+
 
 
 
@@ -71,8 +79,47 @@ class PermissaoAcaoMixin(AccessMixin):
 
 
 
+def permissao_acao_required(acao_requerida=None):
+    """
+    Decorator para function-based views que verifica:
+    1. Usuário autenticado
+    2. Usuário ligado a um registro Funcionario
+    3. Permissão de ação específica
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                messages.error(request, "Acesso negado. Usuário não autenticado.")
+                return redirect(reverse_lazy('core:login'))  # ou handle customizado
 
-class FinanceiroView(BaseMPAView):
+            try:
+                funcionario = request.user.funcionario
+            except Exception:
+                messages.error(
+                    request,
+                    "Acesso negado. O seu usuário não está ligado a um registro de funcionário."
+                )
+                return redirect(reverse_lazy('core:dashboard'))
+
+            if acao_requerida:
+                if not funcionario.pode_realizar_acao(acao_requerida):
+                    messages.error(
+                        request,
+                        f"Acesso negado. O seu cargo não permite realizar a ação de '{acao_requerida}'."
+                    )
+                    return redirect(reverse_lazy('core:dashboard'))
+
+            return view_func(request, *args, **kwargs)
+        return _wrapped_view
+    return decorator
+
+
+
+
+
+class FinanceiroView(BaseMPAView, PermissaoAcaoMixin):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'core/financeiro.html'
     module_name = 'financeiro'
     
@@ -109,7 +156,8 @@ class FinanceiroView(BaseMPAView):
 # PLANO DE CONTAS
 # =====================================
 
-class PlanoContasListView(LoginRequiredMixin, ListView):
+class PlanoContasListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = PlanoContas
     template_name = 'financeiro/plano_contas/lista.html'
     context_object_name = 'contas'
@@ -133,7 +181,8 @@ class PlanoContasListView(LoginRequiredMixin, ListView):
         context['contas_hierarquia'] = contas_hierarquia
         return context
 
-class PlanoContasCreateView(LoginRequiredMixin, CreateView):
+class PlanoContasCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_financeiro'
     model = PlanoContas
     template_name = 'financeiro/plano_contas/form.html'
     fields = [
@@ -162,7 +211,8 @@ class PlanoContasCreateView(LoginRequiredMixin, CreateView):
         )
         return form
 
-class PlanoContasUpdateView(LoginRequiredMixin, UpdateView):
+class PlanoContasUpdateView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'acessar_financeiro'
     model = PlanoContas
     template_name = 'financeiro/plano_contas/form.html'
     fields = [
@@ -181,7 +231,8 @@ class PlanoContasUpdateView(LoginRequiredMixin, UpdateView):
         messages.success(self.request, 'Conta atualizada com sucesso!')
         return super().form_valid(form)
 
-class PlanoContasDetailView(LoginRequiredMixin, DetailView):
+class PlanoContasDetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_financeiro'
     model = PlanoContas
     template_name = 'financeiro/plano_contas/detail.html'
     context_object_name = 'conta'
@@ -221,7 +272,8 @@ class PlanoContasDetailView(LoginRequiredMixin, DetailView):
 # MOVIMENTAÇÃO FINANCEIRA
 # =====================================
 
-class MovimentacaoFinanceiraListView(LoginRequiredMixin, ListView):
+class MovimentacaoFinanceiraListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = MovimentacaoFinanceira
     template_name = 'financeiro/movimentacao/lista.html'
     context_object_name = 'movimentacoes'
@@ -280,7 +332,8 @@ class MovimentacaoFinanceiraListView(LoginRequiredMixin, ListView):
         
         return context
 
-class MovimentacaoFinanceiraCreateView(LoginRequiredMixin, CreateView):
+class MovimentacaoFinanceiraCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_financeiro'
     model = MovimentacaoFinanceira
     template_name = 'financeiro/movimentacao/form.html'
     fields = [
@@ -326,12 +379,14 @@ class MovimentacaoFinanceiraCreateView(LoginRequiredMixin, CreateView):
         
         return form
 
-class MovimentacaoFinanceiraDetailView(LoginRequiredMixin, DetailView):
+class MovimentacaoFinanceiraDetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_financeiro'
     model = MovimentacaoFinanceira
     template_name = 'financeiro/movimentacao/detail.html'
     context_object_name = 'movimentacao'
 
-class MovimentacaoFinanceiraUpdateView(LoginRequiredMixin, UpdateView):
+class MovimentacaoFinanceiraUpdateView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'acessar_financeiro'
     model = MovimentacaoFinanceira
     template_name = 'financeiro/movimentacao/form.html'
     fields = [
@@ -351,7 +406,8 @@ class MovimentacaoFinanceiraUpdateView(LoginRequiredMixin, UpdateView):
         messages.success(self.request, 'Movimentação atualizada com sucesso!')
         return super().form_valid(form)
 
-class ConfirmarMovimentacaoView(LoginRequiredMixin, View):
+class ConfirmarMovimentacaoView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request, pk):
         movimentacao = get_object_or_404(MovimentacaoFinanceira, pk=pk)
         
@@ -363,7 +419,8 @@ class ConfirmarMovimentacaoView(LoginRequiredMixin, View):
         
         return redirect('financeiro:movimentacao_detail', pk=pk)
 
-class EstornarMovimentacaoView(LoginRequiredMixin, View):
+class EstornarMovimentacaoView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request, pk):
         movimentacao = get_object_or_404(MovimentacaoFinanceira, pk=pk)
         motivo = request.POST.get('motivo', '')
@@ -380,7 +437,8 @@ class EstornarMovimentacaoView(LoginRequiredMixin, View):
 # FLUXO DE CAIXA
 # =====================================
 
-class FluxoCaixaListView(LoginRequiredMixin, ListView):
+class FluxoCaixaListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = FluxoCaixa
     template_name = 'financeiro/fluxo_caixa/lista.html'
     context_object_name = 'fluxos'
@@ -456,7 +514,8 @@ class FluxoCaixaListView(LoginRequiredMixin, ListView):
         
         return dados
 
-class FluxoCaixaCreateView(LoginRequiredMixin, CreateView):
+class FluxoCaixaCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_financeiro'
     model = FluxoCaixa
     template_name = 'financeiro/fluxo_caixa/form.html'
     fields = [
@@ -470,7 +529,8 @@ class FluxoCaixaCreateView(LoginRequiredMixin, CreateView):
         messages.success(self.request, 'Projeção de fluxo criada com sucesso!')
         return super().form_valid(form)
 
-class FluxoCaixaUpdateView(LoginRequiredMixin, UpdateView):
+class FluxoCaixaUpdateView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'acessar_financeiro'
     model = FluxoCaixa
     template_name = 'financeiro/fluxo_caixa/form.html'
     fields = [
@@ -480,7 +540,8 @@ class FluxoCaixaUpdateView(LoginRequiredMixin, UpdateView):
     ]
     success_url = reverse_lazy('financeiro:fluxo_caixa_lista')
 
-class MarcarFluxoRealizadoView(LoginRequiredMixin, View):
+class MarcarFluxoRealizadoView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request, pk):
         fluxo = get_object_or_404(FluxoCaixa, pk=pk)
         valor_realizado = Decimal(request.POST.get('valor_realizado', fluxo.valor_previsto))
@@ -492,7 +553,8 @@ class MarcarFluxoRealizadoView(LoginRequiredMixin, View):
         messages.success(request, 'Fluxo marcado como realizado!')
         return redirect('financeiro:fluxo_caixa_lista')
 
-class GerarFluxoAutomaticoView(LoginRequiredMixin, View):
+class GerarFluxoAutomaticoView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request):
         """Gera fluxo de caixa baseado nas contas a pagar e receber"""
         data_inicio = request.POST.get('data_inicio')
@@ -561,7 +623,8 @@ class GerarFluxoAutomaticoView(LoginRequiredMixin, View):
 # CONCILIAÇÃO BANCÁRIA
 # =====================================
 
-class ConciliacaoBancariaListView(LoginRequiredMixin, ListView):
+class ConciliacaoBancariaListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = ConciliacaoBancaria
     template_name = 'financeiro/conciliacao/lista.html'
     context_object_name = 'conciliacoes'
@@ -572,7 +635,8 @@ class ConciliacaoBancariaListView(LoginRequiredMixin, ListView):
             conta_bancaria__empresa=self.request.user.empresa
         ).select_related('conta_bancaria', 'responsavel').order_by('-data_fim')
 
-class ConciliacaoBancariaCreateView(LoginRequiredMixin, CreateView):
+class ConciliacaoBancariaCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_financeiro'
     model = ConciliacaoBancaria
     template_name = 'financeiro/conciliacao/form.html'
     fields = [
@@ -635,7 +699,8 @@ class ConciliacaoBancariaCreateView(LoginRequiredMixin, CreateView):
         )
         return form
 
-class ConciliacaoBancariaDetailView(LoginRequiredMixin, DetailView):
+class ConciliacaoBancariaDetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_financeiro'
     model = ConciliacaoBancaria
     template_name = 'financeiro/conciliacao/detail.html'
     context_object_name = 'conciliacao'
@@ -656,7 +721,8 @@ class ConciliacaoBancariaDetailView(LoginRequiredMixin, DetailView):
         
         return context
 
-class ConciliarMovimentacaoView(LoginRequiredMixin, View):
+class ConciliarMovimentacaoView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request, pk):
         movimentacao = get_object_or_404(MovimentacaoFinanceira, pk=pk)
         
@@ -667,7 +733,8 @@ class ConciliarMovimentacaoView(LoginRequiredMixin, View):
         messages.success(request, 'Movimentação conciliada!')
         return redirect(request.META.get('HTTP_REFERER'))
 
-class DesconciliarMovimentacaoView(LoginRequiredMixin, View):
+class DesconciliarMovimentacaoView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request, pk):
         movimentacao = get_object_or_404(MovimentacaoFinanceira, pk=pk)
         
@@ -682,7 +749,8 @@ class DesconciliarMovimentacaoView(LoginRequiredMixin, View):
 # ORÇAMENTO FINANCEIRO COMPLETO
 # =====================================
 
-class OrcamentoFinanceiroListView(LoginRequiredMixin, ListView):
+class OrcamentoFinanceiroListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = OrcamentoFinanceiro
     template_name = 'financeiro/orcamento/lista.html'
     context_object_name = 'orcamentos'
@@ -734,7 +802,8 @@ class OrcamentoFinanceiroListView(LoginRequiredMixin, ListView):
         
         return context
 
-class OrcamentoFinanceiroCreateView(LoginRequiredMixin, CreateView):
+class OrcamentoFinanceiroCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_financeiro'
     model = OrcamentoFinanceiro
     template_name = 'financeiro/orcamento/form.html'
     fields = [
@@ -761,7 +830,8 @@ class OrcamentoFinanceiroCreateView(LoginRequiredMixin, CreateView):
         
         return form
 
-class OrcamentoFinanceiroUpdateView(LoginRequiredMixin, UpdateView):
+class OrcamentoFinanceiroUpdateView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'acessar_financeiro'
     model = OrcamentoFinanceiro
     template_name = 'financeiro/orcamento/form.html'
     fields = [
@@ -769,7 +839,8 @@ class OrcamentoFinanceiroUpdateView(LoginRequiredMixin, UpdateView):
     ]
     success_url = reverse_lazy('financeiro:orcamento_lista')
 
-class AtualizarOrcamentoRealizadoView(LoginRequiredMixin, View):
+class AtualizarOrcamentoRealizadoView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request):
         """Atualiza valores realizados de todos os orçamentos"""
         ano = int(request.POST.get('ano', date.today().year))
@@ -791,7 +862,8 @@ class AtualizarOrcamentoRealizadoView(LoginRequiredMixin, View):
         messages.success(request, f'{contador} orçamentos atualizados!')
         return redirect('financeiro:orcamento_lista')
 
-class CopiarOrcamentoView(LoginRequiredMixin, View):
+class CopiarOrcamentoView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request):
         """Copia orçamento de um ano para outro"""
         ano_origem = int(request.POST.get('ano_origem'))
@@ -838,7 +910,8 @@ class CopiarOrcamentoView(LoginRequiredMixin, View):
 # CONTA BANCÁRIA COMPLETA
 # =====================================
 
-class ContaBancariaListView(LoginRequiredMixin, ListView):
+class ContaBancariaListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaBancaria
     template_name = 'financeiro/conta_bancaria/lista.html'
     context_object_name = 'contas'
@@ -860,7 +933,8 @@ class ContaBancariaListView(LoginRequiredMixin, ListView):
         
         return context
 
-class ContaBancariaCreateView(LoginRequiredMixin, CreateView):
+class ContaBancariaCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaBancaria
     template_name = 'financeiro/conta_bancaria/form.html'
     fields = [
@@ -885,7 +959,8 @@ class ContaBancariaCreateView(LoginRequiredMixin, CreateView):
         messages.success(self.request, 'Conta bancária criada com sucesso!')
         return super().form_valid(form)
 
-class ContaBancariaDetailView(LoginRequiredMixin, DetailView):
+class ContaBancariaDetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaBancaria
     template_name = 'financeiro/conta_bancaria/detail.html'
     context_object_name = 'conta'
@@ -927,7 +1002,8 @@ class ContaBancariaDetailView(LoginRequiredMixin, DetailView):
         
         return context
 
-class ContaBancariaUpdateView(LoginRequiredMixin, UpdateView):
+class ContaBancariaUpdateView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaBancaria
     template_name = 'financeiro/conta_bancaria/form.html'
     fields = [
@@ -960,7 +1036,8 @@ from django.db.models import Sum
 # IMPORTAÇÕES: Certifique-se que ContaPagar, ContaReceber, MovimentoCaixa, MovimentacaoFinanceira e LancamentoFinanceiro 
 # estão corretamente importados no topo do seu views.py
 
-class FinanceiroDashboardView(LoginRequiredMixin, TemplateView):
+class FinanceiroDashboardView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/dashboard.html'
     
     def get_context_data(self, **kwargs):
@@ -1039,7 +1116,8 @@ class FinanceiroDashboardView(LoginRequiredMixin, TemplateView):
         return {}
 
 
-class FluxoCaixaView(LoginRequiredMixin, TemplateView):
+class FluxoCaixaView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/fluxo_caixa.html'
     
     def get_context_data(self, **kwargs):
@@ -1081,10 +1159,11 @@ class FluxoCaixaView(LoginRequiredMixin, TemplateView):
         # Implementar cálculo do fluxo diário
         return []
 
-class DREView(LoginRequiredMixin, TemplateView):
-    template_name = 'financeiro/dre.html'
+class DREView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+   acao_requerida = 'acessar_financeiro'
+   template_name = 'financeiro/dre.html'
     
-    def get_context_data(self, **kwargs):
+   def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
         # Período
@@ -1128,7 +1207,8 @@ class DREView(LoginRequiredMixin, TemplateView):
         
         return context
 
-class BalancoPatrimonialView(LoginRequiredMixin, TemplateView):
+class BalancoPatrimonialView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/balanco.html'
     
     def get_context_data(self, **kwargs):
@@ -1164,7 +1244,8 @@ class BalancoPatrimonialView(LoginRequiredMixin, TemplateView):
 # CONTAS A RECEBER
 # =====================================
 
-class ContaReceberListView(LoginRequiredMixin, ListView):
+class ContaReceberListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaReceber
     template_name = 'financeiro/conta_receber/lista.html'
     context_object_name = 'contas'
@@ -1200,12 +1281,14 @@ class ContaReceberListView(LoginRequiredMixin, ListView):
         
         return queryset.select_related('cliente').order_by('data_vencimento')
 
-class ContaReceberDetailView(LoginRequiredMixin, DetailView):
+class ContaReceberDetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaReceber
     template_name = 'financeiro/conta_receber/detail.html'
     context_object_name = 'conta'
 
-class ContaReceberCreateView(LoginRequiredMixin, CreateView):
+class ContaReceberCreateView(LoginRequiredMixin, PermissaoAcaoMixin,  CreateView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaReceber
     form_class = ContaReceberForm
     template_name = 'financeiro/conta_receber/form.html'
@@ -1215,7 +1298,8 @@ class ContaReceberCreateView(LoginRequiredMixin, CreateView):
         messages.success(self.request, 'Conta a receber criada com sucesso!')
         return super().form_valid(form)
 
-class ContaReceberUpdateView(LoginRequiredMixin, UpdateView):
+class ContaReceberUpdateView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaReceber
     form_class = ContaReceberForm
     template_name = 'financeiro/conta_receber/form.html'
@@ -1225,7 +1309,8 @@ class ContaReceberUpdateView(LoginRequiredMixin, UpdateView):
         messages.success(self.request, 'Conta a receber atualizada com sucesso!')
         return super().form_valid(form)
 
-class ReceberContaView(LoginRequiredMixin, View):
+class ReceberContaView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request, pk):
         conta = get_object_or_404(ContaReceber, pk=pk)
         
@@ -1253,7 +1338,8 @@ class ReceberContaView(LoginRequiredMixin, View):
         messages.success(request, 'Conta recebida com sucesso!')
         return redirect('financeiro:conta_receber_detail', pk=pk)
 
-class ParcelarContaView(LoginRequiredMixin, FormView):
+class ParcelarContaView(LoginRequiredMixin, PermissaoAcaoMixin, FormView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/conta_receber/parcelar.html'
     
     def get_context_data(self, **kwargs):
@@ -1287,7 +1373,8 @@ class ParcelarContaView(LoginRequiredMixin, FormView):
         messages.success(request, f'Conta parcelada em {numero_parcelas}x com sucesso!')
         return redirect('financeiro:conta_receber_lista')
 
-class ContasVencidasView(LoginRequiredMixin, ListView):
+class ContasVencidasView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaReceber
     template_name = 'financeiro/conta_receber/vencidas.html'
     context_object_name = 'contas'
@@ -1298,7 +1385,8 @@ class ContasVencidasView(LoginRequiredMixin, ListView):
             data_vencimento__lt=date.today()
         ).select_related('cliente').order_by('data_vencimento')
 
-class ContasVencendoView(LoginRequiredMixin, ListView):
+class ContasVencendoView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaReceber
     template_name = 'financeiro/conta_receber/vencendo.html'
     context_object_name = 'contas'
@@ -1313,7 +1401,8 @@ class ContasVencendoView(LoginRequiredMixin, ListView):
         ).select_related('cliente').order_by('data_vencimento')
 
 
-class NegociarContaView(LoginRequiredMixin, FormView):
+class NegociarContaView(LoginRequiredMixin, PermissaoAcaoMixin, FormView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/conta_receber/negociar.html'
     
     def get_context_data(self, **kwargs):
@@ -1321,7 +1410,8 @@ class NegociarContaView(LoginRequiredMixin, FormView):
         context['conta'] = get_object_or_404(ContaReceber, pk=self.kwargs['pk'])
         return context
 
-class ProtestarContaView(LoginRequiredMixin, View):
+class ProtestarContaView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request, pk):
         conta = get_object_or_404(ContaReceber, pk=pk)
         
@@ -1336,7 +1426,8 @@ class ProtestarContaView(LoginRequiredMixin, View):
 # CONTAS A PAGAR
 # =====================================
 
-class ContaPagarListView(LoginRequiredMixin, ListView):
+class ContaPagarListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaPagar
     template_name = 'financeiro/conta_pagar/lista.html'
     context_object_name = 'contas'
@@ -1357,19 +1448,22 @@ class ContaPagarDetailView(LoginRequiredMixin, DetailView):
     template_name = 'financeiro/conta_pagar/detail.html'
     context_object_name = 'conta'
 
-class ContaPagarCreateView(LoginRequiredMixin, CreateView):
+class ContaPagarCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaPagar
     form_class = ContaPagarForm
     template_name = 'financeiro/conta_pagar/form.html'
     success_url = reverse_lazy('financeiro:conta_pagar_lista')
 
-class ContaPagarUpdateView(LoginRequiredMixin, UpdateView):
+class ContaPagarUpdateView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaPagar
     form_class = ContaPagarForm
     template_name = 'financeiro/conta_pagar/form.html'
     success_url = reverse_lazy('financeiro:conta_pagar_lista')
 
-class PagarContaView(LoginRequiredMixin, View):
+class PagarContaView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request, pk):
         conta = get_object_or_404(ContaPagar, pk=pk)
         
@@ -1397,7 +1491,8 @@ class PagarContaView(LoginRequiredMixin, View):
         messages.success(request, 'Conta paga com sucesso!')
         return redirect('financeiro:conta_pagar_detail', pk=pk)
 
-class AgendarPagamentoView(LoginRequiredMixin, View):
+class AgendarPagamentoView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request, pk):
         conta = get_object_or_404(ContaPagar, pk=pk)
         
@@ -1410,7 +1505,8 @@ class AgendarPagamentoView(LoginRequiredMixin, View):
         messages.success(request, 'Pagamento agendado com sucesso!')
         return redirect('financeiro:conta_pagar_detail', pk=pk)
 
-class AgendaPagamentosView(LoginRequiredMixin, ListView):
+class AgendaPagamentosView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaPagar
     template_name = 'financeiro/conta_pagar/agenda.html'
     context_object_name = 'contas'
@@ -1420,7 +1516,10 @@ class AgendaPagamentosView(LoginRequiredMixin, ListView):
             status='agendada'
         ).order_by('data_agendamento')
 
-class AprovacaoPagamentosView(LoginRequiredMixin, ListView):
+##########################
+
+class AprovacaoPagamentosView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaPagar
     template_name = 'financeiro/conta_pagar/aprovacao.html'
     context_object_name = 'contas'
@@ -1430,7 +1529,8 @@ class AprovacaoPagamentosView(LoginRequiredMixin, ListView):
             status='aguardando_aprovacao'
         ).order_by('data_vencimento')
 
-class PagamentoLoteView(LoginRequiredMixin, FormView):
+class PagamentoLoteView(LoginRequiredMixin, PermissaoAcaoMixin, FormView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/conta_pagar/pagamento_lote.html'
     
     def post(self, request):
@@ -1448,7 +1548,8 @@ class PagamentoLoteView(LoginRequiredMixin, FormView):
 # MOVIMENTAÇÃO FINANCEIRA
 # =====================================
 
-class LancamentoListView(LoginRequiredMixin, ListView):
+class LancamentoListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = LancamentoFinanceiro
     template_name = 'financeiro/lancamento/lista.html'
     context_object_name = 'lancamentos'
@@ -1468,18 +1569,21 @@ class LancamentoListView(LoginRequiredMixin, ListView):
         
         return queryset.select_related('categoria').order_by('-data')
 
-class LancamentoDetailView(LoginRequiredMixin, DetailView):
+class LancamentoDetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_financeiro'
     model = LancamentoFinanceiro
     template_name = 'financeiro/lancamento/detail.html'
     context_object_name = 'lancamento'
 
-class LancamentoCreateView(LoginRequiredMixin, CreateView):
+class LancamentoCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_financeiro'
     model = LancamentoFinanceiro
     form_class = LancamentoFinanceiroForm
     template_name = 'financeiro/lancamento/form.html'
     success_url = reverse_lazy('financeiro:lancamento_lista')
 
-class EstornarLancamentoView(LoginRequiredMixin, View):
+class EstornarLancamentoView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request, pk):
         lancamento = get_object_or_404(LancamentoFinanceiro, pk=pk)
         
@@ -1500,7 +1604,8 @@ class EstornarLancamentoView(LoginRequiredMixin, View):
         messages.success(request, 'Lançamento estornado com sucesso!')
         return redirect('financeiro:lancamento_detail', pk=pk)
 
-class ReceitasView(LoginRequiredMixin, ListView):
+class ReceitasView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = LancamentoFinanceiro
     template_name = 'financeiro/lancamento/receitas.html'
     context_object_name = 'receitas'
@@ -1510,7 +1615,8 @@ class ReceitasView(LoginRequiredMixin, ListView):
             tipo='receita'
         ).order_by('-data_lancamento')
 
-class DespesasView(LoginRequiredMixin, ListView):
+class DespesasView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = LancamentoFinanceiro
     template_name = 'financeiro/lancamento/despesas.html'
     context_object_name = 'despesas'
@@ -1520,7 +1626,8 @@ class DespesasView(LoginRequiredMixin, ListView):
             tipo='despesa'
         ).order_by('-data_lancamento')
 
-class TransferenciasView(LoginRequiredMixin, ListView):
+class TransferenciasView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = LancamentoFinanceiro
     template_name = 'financeiro/lancamento/transferencias.html'
     context_object_name = 'transferencias'
@@ -1534,17 +1641,20 @@ class TransferenciasView(LoginRequiredMixin, ListView):
 # BANCOS E CONTAS
 # =====================================
 
-class BancoListView(LoginRequiredMixin, ListView):
+class BancoListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaBancaria
     template_name = 'financeiro/banco/lista.html'
     context_object_name = 'contas'
 
-class BancoDetailView(LoginRequiredMixin, DetailView):
+class BancoDetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaBancaria
     template_name = 'financeiro/banco/detail.html'
     context_object_name = 'conta'
 
-class BancoCreateView(LoginRequiredMixin, CreateView):
+class BancoCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaBancaria
     template_name = 'financeiro/banco/form.html'
     fields = '__all__'
@@ -1553,7 +1663,8 @@ class BancoCreateView(LoginRequiredMixin, CreateView):
 from django.urls import reverse_lazy
 
 
-class BancoEditarView(LoginRequiredMixin, UpdateView):
+class BancoEditarView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaBancaria
     template_name = "financeiro/banco/form.html"  # Template para edição
     fields = [
@@ -1581,7 +1692,8 @@ class BancoEditarView(LoginRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class ExtratoBancarioView(LoginRequiredMixin, DetailView):
+class ExtratoBancarioView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaBancaria
     template_name = 'financeiro/banco/extrato.html'
     context_object_name = 'conta'
@@ -1596,12 +1708,14 @@ class ExtratoBancarioView(LoginRequiredMixin, DetailView):
         
         return context
 
-class ConciliacaoBancariaView(LoginRequiredMixin, DetailView):
+class ConciliacaoBancariaView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_financeiro'
     model = ContaBancaria
     template_name = 'financeiro/banco/conciliacao.html'
     context_object_name = 'conta'
 
-class DepositoBancarioView(LoginRequiredMixin, View):
+class DepositoBancarioView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request, pk):
         conta = get_object_or_404(ContaBancaria, pk=pk)
         valor = Decimal(request.POST.get('valor'))
@@ -1619,7 +1733,8 @@ class DepositoBancarioView(LoginRequiredMixin, View):
         messages.success(request, 'Depósito realizado com sucesso!')
         return redirect('financeiro:detail', pk=pk)
 
-class SaqueBancarioView(LoginRequiredMixin, View):
+class SaqueBancarioView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request, pk):
         conta = get_object_or_404(ContaBancaria, pk=pk)
         valor = Decimal(request.POST.get('valor'))
@@ -1637,7 +1752,8 @@ class SaqueBancarioView(LoginRequiredMixin, View):
         messages.success(request, 'Saque realizado com sucesso!')
         return redirect('financeiro:banco_detail', pk=pk)
 
-class TransferenciaBancariaView(LoginRequiredMixin, FormView):
+class TransferenciaBancariaView(LoginRequiredMixin, PermissaoAcaoMixin, FormView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/banco/transferencia.html'
     
     def post(self, request, pk):
@@ -1671,7 +1787,8 @@ class TransferenciaBancariaView(LoginRequiredMixin, FormView):
 # CAIXA
 # =====================================
 
-class CaixaView(LoginRequiredMixin, TemplateView):
+class CaixaView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/caixa/caixa.html'
     
     def get_context_data(self, **kwargs):
@@ -1698,7 +1815,8 @@ class CaixaView(LoginRequiredMixin, TemplateView):
             data_movimento=date.today()
         ).order_by('-hora_movimento')
 
-class AbrirCaixaView(LoginRequiredMixin, FormView):
+class AbrirCaixaView(LoginRequiredMixin, PermissaoAcaoMixin, FormView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/caixa/abrir.html'
     
     def post(self, request):
@@ -1716,7 +1834,8 @@ class AbrirCaixaView(LoginRequiredMixin, FormView):
         messages.success(request, 'Caixa aberto com sucesso!')
         return redirect('financeiro:caixa')
 
-class FecharCaixaView(LoginRequiredMixin, FormView):
+class FecharCaixaView(LoginRequiredMixin, PermissaoAcaoMixin, FormView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/caixa/fechar.html'
     
     def get_context_data(self, **kwargs):
@@ -1747,7 +1866,8 @@ class FecharCaixaView(LoginRequiredMixin, FormView):
             saldo=Sum('valor')
         )['saldo'] or 0
 
-class SangriaCaixaView(LoginRequiredMixin, View):
+class SangriaCaixaView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request):
         valor = Decimal(request.POST.get('valor'))
         motivo = request.POST.get('motivo')
@@ -1763,7 +1883,8 @@ class SangriaCaixaView(LoginRequiredMixin, View):
         messages.success(request, 'Sangria realizada com sucesso!')
         return redirect('financeiro:caixa')
 
-class SuprimentoCaixaView(LoginRequiredMixin, View):
+class SuprimentoCaixaView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request):
         valor = Decimal(request.POST.get('valor'))
         motivo = request.POST.get('motivo')
@@ -1779,7 +1900,8 @@ class SuprimentoCaixaView(LoginRequiredMixin, View):
         messages.success(request, 'Suprimento realizado com sucesso!')
         return redirect('financeiro:caixa')
 
-class ConferenciaCaixaView(LoginRequiredMixin, TemplateView):
+class ConferenciaCaixaView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/caixa/conferencia.html'
     
     def get_context_data(self, **kwargs):
@@ -1810,7 +1932,8 @@ class ConferenciaCaixaView(LoginRequiredMixin, TemplateView):
             saldo=Sum('valor')
         )['saldo'] or 0
 
-class RelatorioCaixaDiarioView(LoginRequiredMixin, TemplateView):
+class RelatorioCaixaDiarioView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/caixa/relatorio_diario.html'
     
     def get_context_data(self, **kwargs):
@@ -1825,7 +1948,8 @@ class RelatorioCaixaDiarioView(LoginRequiredMixin, TemplateView):
         
         return context
 
-class MovimentoCaixaView(LoginRequiredMixin, ListView):
+class MovimentoCaixaView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = MovimentoCaixa
     template_name = 'financeiro/caixa/movimento.html'
     context_object_name = 'movimentacoes'
@@ -1834,7 +1958,8 @@ class MovimentoCaixaView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         return super().get_queryset().order_by('-data_movimento', '-hora_movimento')
 
-class HistoricoCaixaView(LoginRequiredMixin, ListView):
+class HistoricoCaixaView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = MovimentoCaixa
     template_name = 'financeiro/caixa/historico.html'
     context_object_name = 'movimentacoes'
@@ -1844,28 +1969,36 @@ class HistoricoCaixaView(LoginRequiredMixin, ListView):
 # CARTÕES E TEF (Implementação básica)
 # =====================================
 
-class CartaoListView(LoginRequiredMixin, TemplateView):
+class CartaoListView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/cartao/lista.html'
 
 class VendasCartaoView(LoginRequiredMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/cartao/vendas.html'
 
-class RecebimentosCartaoView(LoginRequiredMixin, TemplateView):
+class RecebimentosCartaoView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/cartao/recebimentos.html'
 
-class TaxasCartaoView(LoginRequiredMixin, TemplateView):
+class TaxasCartaoView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/cartao/taxas.html'
 
-class ConciliacaoCartaoView(LoginRequiredMixin, TemplateView):
+class ConciliacaoCartaoView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/cartao/conciliacao.html'
 
-class TEFView(LoginRequiredMixin, TemplateView):
+class TEFView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/tef/tef.html'
 
-class TransacoesTEFView(LoginRequiredMixin, TemplateView):
+class TransacoesTEFView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/tef/transacoes.html'
 
-class CancelarTEFView(LoginRequiredMixin, View):
+class CancelarTEFView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def post(self, request, pk):
         # Implementar cancelamento TEF
         messages.success(request, 'Transação TEF cancelada!')
@@ -1875,35 +2008,41 @@ class CancelarTEFView(LoginRequiredMixin, View):
 # CATEGORIAS E CENTROS DE CUSTO
 # =====================================
 
-class CategoriaFinanceiraListView(LoginRequiredMixin, ListView):
+class CategoriaFinanceiraListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = CategoriaFinanceira
     template_name = 'financeiro/categoria/lista.html'
     context_object_name = 'categorias'
 
 class CategoriaFinanceiraCreateView(LoginRequiredMixin, CreateView):
+    acao_requerida = 'acessar_financeiro'
     model = CategoriaFinanceira
     form_class = CategoriaFinanceiraForm
     template_name = 'financeiro/categoria/form.html'
     success_url = reverse_lazy('financeiro:categoria_lista')
 
 class CategoriaFinanceiraUpdateView(LoginRequiredMixin, UpdateView):
+    acao_requerida = 'acessar_financeiro'
     model = CategoriaFinanceira
     form_class = CategoriaFinanceiraForm
     template_name = 'financeiro/categoria/form.html'
     success_url = reverse_lazy('financeiro:categoria_lista')
 
-class CentroCustoListView(LoginRequiredMixin, ListView):
+class CentroCustoListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = CentroCusto
     template_name = 'financeiro/centro_custo/lista.html'
     context_object_name = 'centros_custo'
 
-class CentroCustoCreateView(LoginRequiredMixin, CreateView):
+class CentroCustoCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_financeiro'
     model = CentroCusto
     form_class = CentroCustoForm
     template_name = 'financeiro/centro_custo/form.html'
     success_url = reverse_lazy('financeiro:centro_custo_lista')
 
-class CentroCustoDetailView(LoginRequiredMixin, DetailView):
+class CentroCustoDetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_financeiro'
     model = CentroCusto
     template_name = 'financeiro/centro_custo/detail.html'
     context_object_name = 'centro_custo'
@@ -1912,30 +2051,37 @@ class CentroCustoDetailView(LoginRequiredMixin, DetailView):
 # PLANEJAMENTO FINANCEIRO (Implementação básica)
 # =====================================
 
-class OrcamentoFinanceiroView(LoginRequiredMixin, TemplateView):
+class OrcamentoFinanceiroView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/planejamento/orcamento.html'
 
-class NovoOrcamentoView(LoginRequiredMixin, CreateView):
+class NovoOrcamentoView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_financeiro'
     model = OrcamentoFinanceiro
     template_name = 'financeiro/planejamento/novo_orcamento.html'
     fields = '__all__'
 
-class AcompanharOrcamentoView(LoginRequiredMixin, DetailView):
+class AcompanharOrcamentoView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_financeiro'
     model = OrcamentoFinanceiro
     template_name = 'financeiro/planejamento/acompanhar.html'
 
-class ProjecoesFinanceirasView(LoginRequiredMixin, TemplateView):
+class ProjecoesFinanceirasView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/planejamento/projecoes.html'
 
-class CenariosFinanceirosView(LoginRequiredMixin, TemplateView):
+class CenariosFinanceirosView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/planejamento/cenarios.html'
 
-class MetasFinanceirasView(LoginRequiredMixin, TemplateView):
+class MetasFinanceirasView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/planejamento/metas.html'
 
 
 
-class ImpostoTributoListView(LoginRequiredMixin, ListView):
+class ImpostoTributoListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_financeiro'
     model = ImpostoTributo
     template_name = 'tributacao/imposto_list.html'
     context_object_name = 'impostos'
@@ -1946,13 +2092,15 @@ class ImpostoTributoListView(LoginRequiredMixin, ListView):
         return ImpostoTributo.objects.filter(empresa=empresa).order_by('-ano_referencia', '-mes_referencia')
 
 
-class ImpostoTributoDetailView(LoginRequiredMixin, DetailView):
+class ImpostoTributoDetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'acessar_financeiro'
     model = ImpostoTributo
     template_name = 'tributacao/imposto_detail.html'
     context_object_name = 'imposto'
 
 
-class ImpostoTributoCreateView(LoginRequiredMixin, CreateView):
+class ImpostoTributoCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_financeiro'
     model = ImpostoTributo
     form_class = ImpostoTributoForm
     template_name = 'tributacao/imposto_form.html'
@@ -1967,7 +2115,8 @@ class ImpostoTributoCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ImpostoTributoUpdateView(LoginRequiredMixin, UpdateView):
+class ImpostoTributoUpdateView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'acessar_financeiro'
     model = ImpostoTributo
     form_class = ImpostoTributoForm
     template_name = 'tributacao/imposto_form.html'
@@ -1978,7 +2127,8 @@ class ImpostoTributoUpdateView(LoginRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class ImpostoTributoDeleteView(LoginRequiredMixin, DeleteView):
+class ImpostoTributoDeleteView(LoginRequiredMixin, PermissaoAcaoMixin, DeleteView):
+    acao_requerida = 'acessar_financeiro'
     model = ImpostoTributo
     template_name = 'tributacao/imposto_confirm_delete.html'
     success_url = reverse_lazy('tributacao:imposto_list')
@@ -1988,7 +2138,8 @@ class ImpostoTributoDeleteView(LoginRequiredMixin, DeleteView):
         return super().delete(request, *args, **kwargs)
 
 
-class ImpostoCalcularView(LoginRequiredMixin, View):
+class ImpostoCalcularView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def get(self, request, pk):
         imposto = get_object_or_404(ImpostoTributo, pk=pk, empresa=request.user.empresa)
         try:
@@ -1999,17 +2150,15 @@ class ImpostoCalcularView(LoginRequiredMixin, View):
         return redirect('tributacao:imposto_detail', pk=imposto.pk)
 
 
-
-
 logger = logging.getLogger(__name__)
 
 
-class ImpostoPagarView(LoginRequiredMixin, View):
+class ImpostoPagarView(LoginRequiredMixin, PermissaoAcaoMixin, View):
     """
     View para efetuar o pagamento de um imposto via função pagar_imposto_agt().
     Integra com o módulo financeiro (movimentação de caixa ou pagamentos).
     """
-
+    acao_requerida = 'acessar_financeiro'
     def post(self, request, pk):
         imposto = get_object_or_404(ImpostoTributo, pk=pk, empresa=request.user.empresa)
         try:
@@ -2050,10 +2199,6 @@ def pagar_imposto(request, empresa_id):
     return redirect('financeiro:detalhe_empresa', empresa_id=empresa_id)
 
 
-
-
-
-
 @login_required
 def estornar_imposto_view(request, pk):
     """View pública para usuários solicitarem estorno de imposto"""
@@ -2075,87 +2220,79 @@ def estornar_imposto_view(request, pk):
     return redirect("financeiro:detalhe_imposto", pk=imposto.pk)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Conciliação
-class ConciliacaoView(LoginRequiredMixin, TemplateView):
+class ConciliacaoView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/conciliacao/conciliacao.html'
 
-class ConciliacaoAutomaticaView(LoginRequiredMixin, TemplateView):
+class ConciliacaoAutomaticaView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/conciliacao/automatica.html'
 
-class FechamentoMensalView(LoginRequiredMixin, TemplateView):
+class FechamentoMensalView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/fechamento/mensal.html'
 
-class FechamentoDetalhesView(LoginRequiredMixin, TemplateView):
+class FechamentoDetalhesView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/fechamento/detalhes.html'
 
 # Relatórios
-class FinanceiroRelatoriosView(LoginRequiredMixin, TemplateView):
+class FinanceiroRelatoriosView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/relatorios/index.html'
 
-class RelatorioFluxoCaixaView(LoginRequiredMixin, TemplateView):
+class RelatorioFluxoCaixaView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/relatorios/fluxo_caixa.html'
 
-class RelatorioDREView(LoginRequiredMixin, TemplateView):
+class RelatorioDREView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/relatorios/dre.html'
 
-class RelatorioBalancoView(LoginRequiredMixin, TemplateView):
+class RelatorioBalancoView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/relatorios/balanco.html'
 
-class RelatorioInadimplenciaView(LoginRequiredMixin, TemplateView):
+class RelatorioInadimplenciaView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/relatorios/inadimplencia.html'
 
-class RelatorioContasReceberView(LoginRequiredMixin, TemplateView):
+class RelatorioContasReceberView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/relatorios/contas_receber.html'
 
-class RelatorioContasPagarView(LoginRequiredMixin, TemplateView):
+class RelatorioContasPagarView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/relatorios/contas_pagar.html'
 
-class RelatorioMovimentoBancarioView(LoginRequiredMixin, TemplateView):
+class RelatorioMovimentoBancarioView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/relatorios/movimento_bancario.html'
 
 # Análises
-class AnalisesFinanceirasView(LoginRequiredMixin, TemplateView):
+class AnalisesFinanceirasView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/analises/index.html'
 
-class AnaliseLiquidezView(LoginRequiredMixin, TemplateView):
+class AnaliseLiquidezView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/analises/liquidez.html'
 
-class AnaliseRentabilidadeView(LoginRequiredMixin, TemplateView):
+class AnaliseRentabilidadeView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/analises/rentabilidade.html'
 
-class AnaliseEndividamentoView(LoginRequiredMixin, TemplateView):
+class AnaliseEndividamentoView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/analises/endividamento.html'
 
 # Cobrança
 
 
 # AJAX
-class CalcularJurosView(LoginRequiredMixin, View):
+class CalcularJurosView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def get(self, request):
         valor = Decimal(request.GET.get('valor', 0))
         taxa = Decimal(request.GET.get('taxa', 0))
@@ -2169,7 +2306,8 @@ class CalcularJurosView(LoginRequiredMixin, View):
             'total': str(total)
         })
 
-class ConsultarSaldoView(LoginRequiredMixin, View):
+class ConsultarSaldoView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def get(self, request):
         conta_id = request.GET.get('conta_id')
         
@@ -2181,7 +2319,8 @@ class ConsultarSaldoView(LoginRequiredMixin, View):
         
         return JsonResponse({'saldo': str(saldo)})
 
-class ValidarContaView(LoginRequiredMixin, View):
+class ValidarContaView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def get(self, request):
         banco = request.GET.get('banco')
         agencia = request.GET.get('agencia')
@@ -2192,7 +2331,8 @@ class ValidarContaView(LoginRequiredMixin, View):
         
         return JsonResponse({'valida': valida})
 
-class BuscarBancoView(LoginRequiredMixin, View):
+class BuscarBancoView(LoginRequiredMixin, PermissaoAcaoMixin, View):
+    acao_requerida = 'acessar_financeiro'
     def get(self, request):
         codigo = request.GET.get('codigo')
         
@@ -2202,27 +2342,28 @@ class BuscarBancoView(LoginRequiredMixin, View):
         return JsonResponse(banco)
 
 # Importação/Exportação
-class ImportarFinanceiroView(LoginRequiredMixin, TemplateView):
+class ImportarFinanceiroView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/importar/index.html'
 
-class ImportarOFXView(LoginRequiredMixin, TemplateView):
+class ImportarOFXView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/importar/ofx.html'
 
-class ImportarCNABView(LoginRequiredMixin, TemplateView):
+class ImportarCNABView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/importar/cnab.html'
 
-class ExportarFinanceiroView(LoginRequiredMixin, TemplateView):
+class ExportarFinanceiroView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/exportar/index.html'
 
 # =====================================
 # API VIEWS
 # =====================================
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-
-class SaldoAtualAPIView(APIView):
+class SaldoAtualAPIView(APIView, PermissaoAcaoMixin):
+    acao_requerida = 'acessar_financeiro'
     def get(self, request):
         saldo_caixa = self._calcular_saldo_caixa()
         saldo_bancos = self._calcular_saldo_bancos()
@@ -2244,7 +2385,8 @@ class SaldoAtualAPIView(APIView):
         )['saldo'] or 0
 
 
-class ProjecaoFluxoAPIView(APIView):
+class ProjecaoFluxoAPIView(APIView, PermissaoAcaoMixin):
+    acao_requerida = 'acessar_financeiro'
     def get(self, request):
         # Implementar projeção de fluxo de caixa
         return Response({
@@ -2253,7 +2395,8 @@ class ProjecaoFluxoAPIView(APIView):
             'projecao_90_dias': 0
         })
 
-class IndicadoresFinanceirosAPIView(APIView):
+class IndicadoresFinanceirosAPIView(APIView, PermissaoAcaoMixin):
+    acao_requerida = 'acessar_financeiro'
     def get(self, request):
         # Calcular indicadores financeiros
         return Response({
@@ -2282,11 +2425,13 @@ class CategoriaFinanceiraViewSet(viewsets.ModelViewSet):
 
 
 @login_required
+@permissao_acao_required(acao_requerida='acessar_financeiro')
 def lista_planos(request):
     planos = PlanoContas.objects.filter(empresa=request.user.empresa)
     return render(request, 'financeiro/plano_contas/lista.html', {'planos': planos})
 
 @login_required
+@permissao_acao_required(acao_requerida='acessar_financeiro')
 def criar_plano(request):
     if request.method == 'POST':
         form = PlanoContasForm(request.POST)
@@ -2303,6 +2448,7 @@ def criar_plano(request):
     return render(request, 'financeiro/plano_contas/form.html', {'form': form, 'titulo': 'Criar Plano de Contas'})
 
 @login_required
+@permissao_acao_required(acao_requerida='acessar_financeiro')
 def editar_plano(request, pk):
     plano = get_object_or_404(PlanoContas, pk=pk, empresa=request.user.empresa)
     if request.method == 'POST':
@@ -2318,6 +2464,7 @@ def editar_plano(request, pk):
     return render(request, 'financeiro/plano_contas/form.html', {'form': form, 'titulo': 'Editar Plano de Contas'})
 
 @login_required
+@permissao_acao_required(acao_requerida='acessar_financeiro')
 def deletar_plano(request, pk):
     plano = get_object_or_404(PlanoContas, pk=pk, empresa=request.user.empresa)
     if request.method == 'POST':

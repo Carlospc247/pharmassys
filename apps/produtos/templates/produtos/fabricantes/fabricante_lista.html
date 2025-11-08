@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Fabricantes{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Fabricantes</h2>
+    <a href="{% url 'fabricantes:fabricante_adicionar' %}" class="btn btn-success mb-3">Adicionar Fabricante</a>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>NIF</th>
+                <th>Cidade</th>
+                <th>Província</th>
+                <th>Ativo</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for fabricante in fabricantes %}
+            <tr>
+                <td><a href="{% url 'fabricantes:fabricante_detalhe' fabricante.pk %}">{{ fabricante.nome }}</a></td>
+                <td>{{ fabricante.nif }}</td>
+                <td>{{ fabricante.cidade }}</td>
+                <td>{{ fabricante.provincia }}</td>
+                <td>{{ fabricante.ativo|yesno:"Sim,Não" }}</td>
+                <td>
+                    <a href="{% url 'fabricantes:fabricante_editar' fabricante.pk %}" class="btn btn-sm btn-primary">Editar</a>
+                    <a href="{% url 'fabricantes:fabricante_excluir' fabricante.pk %}" class="btn btn-sm btn-danger">Excluir</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6">Nenhum fabricante encontrado.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

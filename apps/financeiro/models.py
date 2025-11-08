@@ -160,6 +160,8 @@ class ContaBancaria(TimeStampedModel):
     plano_contas_ativo = models.ForeignKey(
         PlanoContas,
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name='contas_bancarias_ativo',
         help_text="Conta do Plano de Contas (Ativo) associada a este Caixa/Banco."
     )

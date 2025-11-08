@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Detalhes do Fabricante{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>{{ fabricante.nome }}</h2>
+    <ul class="list-group">
+        <li class="list-group-item"><strong>NIF:</strong> {{ fabricante.nif }}</li>
+        <li class="list-group-item"><strong>Origem:</strong> {{ fabricante.origem }}</li>
+        <li class="list-group-item"><strong>Cidade:</strong> {{ fabricante.cidade }}</li>
+        <li class="list-group-item"><strong>Província:</strong> {{ fabricante.provincia }}</li>
+        <li class="list-group-item"><strong>Telefone:</strong> {{ fabricante.telefone }}</li>
+        <li class="list-group-item"><strong>Email:</strong> {{ fabricante.email }}</li>
+        <li class="list-group-item"><strong>Ativo:</strong> {{ fabricante.ativo|yesno:"Sim,Não" }}</li>
+    </ul>
+    <a href="{% url 'fabricantes:fabricante_editar' fabricante.pk %}" class="btn btn-primary mt-3">Editar</a>
+    <a href="{% url 'fabricantes:fabricante_lista' %}" class="btn btn-secondary mt-3">Voltar</a>
+</div>
+{% endblock %}

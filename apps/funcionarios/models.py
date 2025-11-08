@@ -188,6 +188,9 @@ class Cargo(TimeStampedModel):
         return self.funcionarios.filter(ativo=True).count()
 
 
+
+
+
 class Departamento(TimeStampedModel):
     """Departamentos globais e personalizados por empresa."""
     nome = models.CharField(max_length=100)
@@ -195,7 +198,7 @@ class Departamento(TimeStampedModel):
     descricao = models.TextField(blank=True)
 
     responsavel = models.ForeignKey(
-        'Funcionario',
+        'funcionarios.Funcionario',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -223,6 +226,8 @@ class Departamento(TimeStampedModel):
 
     def __str__(self):
         return f"{self.nome} - {self.loja.nome if self.loja else 'Global'}"
+
+
 
 class Funcionario(TimeStampedModel):
     """Funcionários da empresa"""

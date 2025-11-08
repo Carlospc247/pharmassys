@@ -118,6 +118,14 @@ class Produto(TimeStampedModel):
         return Decimal('0.00')
     
     @property
+    def iva_percentual(self):
+        """Compatibilidade retroativa: devolve o valor percentual do IVA"""
+        if self.taxa_iva and self.taxa_iva.tax_percentage is not None:
+            return self.taxa_iva.tax_percentage
+        return Decimal('0.00')
+
+
+    @property
     def tipo_produto(self):
         """Define o ProductType do SAF-T. Assumimos que são Bens (M - Merchandise)."""
         # Em Angola, deve-se usar 'M' (Mercadorias) ou 'S' (Serviços)

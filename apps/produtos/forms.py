@@ -169,6 +169,24 @@ class CategoriaForm(forms.ModelForm):
         return nome
 
 
+from django import forms
+from .models import Fabricante
+
+class FabricanteForm(forms.ModelForm):
+    class Meta:
+        model = Fabricante
+        fields = ['nome', 'nif', 'origem', 'cidade', 'provincia', 'telefone', 'email', 'ativo']
+        widgets = {
+            'nome': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome do fabricante'}),
+            'nif': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'NIF'}),
+            'origem': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'País de origem'}),
+            'cidade': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Cidade'}),
+            'provincia': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Província'}),
+            'telefone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Telefone'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
 
 from django import forms
 from .models import Produto, Fabricante

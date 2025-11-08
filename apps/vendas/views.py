@@ -175,7 +175,7 @@ from apps.financeiro.models import MovimentacaoFinanceira, PlanoContas
 from apps.financeiro.models import ContaBancaria
 from django.contrib.auth.decorators import permission_required
 
-logger = logging.getLogger(__name__)
+
 
 import logging
 import traceback
@@ -202,6 +202,9 @@ from apps.core.services import gerar_numero_documento  # Ajusta o import conform
 
 
 
+
+
+logger = logging.getLogger(__name__)
 
 class BaseVendaView(LoginRequiredMixin):
     """View base para o módulo de vendas"""
@@ -260,7 +263,7 @@ def requer_permissao(acao_requerida):
 class VendasView(BaseMPAView):
     template_name = 'vendas/vendas.html'
     module_name = 'vendas'
-    paginate_by = 20
+    paginate_by = 100
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1527,8 +1530,10 @@ class ConsultarPrecoAPIView(BaseVendaView, View):
             })
 
 
-class AplicarDescontoAPIView(BaseVendaView, View):
+class AplicarDescontoAPIView(BaseVendaView, PermissaoAcaoMixin, View):
+    acao_requerida = 'fazer_desconto'
     @method_decorator(csrf_exempt)
+    
     def dispatch(self, request, *args, **kwargs):
         return super().dispatch(request, *args, **kwargs)
     
@@ -2886,10 +2891,8 @@ def nova_proforma(request):
     return render(request, 'vendas/nova_proforma.html', context)
 
 @login_required
+@requer_permissao("liquidar_faturacredito")
 def contas_receber(request):
-    funcionario = request.user.funcionario
-    if not funcionario.pode_realizar_acao('acessar_financeiro'):
-         return JsonResponse({'success': False, 'message': 'Você não tem permissão para emitir crédito a crédito.'}, status=403)
     
     """Relatório de Contas a Receber (Faturas a Crédito pendentes)"""
     try:
@@ -2930,17 +2933,10 @@ def contas_receber(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 @login_required
+@requer_permissao("liquidar_faturacredito")
 def finalizar_fatura_credito_api(request):
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'Método não permitido.'}, status=405)
-    if not request.user.is_authenticated:
-        return JsonResponse({'success': False, 'message': 'Utilizador não autenticado.'}, status=401)
 
     try:
-        funcionario = request.user.funcionario
-        if not funcionario.pode_realizar_acao('emitir_faturacredito'):
-            return JsonResponse({'success': False, 'message': 'O seu cargo não permite emitir faturas a crédito.'}, status=403)
-        
         data = json.loads(request.body)
         
         required_fields = ['itens', 'cliente_id', 'data_vencimento']
@@ -3159,17 +3155,10 @@ def finalizar_fatura_credito_api(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 @login_required
+@requer_permissao("liquidar_faturacredito")
 def finalizar_proforma_api(request):
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'Método não permitido.'}, status=405)
-    if not request.user.is_authenticated:
-        return JsonResponse({'success': False, 'message': 'Utilizador não autenticado.'}, status=401)
 
     try:
-        funcionario = request.user.funcionario
-        if not funcionario.pode_realizar_acao('emitir_proforma'):
-            return JsonResponse({'success': False, 'message': 'O seu cargo não permite emitir proformas.'}, status=403)
-        
         data = json.loads(request.body)
         
         required_fields = ['itens', 'cliente_id', 'data_validade']
@@ -3349,12 +3338,9 @@ def finalizar_proforma_api(request):
 logger = logging.getLogger(__name__)
 
 @require_POST
-@permission_required('vendas.liquidar_faturacredito', raise_exception=True) 
+@requer_permissao("liquidar_faturacredito") 
 def liquidar_fatura_api(request, fatura_id):
-    funcionario = request.user.funcionario
-    if not funcionario.pode_realizar_acao('liquidar_faturacredito'):
-         return JsonResponse({'success': False, 'message': 'Você não tem permissão para liquidar FT.'}, status=403)
-    
+
     """
     Endpoint API para liquidar uma Fatura a Crédito, registando o recebimento como Movimentação Financeira (Transferência).
     """
@@ -3489,11 +3475,9 @@ def liquidar_fatura_api(request, fatura_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 @login_required
+@requer_permissao("liquidar_faturacredito")
 def converter_proforma_api(request, proforma_id):
-    funcionario = request.user.funcionario
-    if not funcionario.pode_realizar_acao('emitir_faturacredito'):
-         return JsonResponse({'success': False, 'message': 'Você não tem permissão para emitir fatura Crédito.'}, status=403)
-    
+
     """API para converter uma Proforma em Fatura Recibo ou Fatura Crédito"""
     try:
         data = json.loads(request.body)
@@ -3544,6 +3528,7 @@ def converter_proforma_api(request, proforma_id):
         logger.error(f"Erro ao converter proforma {proforma_id}: {str(e)}")
         return JsonResponse({'success': False, 'message': f'Erro ao converter: {str(e)}'})
 
+@requer_permissao("aprovar_proforma")
 def _converter_para_fatura_recibo(proforma, user):
     """Converte uma proforma em uma Venda (Fatura Recibo) - Alinhado com finalizar_venda_api"""
     funcionario = user.funcionario
@@ -3609,6 +3594,7 @@ def _converter_para_fatura_recibo(proforma, user):
     
     return venda
 
+@requer_permissao("liquidar_faturacredito")
 def _converter_para_fatura_credito(proforma, user):
     """Converte uma proforma em uma Fatura a Crédito - Alinhado com finalizar_fatura_credito_api"""
     
@@ -3665,10 +3651,8 @@ def _converter_para_fatura_credito(proforma, user):
 
 
 @login_required
+@requer_permissao("acessar_documentos")
 def faturas_recibo_lista(request):
-    funcionario = request.user.funcionario
-    if not funcionario.pode_realizar_acao('ver_vender'):
-         return JsonResponse({'success': False, 'message': 'Você não tem permissão para ver lista de vendas.'}, status=403)
     
     """Lista das Faturas Recibo (vendas do PDV)"""
     vendas = Venda.objects.filter(
@@ -3682,10 +3666,8 @@ def faturas_recibo_lista(request):
     return render(request, 'vendas/faturas_recibo_lista.html', context)
 
 @login_required
+@requer_permissao("acessar_documentos")
 def faturas_credito_lista(request):
-    funcionario = request.user.funcionario
-    if not funcionario.permissoes_cargo.get('emitir_faturacredito', False):
-        return JsonResponse({'success': False, 'message': 'Sem permissão para acessar faturas a crédito.'}, status=403)
     
     try:
         faturas = FaturaCredito.objects.filter(
@@ -3701,10 +3683,8 @@ def faturas_credito_lista(request):
     return render(request, 'vendas/faturas_credito_lista.html', context)
 
 @login_required
+@requer_permissao("acessar_documentos")
 def recibos_lista(request):
-    funcionario = request.user.funcionario
-    if not funcionario.permissoes_cargo.get('emitir_recibo', False):
-        return JsonResponse({'success': False, 'message': 'Sem permissão para acessar recibos.'}, status=403)
     
     try:
         recibos = Recibo.objects.filter(
@@ -3720,10 +3700,8 @@ def recibos_lista(request):
     return render(request, 'vendas/recibos_lista.html', context)
 
 @login_required
+@requer_permissao("acessar_documentos")
 def proformas_lista(request):
-    funcionario = request.user.funcionario
-    if not funcionario.permissoes_cargo.get('emitir_faturacredito', False):
-        return JsonResponse({'success': False, 'message': 'Sem permissão para acessar fatura proformas.'}, status=403)
     
     try:
         proformas = FaturaProforma.objects.filter(
@@ -3747,10 +3725,8 @@ from datetime import timedelta
 from django.db import models
 
 @login_required
+@requer_permissao("vender")
 def vendas_lista(request):
-    funcionario = request.user.funcionario
-    if not funcionario.pode_realizar_acao('ver_vendas'):
-         return JsonResponse({'success': False, 'message': 'Você não tem permissão para ver lista de vendas.'}, status=403)
     
     """Lista das vendas realizadas (Faturas Recibo)"""
     vendas = Venda.objects.filter(
@@ -3764,10 +3740,8 @@ def vendas_lista(request):
     return render(request, 'vendas/vendas_lista.html', context)
 
 @login_required
+@requer_permissao("acessar_documentos")
 def documentos_dashboard_view(request):
-    funcionario = request.user.funcionario
-    if not funcionario.pode_realizar_acao('acessar_documentos'):
-         return JsonResponse({'success': False, 'message': 'Você não tem permissão para acessar documentos.'}, status=403)
     
     """Dashboard geral de documentos fiscais"""
     
@@ -3858,6 +3832,7 @@ def documentos_dashboard_view(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 @login_required
+@requer_permissao("aprovar_proforma")
 def atualizar_status_proforma_api(request, proforma_id):
     """API para atualizar o status de uma Proforma"""
     try:
@@ -3903,10 +3878,11 @@ def atualizar_status_proforma_api(request, proforma_id):
 # =====================================
 
 class NotaCreditoListView(BaseVendaView, ListView):
+    acao_requerida = 'emitir_notacredito'
     model = NotaCredito
     template_name = 'vendas/nota_credito_lista.html'
     context_object_name = 'notas_credito'
-    paginate_by = 20
+    paginate_by = 100
     
     def get_queryset(self):
         empresa = self.get_empresa()
@@ -3960,6 +3936,7 @@ class NotaCreditoListView(BaseVendaView, ListView):
 
 
 class NotaCreditoDetailView(BaseVendaView, DetailView):
+    acao_requerida = 'emitir_notacredito'
     model = NotaCredito
     template_name = 'vendas/nota_credito_detail.html'
     context_object_name = 'nota_credito'
@@ -4089,11 +4066,12 @@ class AprovarNotaCreditoView(PermissaoAcaoMixin, BaseVendaView, View):
 # NOTAS DE DÉBITO
 # =====================================
 
-class NotaDebitoListView(BaseVendaView, ListView):
+class NotaDebitoListView(BaseVendaView, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'emitir_notadebito'
     model = NotaDebito
     template_name = 'vendas/nota_debito_lista.html'
     context_object_name = 'notas_debito'
-    paginate_by = 20
+    paginate_by = 100
     
     def get_queryset(self):
         empresa = self.get_empresa()
@@ -4147,7 +4125,8 @@ class NotaDebitoListView(BaseVendaView, ListView):
         return context
 
 
-class NotaDebitoDetailView(BaseVendaView, DetailView):
+class NotaDebitoDetailView(BaseVendaView, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'emitir_notadebito'
     model = NotaDebito
     template_name = 'vendas/nota_debito_detail.html'
     context_object_name = 'nota_debito'
@@ -4283,11 +4262,12 @@ class AprovarNotaDebitoView(PermissaoAcaoMixin, BaseVendaView, View):
 # DOCUMENTOS DE TRANSPORTE
 # =====================================
 
-class DocumentoTransporteListView(BaseVendaView, ListView):
+class DocumentoTransporteListView(BaseVendaView, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'emitir_documentotransporte'
     model = DocumentoTransporte
     template_name = 'vendas/documento_transporte_lista.html'
     context_object_name = 'documentos_transporte'
-    paginate_by = 20
+    paginate_by = 100
     
     def get_queryset(self):
         empresa = self.get_empresa()
@@ -4345,7 +4325,8 @@ class DocumentoTransporteListView(BaseVendaView, ListView):
         return context
 
 
-class DocumentoTransporteDetailView(BaseVendaView, DetailView):
+class DocumentoTransporteDetailView(BaseVendaView, PermissaoAcaoMixin, DetailView):
+    acao_requerida = 'emitir_documentotransporte'
     model = DocumentoTransporte
     template_name = 'vendas/documento_transporte_detail.html'
     context_object_name = 'documento'
@@ -4447,7 +4428,7 @@ class DocumentoTransporteUpdateView(PermissaoAcaoMixin, BaseVendaView, UpdateVie
 
 
 class IniciarTransporteView(PermissaoAcaoMixin, BaseVendaView, View):
-    acao_requerida = 'confirmar_entrega'
+    acao_requerida = 'emitir_documentotransporte'
     
     def post(self, request, pk):
         documento = get_object_or_404(DocumentoTransporte, pk=pk, empresa=self.get_empresa())
@@ -4485,7 +4466,8 @@ class ConfirmarEntregaView(PermissaoAcaoMixin, BaseVendaView, View):
 # DASHBOARDS E RELATÓRIOS
 # =====================================
 
-class DocumentosFiscaisAnalyticsView(BaseVendaView, TemplateView):
+class DocumentosFiscaisAnalyticsView(BaseVendaView, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'emitir_documentotransporte'
     template_name = 'vendas/documentos_fiscais_analytics.html'
     
     def get_context_data(self, **kwargs):
@@ -4565,7 +4547,8 @@ class DocumentosFiscaisAnalyticsView(BaseVendaView, TemplateView):
         return context
 
 
-class RelatorioNotasCreditoView(BaseVendaView, TemplateView):
+class RelatorioNotasCreditoView(BaseVendaView, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'aprovar_notacredito'
     template_name = 'vendas/relatorio_notas_credito.html'
     
     def get_context_data(self, **kwargs):
@@ -4622,7 +4605,8 @@ class RelatorioNotasCreditoView(BaseVendaView, TemplateView):
         return context
 
 
-class RelatorioTransportesView(BaseVendaView, TemplateView):
+class RelatorioTransportesView(BaseVendaView, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'emitir_documentotransporte'
     template_name = 'vendas/relatorio_transportes.html'
     
     def get_context_data(self, **kwargs):
@@ -4692,22 +4676,9 @@ class RelatorioTransportesView(BaseVendaView, TemplateView):
 @csrf_exempt
 @require_http_methods(["POST"])
 @login_required
+@requer_permissao("aplicar_notacredito")
 def finalizar_nota_credito_api(request):
     """API para finalizar criação de Nota de Crédito com itens"""
-    try:
-        funcionario = getattr(request.user, 'funcionario', None)
-        if not funcionario or not funcionario.pode_realizar_acao('emitir_notacredito'):
-            return JsonResponse({
-                'success': False, 
-                'message': 'Sem permissão para emitir notas de crédito.'
-            }, status=403)
-    except AttributeError:
-        # Se não tem sistema de funcionários, verificar permissão simples
-        if not request.user.has_perm('vendas.add_notacredito'):
-            return JsonResponse({
-                'success': False, 
-                'message': 'Sem permissão para emitir notas de crédito.'
-            }, status=403)
     
     try:
         data = json.loads(request.body)
@@ -4770,21 +4741,9 @@ def finalizar_nota_credito_api(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 @login_required
+@requer_permissao("aplicar_notacredito")
 def finalizar_nota_debito_api(request):
     """API para finalizar criação de Nota de Débito com itens"""
-    try:
-        funcionario = getattr(request.user, 'funcionario', None)
-        if not funcionario or not funcionario.pode_realizar_acao('emitir_notadebito'):
-            return JsonResponse({
-                'success': False, 
-                'message': 'Sem permissão para emitir notas de débito.'
-            }, status=403)
-    except AttributeError:
-        if not request.user.has_perm('vendas.add_notadebito'):
-            return JsonResponse({
-                'success': False, 
-                'message': 'Sem permissão para emitir notas de débito.'
-            }, status=403)
     
     try:
         data = json.loads(request.body)
@@ -4848,21 +4807,9 @@ def finalizar_nota_debito_api(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 @login_required
+@requer_permissao("emitir_documentotransporte")
 def finalizar_documento_transporte_api(request):
     """API para finalizar criação de Documento de Transporte com itens"""
-    try:
-        funcionario = getattr(request.user, 'funcionario', None)
-        if not funcionario or not funcionario.pode_realizar_acao('emitir_documentotransporte'):
-            return JsonResponse({
-                'success': False, 
-                'message': 'Sem permissão para emitir documentos de transporte.'
-            }, status=403)
-    except AttributeError:
-        if not request.user.has_perm('vendas.add_documentotransporte'):
-            return JsonResponse({
-                'success': False, 
-                'message': 'Sem permissão para emitir documentos de transporte.'
-            }, status=403)
     
     try:
         data = json.loads(request.body)
@@ -4941,6 +4888,7 @@ def finalizar_documento_transporte_api(request):
 
 
 @login_required
+@requer_permissao("emitir_documentotransporte")
 def buscar_documentos_origem_api(request):
     """API para buscar documentos de origem para notas de crédito/débito"""
     try:
@@ -5022,13 +4970,10 @@ def buscar_documentos_origem_api(request):
 
 @require_GET
 @login_required
+@requer_permissao("aplicar_notacrediito")
 def nota_credito_pdf_view(request, nota_id):
     """Gera PDF da Nota de Crédito"""
     try:
-        # Verificar permissão
-        if not request.user.has_perm('vendas.view_notacredito'):
-            raise Http404("Sem permissão para visualizar este documento")
-        
         nota = get_object_or_404(
             NotaCredito.objects.select_related(
                 'empresa', 'cliente'
@@ -5068,11 +5013,10 @@ def nota_credito_pdf_view(request, nota_id):
 
 @require_GET
 @login_required
+@requer_permissao("aplicar_notadebito")
 def nota_debito_pdf_view(request, nota_id):
     """Gera PDF da Nota de Débito"""
     try:
-        if not request.user.has_perm('vendas.view_notadebito'):
-            raise Http404("Sem permissão para visualizar este documento")
         
         nota = get_object_or_404(
             NotaDebito.objects.select_related(
@@ -5110,11 +5054,10 @@ def nota_debito_pdf_view(request, nota_id):
 
 @require_GET
 @login_required
+@requer_permissao("emitir_documentotransporte")
 def documento_transporte_pdf_view(request, documento_id):
     """Gera PDF do Documento de Transporte"""
     try:
-        if not request.user.has_perm('vendas.view_documentotransporte'):
-            raise Http404("Sem permissão para visualizar este documento")
         
         documento = get_object_or_404(
             DocumentoTransporte.objects.select_related(
@@ -5156,6 +5099,7 @@ def documento_transporte_pdf_view(request, documento_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 @login_required
+@requer_permissao("aplicar_notacredito")
 def adicionar_item_nota_credito_api(request):
     """API para adicionar item à nota de crédito via AJAX"""
     try:
@@ -5202,6 +5146,7 @@ def adicionar_item_nota_credito_api(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 @login_required
+@requer_permissao("aplicar_notadebito")
 def adicionar_item_nota_debito_api(request):
     """API para adicionar item à nota de débito via AJAX"""
     try:
@@ -5248,6 +5193,7 @@ def adicionar_item_nota_debito_api(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 @login_required
+@requer_permissao("emitir_documentotransporte")
 def adicionar_item_documento_transporte_api(request):
     """API para adicionar item ao documento de transporte via AJAX"""
     try:
@@ -5410,6 +5356,7 @@ def buscar_clientes_api(request):
 @csrf_exempt
 @require_http_methods(["DELETE"])
 @login_required
+@requer_permissao("aplicar_notacredito")
 def remover_item_nota_credito_api(request, item_id):
     """API para remover item de nota de crédito"""
     try:
@@ -5445,6 +5392,7 @@ def remover_item_nota_credito_api(request, item_id):
 @csrf_exempt
 @require_http_methods(["DELETE"])
 @login_required
+@requer_permissao("aplicar_notadebito")
 def remover_item_nota_debito_api(request, item_id):
     """API para remover item de nota de débito"""
     try:
@@ -5480,6 +5428,7 @@ def remover_item_nota_debito_api(request, item_id):
 @csrf_exempt
 @require_http_methods(["DELETE"])
 @login_required
+@requer_permissao("emitir_documentotransporte")
 def remover_item_documento_transporte_api(request, item_id):
     """API para remover item de documento de transporte"""
     try:

@@ -45,5 +45,12 @@ urlpatterns = [
     path('api/categorias/', views.listar_categorias_api, name='listar_categorias_api'),
     path('api/categorias/', api_views.categorias_api, name='categorias_api'),
 
+    path('', views.FabricanteListView.as_view(), name='fabricante_lista'),
+    path('adicionar/', views.FabricanteCreateView.as_view(), name='fabricante_adicionar'),
+    path('<int:pk>/editar/', views.FabricanteUpdateView.as_view(), name='fabricante_editar'),
+    path('<int:pk>/', views.FabricanteDetailView.as_view(), name='fabricante_detalhe'),
+    path('<int:pk>/excluir/', views.FabricanteDeleteView.as_view(), name='fabricante_excluir'),
+
+
 ]
 
