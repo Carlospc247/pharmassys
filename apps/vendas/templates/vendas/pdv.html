@@ -433,55 +433,6 @@
         margin-top: 0;
     }
 
-    /* Seção de Finalização Mobile */
-    .finalizacao-mobile {
-        display: none;
-        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
-        border-radius: 12px 12px 0 0;
-        padding: 20px;
-        color: white;
-        margin-top: 20px;
-    }
-
-    .finalizacao-mobile .total-compacto {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 15px;
-        padding: 10px;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 8px;
-    }
-
-    .finalizacao-mobile .form-group {
-        margin-bottom: 15px;
-    }
-
-    .finalizacao-mobile label {
-        display: block;
-        font-size: 0.875rem;
-        font-weight: 500;
-        margin-bottom: 5px;
-    }
-
-    .finalizacao-mobile input,
-    .finalizacao-mobile select {
-        width: 100%;
-        padding: 10px;
-        border: none;
-        border-radius: 6px;
-        background: rgba(255, 255, 255, 0.9);
-        color: #1f2937;
-        font-size: 0.875rem;
-    }
-
-    .finalizacao-mobile .btn-group {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        margin-top: 15px;
-    }
-
     /* Modal de Escolha de Fatura */
     .modal-overlay {
         position: fixed;
@@ -706,11 +657,6 @@
         .carrinho-section {
             position: static;
             margin-top: 24px;
-            display: none; /* Ocultar no desktop para mostrar no sidebar mobile */
-        }
-
-        .finalizacao-mobile {
-            display: block;
         }
 
         .categoria-buttons {
@@ -827,45 +773,6 @@
                     <p>Aguarde enquanto carregamos os serviços disponíveis</p>
                 </div>
             </div>
-
-            <!-- Seção de Finalização Mobile -->
-            <div class="finalizacao-mobile">
-                <div class="mb-4">
-                    <h3 class="text-lg font-bold mb-3">
-                        <i class="fas fa-shopping-cart mr-2"></i>
-                        Finalizar Compra (<span id="carrinhoCountMobile">0</span> itens)
-                    </h3>
-                    
-                    <div class="total-compacto">
-                        <span>Total:</span>
-                        <span class="text-xl font-bold" id="totalValorMobile">0,00 Kz</span>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Forma de Pagamento</label>
-                    <select id="formaPagamentoSelectMobile" onchange="toggleValorPagoMobile()">
-                    </select>
-                </div>
-
-                <div id="valorPagoContainerMobile" class="form-group" style="display: none;">
-                    <label>Valor Pago</label>
-                    <input type="number" id="valorPagoInputMobile" placeholder="Valor recebido" step="any" oninput="calcularTrocoMobile()">
-                </div>
-
-                <div id="trocoContainerMobile" class="bg-green-600 p-3 rounded-lg text-center font-bold mb-3" style="display: none;">
-                    Troco: <span id="trocoValorMobile">0,00 Kz</span>
-                </div>
-
-                <div class="btn-group">
-                    <button class="btn-finalizar" onclick="finalizarVenda()">
-                        <i class="fas fa-check mr-1"></i> Finalizar
-                    </button>
-                    <button class="btn-limpar" onclick="limparCarrinho()">
-                        <i class="fas fa-trash mr-1"></i> Limpar
-                    </button>
-                </div>
-            </div>
         </div>
 
         <!-- Desktop Carrinho -->
@@ -898,13 +805,6 @@
                             <div class="flex justify-between items-center">
                                 <span class="text-white">Subtotal:</span>
                                 <span id="subtotalValor" class="text-white font-bold">0,00 Kz</span>
-                            </div>
-
-                            <div class="flex justify-between items-center">
-                                <span class="text-white">Desconto (%):</span>
-                                <input type="number" id="descontoInput" value="0" min="0" max="100"
-                                    class="w-20 text-right p-1 rounded-md text-gray-800 focus:outline-none"
-                                    oninput="calcularTotais()">
                             </div>
 
                             <div class="flex justify-between items-center" id="ivaContainer" style="display: none;">
@@ -1008,7 +908,7 @@
     <div class="atalhos-container text-white">
         <h3 class="atalhos-titulo text-white mb-4">Carrinho de Compras</h3>
         
-        <!-- Carrinho Mobile -->
+        <!-- Carrinho Sidebar -->
         <div id="carrinhoMobile" class="mb-6">
             <div id="carrinhoItemsMobile" class="space-y-2 mb-4 max-h-60 overflow-y-auto">
                 <!-- Itens do carrinho serão inseridos aqui -->
@@ -1039,7 +939,7 @@
 
                 <div id="valorPagoSidebar" style="display: none;">
                     <label class="block text-sm font-medium mb-1">Valor Pago</label>
-                    <input type="number" id="valorPagoSidebar" class="w-full p-2 rounded text-gray-800" 
+                    <input type="number" id="valorPagoSidebarInput" class="w-full p-2 rounded text-gray-800" 
                            placeholder="Valor recebido" step="any" oninput="calcularTrocoSidebar()">
                 </div>
 
@@ -1386,7 +1286,8 @@
                 preco_venda: tipo === 'produto' ? item.preco_venda : item.preco,
                 quantidade: 1,
                 subtotal: tipo === 'produto' ? item.preco_venda : item.preco,
-                iva_percentual: tipo === 'produto' ? (item.iva_percentual || 0) : (item.iva_percentual || 14),
+                // IVA apenas se definido no produto/serviço - SEM valores padrão
+                iva_percentual: tipo === 'produto' ? (item.iva_percentual || 0) : (item.iva_percentual || 0),
                 desconto_percentual: 0
             };
 
@@ -1405,10 +1306,8 @@
         const containerMobile = document.getElementById('carrinhoItemsMobile');
         const totalSection = document.getElementById('totalSection');
         const carrinhoCount = document.getElementById('carrinhoCount');
-        const carrinhoCountMobile = document.getElementById('carrinhoCountMobile');
 
         carrinhoCount.textContent = carrinho.length;
-        if (carrinhoCountMobile) carrinhoCountMobile.textContent = carrinho.length;
 
         if (carrinho.length === 0) {
             container.innerHTML = `
@@ -1486,7 +1385,7 @@
         calcularTotais();
     }
 
-    // Cálculos usando preços diretos do banco de dados
+    // Cálculos usando preços diretos do banco de dados - SEM desconto manual
     function calcularTotais() {
         let subtotalSemDesconto = 0;
         let ivaTotal = 0;
@@ -1502,13 +1401,8 @@
             }
         });
 
-        // Aplicar desconto percentual global
-        const descontoPercentual = parseFloat(document.getElementById('descontoInput')?.value || 0);
-        const valorDesconto = subtotalSemDesconto * (descontoPercentual / 100);
-        const subtotalComDesconto = subtotalSemDesconto - valorDesconto;
-
-        // Total final
-        const totalFinal = subtotalComDesconto + ivaTotal;
+        // Total final - SEM desconto manual
+        const totalFinal = subtotalSemDesconto + ivaTotal;
 
         // Atualizar interface desktop
         if (document.getElementById('subtotalValor')) {
@@ -1529,7 +1423,6 @@
         if (document.getElementById('subtotalMobile')) {
             document.getElementById('subtotalMobile').textContent = subtotalSemDesconto.toFixed(2) + " Kz";
             document.getElementById('totalMobile').textContent = totalFinal.toFixed(2) + " Kz";
-            document.getElementById('totalValorMobile').textContent = totalFinal.toFixed(2) + " Kz";
             
             // Mostrar IVA mobile apenas se houver IVA
             const ivaMobileContainer = document.getElementById('ivaMobileContainer');
@@ -1542,7 +1435,6 @@
         }
 
         calcularTroco();
-        calcularTrocoMobile();
         calcularTrocoSidebar();
     }
 
@@ -1563,26 +1455,9 @@
         }
     }
 
-    function calcularTrocoMobile() {
-        const totalFinal = parseFloat(document.getElementById('totalValorMobile')?.textContent.replace(' Kz', '') || 0);
-        const valorPago = parseFloat(document.getElementById('valorPagoInputMobile')?.value || 0);
-        
-        if (valorPago > 0) {
-            const troco = Math.max(0, valorPago - totalFinal);
-            const trocoContainer = document.getElementById('trocoContainerMobile');
-            
-            if (troco > 0 && trocoContainer) {
-                document.getElementById('trocoValorMobile').textContent = troco.toFixed(2) + ' Kz';
-                trocoContainer.style.display = 'block';
-            } else if (trocoContainer) {
-                trocoContainer.style.display = 'none';
-            }
-        }
-    }
-
     function calcularTrocoSidebar() {
         const totalFinal = parseFloat(document.getElementById('totalMobile')?.textContent.replace(' Kz', '') || 0);
-        const valorPago = parseFloat(document.getElementById('valorPagoSidebar')?.value || 0);
+        const valorPago = parseFloat(document.getElementById('valorPagoSidebarInput')?.value || 0);
         
         if (valorPago > 0) {
             const troco = Math.max(0, valorPago - totalFinal);
@@ -1612,21 +1487,6 @@
         calcularTroco();
     }
 
-    function toggleValorPagoMobile() {
-        const select = document.getElementById('formaPagamentoSelectMobile');
-        const valorPagoContainer = document.getElementById('valorPagoContainerMobile');
-        const formaPagamentoNome = select?.options[select.selectedIndex]?.text?.toLowerCase() || '';
-
-        if (formaPagamentoNome.includes('dinheiro')) {
-            valorPagoContainer.style.display = 'block';
-        } else {
-            valorPagoContainer.style.display = 'none';
-            document.getElementById('valorPagoInputMobile').value = '';
-            document.getElementById('trocoContainerMobile').style.display = 'none';
-        }
-        calcularTrocoMobile();
-    }
-
     function toggleValorPagoSidebar() {
         const select = document.getElementById('formaPagamentoMobile');
         const valorPagoContainer = document.getElementById('valorPagoSidebar');
@@ -1636,7 +1496,7 @@
             valorPagoContainer.style.display = 'block';
         } else {
             valorPagoContainer.style.display = 'none';
-            document.getElementById('valorPagoSidebar').value = '';
+            document.getElementById('valorPagoSidebarInput').value = '';
             document.getElementById('trocoSidebar').style.display = 'none';
         }
         calcularTrocoSidebar();
@@ -1648,16 +1508,9 @@
             return;
         }
 
-        // Detectar qual form está sendo usado
-        let formaPagamentoSelect = document.getElementById('formaPagamentoSelect');
-        let valorPagoInput = document.getElementById('valorPagoInput');
-        
-        // Verificar se está no mobile
-        const isMobile = window.innerWidth <= 768;
-        if (isMobile) {
-            formaPagamentoSelect = document.getElementById('formaPagamentoSelectMobile') || document.getElementById('formaPagamentoMobile');
-            valorPagoInput = document.getElementById('valorPagoInputMobile') || document.getElementById('valorPagoSidebar');
-        }
+        // REMOVIDA a verificação mobile - usar sempre os campos disponíveis
+        let formaPagamentoSelect = document.getElementById('formaPagamentoSelect') || document.getElementById('formaPagamentoMobile');
+        let valorPagoInput = document.getElementById('valorPagoInput') || document.getElementById('valorPagoSidebarInput');
 
         const formaPagamentoSelecionadaId = formaPagamentoSelect?.value;
         if (!formaPagamentoSelecionadaId) {
@@ -1665,33 +1518,28 @@
             return;
         }
 
-        const descontoPercentual = parseFloat(document.getElementById('descontoInput')?.value || 0);
-        
-        // Calcular totais conforme as views
+        // Calcular totais simples - SEM desconto manual
         let subtotalItens = carrinho.reduce((sum, item) => sum + (item.preco_venda * item.quantidade), 0);
-        let valorDesconto = subtotalItens * (descontoPercentual / 100);
-        let subtotalComDesconto = subtotalItens - valorDesconto;
         
         let ivaTotal = 0;
         carrinho.forEach(item => {
-            const valorItemComDesconto = (item.preco_venda * item.quantidade) * (1 - descontoPercentual / 100);
-            ivaTotal += valorItemComDesconto * ((item.iva_percentual || 0) / 100);
+            const valorItem = item.preco_venda * item.quantidade;
+            ivaTotal += valorItem * ((item.iva_percentual || 0) / 100);
         });
 
-        const total = subtotalComDesconto + ivaTotal;
+        const total = subtotalItens + ivaTotal;
         const valorPago = parseFloat(valorPagoInput?.value || total);
         const troco = Math.max(0, valorPago - total);
 
         const dadosVenda = {
             cliente_id: clienteSelecionado ? clienteSelecionado.id : null,
             itens: carrinho.map(item => {
-                const descontoItem = (item.preco_venda * item.quantidade) * (descontoPercentual / 100);
                 const itemData = {
                     quantidade: item.quantidade,
                     preco_unitario: item.preco_venda,
                     iva_percentual: item.iva_percentual || 0,
-                    desconto_item: descontoItem,
-                    subtotal_item: (item.preco_venda * item.quantidade) - descontoItem
+                    desconto_item: 0, // SEM desconto manual
+                    subtotal_item: item.preco_venda * item.quantidade
                 };
 
                 if (item.tipo === 'produto') {
@@ -1703,7 +1551,7 @@
                 return itemData;
             }),
             subtotal: subtotalItens,
-            desconto_valor: valorDesconto,
+            desconto_valor: 0, // SEM desconto manual
             iva_valor: ivaTotal,
             total: total,
             total_pago: valorPago,
@@ -1842,7 +1690,6 @@
                 // Atualizar todos os selects
                 const selects = [
                     'formaPagamentoSelect',
-                    'formaPagamentoSelectMobile', 
                     'formaPagamentoMobile'
                 ];
 
@@ -2023,7 +1870,6 @@
         carregarDadosIniciais().then(() => {
             setTimeout(() => {
                 toggleValorPago();
-                toggleValorPagoMobile();
                 toggleValorPagoSidebar();
                 document.getElementById('searchInput').focus();
             }, 500);

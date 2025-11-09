@@ -1812,6 +1812,7 @@ def to_int(value):
     return int(value)
 
 
+
 def finalizar_venda_api(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'Método não permitido.'}, status=405)
@@ -1873,7 +1874,7 @@ def finalizar_venda_api(request):
                     desconto_item = to_decimal(item.get('desconto_item', "0.00"))
 
                     subtotal_item = (preco_unitario * quantidade) - desconto_item
-                    # Garante que o campo iva_percentual não é None
+                    # IVA apenas se definido no produto
                     iva_percentual = produto.iva_percentual if produto.iva_percentual is not None else Decimal('0.00')
                     iva_item = subtotal_item * (iva_percentual / Decimal('100.00'))
 
@@ -1891,7 +1892,7 @@ def finalizar_venda_api(request):
                         'preco_unitario': preco_unitario,
                         'desconto_item': desconto_item,
                         'subtotal_item': subtotal_item,
-                        'iva_percentual': produto.iva_percentual,
+                        'iva_percentual': iva_percentual,
                         'iva_valor': iva_item,
                         'total_item': total_item
                     })
@@ -1910,7 +1911,10 @@ def finalizar_venda_api(request):
                     desconto_item = to_decimal(item.get('desconto_item', "0.00"))
 
                     subtotal_item = (preco_unitario * quantidade) - desconto_item
-                    iva_percentual = getattr(servico, 'iva_percentual', 14)
+                    # IVA apenas se definido no serviço - SEM valor padrão de 14%
+                    iva_percentual = getattr(servico, 'iva_percentual', 0)
+                    if iva_percentual is None:
+                        iva_percentual = 0
                     iva_item = subtotal_item * (iva_percentual / Decimal('100.00'))
                     total_item = subtotal_item + iva_item
 
@@ -1983,9 +1987,9 @@ def finalizar_venda_api(request):
                     ItemVenda.objects.create(
                         venda=nova_venda,
                         servico=item['servico_obj'],
-                        nome_servico=item['servico_obj'].nome,  # novo campo
-                        duracao_servico_padrao=timedelta(minutes=item['duracao']),  # conversão int -> timedelta
-                        instrucoes_servico=item['instrucoes'],  # novo campo
+                        nome_servico=item['servico_obj'].nome,
+                        duracao_servico_padrao=timedelta(minutes=item['duracao']),
+                        instrucoes_servico=item['instrucoes'],
                         quantidade=item['quantidade'],
                         preco_unitario=item['preco_unitario'],
                         subtotal_sem_iva=item['subtotal_item'],
@@ -2016,7 +2020,7 @@ def finalizar_venda_api(request):
 
             documento = DocumentoFiscalService.criar_documento(
                 empresa=empresa,
-                tipo_documento="FT",  # Fatura
+                tipo_documento="FR",  # Fatura
                 cliente=cliente,
                 usuario=request.user,
                 linhas=linhas_documento,
