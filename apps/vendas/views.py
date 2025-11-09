@@ -1609,12 +1609,14 @@ from apps.clientes.models import Cliente
 from apps.funcionarios.models import Funcionario
 from .api.serializers import RentabilidadeItemSerializer, VendaSerializer, ItemVendaSerializer
 
-class PDVView(LoginRequiredMixin, TemplateView):
+class PDVView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
+    acao_requerida = 'vender'
     """
     Renderiza o template do PDV com os dados iniciais.
     Esta view só responde a requisições GET.
     """
     template_name = 'vendas/pdv.html'
+
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

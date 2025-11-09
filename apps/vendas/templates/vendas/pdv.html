@@ -420,6 +420,7 @@
         transform: translateX(100%);
         transition: transform 0.4s ease-in-out;
         z-index: 999;
+        overflow-y: auto;
     }
 
     .atalhos-sidebar.is-visible {
@@ -430,6 +431,55 @@
         background: transparent;
         border: none;
         margin-top: 0;
+    }
+
+    /* Seção de Finalização Mobile */
+    .finalizacao-mobile {
+        display: none;
+        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+        border-radius: 12px 12px 0 0;
+        padding: 20px;
+        color: white;
+        margin-top: 20px;
+    }
+
+    .finalizacao-mobile .total-compacto {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+    }
+
+    .finalizacao-mobile .form-group {
+        margin-bottom: 15px;
+    }
+
+    .finalizacao-mobile label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 500;
+        margin-bottom: 5px;
+    }
+
+    .finalizacao-mobile input,
+    .finalizacao-mobile select {
+        width: 100%;
+        padding: 10px;
+        border: none;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.9);
+        color: #1f2937;
+        font-size: 0.875rem;
+    }
+
+    .finalizacao-mobile .btn-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 15px;
     }
 
     /* Modal de Escolha de Fatura */
@@ -656,6 +706,11 @@
         .carrinho-section {
             position: static;
             margin-top: 24px;
+            display: none; /* Ocultar no desktop para mostrar no sidebar mobile */
+        }
+
+        .finalizacao-mobile {
+            display: block;
         }
 
         .categoria-buttons {
@@ -664,6 +719,16 @@
 
         .content-tabs {
             justify-content: center;
+        }
+
+        .floating-btn {
+            bottom: 1rem;
+            right: 1rem;
+        }
+
+        .atalhos-sidebar {
+            width: 100%;
+            padding: 1rem;
         }
     }
 </style>
@@ -762,8 +827,48 @@
                     <p>Aguarde enquanto carregamos os serviços disponíveis</p>
                 </div>
             </div>
+
+            <!-- Seção de Finalização Mobile -->
+            <div class="finalizacao-mobile">
+                <div class="mb-4">
+                    <h3 class="text-lg font-bold mb-3">
+                        <i class="fas fa-shopping-cart mr-2"></i>
+                        Finalizar Compra (<span id="carrinhoCountMobile">0</span> itens)
+                    </h3>
+                    
+                    <div class="total-compacto">
+                        <span>Total:</span>
+                        <span class="text-xl font-bold" id="totalValorMobile">0,00 Kz</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Forma de Pagamento</label>
+                    <select id="formaPagamentoSelectMobile" onchange="toggleValorPagoMobile()">
+                    </select>
+                </div>
+
+                <div id="valorPagoContainerMobile" class="form-group" style="display: none;">
+                    <label>Valor Pago</label>
+                    <input type="number" id="valorPagoInputMobile" placeholder="Valor recebido" step="any" oninput="calcularTrocoMobile()">
+                </div>
+
+                <div id="trocoContainerMobile" class="bg-green-600 p-3 rounded-lg text-center font-bold mb-3" style="display: none;">
+                    Troco: <span id="trocoValorMobile">0,00 Kz</span>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn-finalizar" onclick="finalizarVenda()">
+                        <i class="fas fa-check mr-1"></i> Finalizar
+                    </button>
+                    <button class="btn-limpar" onclick="limparCarrinho()">
+                        <i class="fas fa-trash mr-1"></i> Limpar
+                    </button>
+                </div>
+            </div>
         </div>
 
+        <!-- Desktop Carrinho -->
         <div class="lg:col-span-1">
             <div class="carrinho-section">
                 <h2 class="text-xl font-bold mb-4">
@@ -782,8 +887,7 @@
                 <div class="total-section" id="totalSection" style="display: none;">
                     <div class="total-valor">
                         <div class="mb-4">
-                            <label for="formaPagamentoSelect" class="block text-white font-semibold mb-2">Forma de
-                                Pagamento</label>
+                            <label for="formaPagamentoSelect" class="block text-white font-semibold mb-2">Forma de Pagamento</label>
                             <select id="formaPagamentoSelect"
                                 class="w-full p-2 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
                                 onchange="toggleValorPago()">
@@ -803,7 +907,7 @@
                                     oninput="calcularTotais()">
                             </div>
 
-                            <div class="flex justify-between items-center">
+                            <div class="flex justify-between items-center" id="ivaContainer" style="display: none;">
                                 <span class="text-white">IVA:</span>
                                 <span id="taxaValor" class="text-white font-bold">0,00 Kz</span>
                             </div>
@@ -813,7 +917,7 @@
                             Total a Pagar: <span id="totalValor">0,00</span> Kz
                         </div>
 
-                        <div id="valorPagoContainer" class="mb-4">
+                        <div id="valorPagoContainer" class="mb-4" style="display: none;">
                             <label for="valorPagoInput" class="block text-white font-semibold mb-2">Valor Pago</label>
                             <input type="number" id="valorPagoInput"
                                 class="w-full p-2 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -897,35 +1001,81 @@
 </div>
 
 <button id="toggleAtalhosBtn" class="floating-btn">
-    <i class="fas fa-keyboard"></i>
+    <i class="fas fa-shopping-cart"></i>
 </button>
 
 <div id="atalhosSidebar" class="atalhos-sidebar">
     <div class="atalhos-container text-white">
-        <h3 class="atalhos-titulo text-white">Atalhos de Teclado</h3>
-        <ul class="atalhos-lista">
+        <h3 class="atalhos-titulo text-white mb-4">Carrinho de Compras</h3>
+        
+        <!-- Carrinho Mobile -->
+        <div id="carrinhoMobile" class="mb-6">
+            <div id="carrinhoItemsMobile" class="space-y-2 mb-4 max-h-60 overflow-y-auto">
+                <!-- Itens do carrinho serão inseridos aqui -->
+            </div>
+            
+            <div class="bg-white bg-opacity-10 p-3 rounded-lg mb-4">
+                <div class="flex justify-between text-sm">
+                    <span>Subtotal:</span>
+                    <span id="subtotalMobile">0,00 Kz</span>
+                </div>
+                <div class="flex justify-between text-sm" id="ivaMobileContainer" style="display: none;">
+                    <span>IVA:</span>
+                    <span id="ivaMobile">0,00 Kz</span>
+                </div>
+                <div class="border-t border-white border-opacity-20 my-2"></div>
+                <div class="flex justify-between text-lg font-bold">
+                    <span>Total:</span>
+                    <span id="totalMobile">0,00 Kz</span>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Forma de Pagamento</label>
+                    <select id="formaPagamentoMobile" class="w-full p-2 rounded text-gray-800" onchange="toggleValorPagoSidebar()">
+                    </select>
+                </div>
+
+                <div id="valorPagoSidebar" style="display: none;">
+                    <label class="block text-sm font-medium mb-1">Valor Pago</label>
+                    <input type="number" id="valorPagoSidebar" class="w-full p-2 rounded text-gray-800" 
+                           placeholder="Valor recebido" step="any" oninput="calcularTrocoSidebar()">
+                </div>
+
+                <div id="trocoSidebar" class="bg-green-600 p-2 rounded text-center font-bold" style="display: none;">
+                    Troco: <span id="trocoSidebarValor">0,00 Kz</span>
+                </div>
+
+                <button class="btn-finalizar w-full" onclick="finalizarVenda()">
+                    <i class="fas fa-check mr-2"></i> Finalizar Venda
+                </button>
+                <button class="btn-limpar w-full" onclick="limparCarrinho()">
+                    <i class="fas fa-trash mr-2"></i> Limpar Carrinho
+                </button>
+            </div>
+        </div>
+
+        <div class="border-t border-white border-opacity-20 my-4"></div>
+
+        <h4 class="text-white mb-3">Atalhos de Teclado</h4>
+        <ul class="atalhos-lista text-sm space-y-1">
             <li><span class="atalho-tecla">F2 -- </span><span class="atalho-descricao">Pesquisar Produtos</span></li>
             <li><span class="atalho-tecla">F3 -- </span><span class="atalho-descricao">Pesquisar Clientes</span></li>
             <li><span class="atalho-tecla">F4 -- </span><span class="atalho-descricao">Limpar Carrinho</span></li>
             <li><span class="atalho-tecla">F8 -- </span><span class="atalho-descricao">Finalizar Venda</span></li>
             <li><span class="atalho-tecla">F9 -- </span><span class="atalho-descricao">Forma de Pagamento</span></li>
             <li><span class="atalho-tecla">F10 -- </span><span class="atalho-descricao">Imprimir Fatura</span></li>
-            <li><span class="atalho-tecla">C -- </span><span class="atalho-descricao">Cancelar/Fechar modal</span></li>
-            <li><span class="atalho-tecla">Enter -- </span><span class="atalho-descricao">(na busca) Adicionar 1º produto</span></li>
         </ul>
         
-        
-    </div>
-        <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
-        <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
-         <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
+        <div class="border-t border-white border-opacity-20 my-4"></div>
 
         <a href="{% url 'funcionarios:meuturno' %}"
-            class="bg-white rounded-lg shadow-sm p-5 card-hover transition-all duration-300 flex flex-col items-center text-center">
-            <i class="fas fa-clock mr-20 p-3 rounded-lg bg-blue-50 text-blue-600 mb-3">Meu Turno</i>
+            class="bg-white rounded-lg shadow-sm p-3 transition-all duration-300 flex items-center text-center text-gray-800">
+            <i class="fas fa-clock mr-2 text-blue-600"></i>
+            <span class="font-medium">Meu Turno</span>
         </a>
-        
-         <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
+    </div>
 </div>
 
 <script>
@@ -1236,8 +1386,8 @@
                 preco_venda: tipo === 'produto' ? item.preco_venda : item.preco,
                 quantidade: 1,
                 subtotal: tipo === 'produto' ? item.preco_venda : item.preco,
-                iva_percentual: tipo === 'produto' ? (item.iva_percentual || 0) : 14, // Corrigido: serviços têm IVA padrão de 14%
-                desconto_percentual: 0 // Adicionado campo de desconto
+                iva_percentual: tipo === 'produto' ? (item.iva_percentual || 0) : (item.iva_percentual || 14),
+                desconto_percentual: 0
             };
 
             if (tipo === 'produto') {
@@ -1252,10 +1402,13 @@
 
     function renderizarCarrinho() {
         const container = document.getElementById('carrinhoItems');
+        const containerMobile = document.getElementById('carrinhoItemsMobile');
         const totalSection = document.getElementById('totalSection');
         const carrinhoCount = document.getElementById('carrinhoCount');
+        const carrinhoCountMobile = document.getElementById('carrinhoCountMobile');
 
         carrinhoCount.textContent = carrinho.length;
+        if (carrinhoCountMobile) carrinhoCountMobile.textContent = carrinho.length;
 
         if (carrinho.length === 0) {
             container.innerHTML = `
@@ -1264,6 +1417,13 @@
                 <p>Carrinho vazio</p>
                 <p class="text-sm">Adicione produtos para iniciar a venda</p>
             </div>`;
+            
+            if (containerMobile) {
+                containerMobile.innerHTML = `
+                <div class="text-center text-white text-opacity-70 py-4">
+                    <p class="text-sm">Carrinho vazio</p>
+                </div>`;
+            }
             totalSection.style.display = 'none';
             return;
         }
@@ -1300,133 +1460,149 @@
             `;
         }).join('');
 
+        // Mobile items (mais compacto)
+        const itensMobileHtml = carrinho.map((item, index) => {
+            const tipoIcon = item.tipo === 'produto' ? 'fas fa-box' : 'fas fa-tools';
+            
+            return `
+            <div class="bg-white bg-opacity-10 p-2 rounded text-xs">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="font-medium"><i class="${tipoIcon} mr-1"></i>${item.nome_produto}</span>
+                    <button onclick="removerItem(${index})" class="text-red-400 hover:text-red-300">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span>AKZ ${item.preco_venda.toFixed(2)} × ${item.quantidade}</span>
+                    <span class="font-bold">AKZ ${item.subtotal.toFixed(2)}</span>
+                </div>
+            </div>
+            `;
+        }).join('');
+
         container.innerHTML = itensHtml;
+        if (containerMobile) containerMobile.innerHTML = itensMobileHtml;
         totalSection.style.display = 'block';
         calcularTotais();
     }
 
-    // Cálculos corrigidos baseados nas views
-    // Cálculos SIMPLIFICADOS - apenas para exibição no frontend
-function calcularTotais() {
-    let subtotalSemDesconto = 0;
-    
-    // Calcular apenas o subtotal dos itens
-    carrinho.forEach(item => {
-        subtotalSemDesconto += item.preco_venda * item.quantidade;
-    });
-
-    // Aplicar desconto percentual global (apenas para exibição)
-    const descontoPercentual = parseFloat(document.getElementById('descontoInput').value) || 0;
-    const valorDesconto = subtotalSemDesconto * (descontoPercentual / 100);
-    const subtotalComDesconto = subtotalSemDesconto - valorDesconto;
-
-    // IVA simplificado para exibição (média de 14%)
-    const ivaEstimado = subtotalComDesconto * 0.14; // Estimativa para exibição
-    const totalEstimado = subtotalComDesconto + ivaEstimado;
-
-    // Atualizar interface
-    document.getElementById('subtotalValor').textContent = subtotalSemDesconto.toFixed(2) + " Kz";
-    document.getElementById('taxaValor').textContent = ivaEstimado.toFixed(2) + " Kz";
-    document.getElementById('totalValor').textContent = totalEstimado.toFixed(2);
-
-    if (document.getElementById('valorPagoContainer').style.display !== 'none') {
-        calcularTroco();
-    }
-}
-
-function calcularTroco() {
-    // Usar o valor estimado do total para o troco
-    const totalEstimado = parseFloat(document.getElementById('totalValor').textContent) || 0;
-    const valorPago = parseFloat(document.getElementById('valorPagoInput').value) || 0;
-    const troco = Math.max(0, valorPago - totalEstimado);
-
-    document.getElementById('trocoValor').textContent = troco.toFixed(2) + ' Kz';
-    document.getElementById('trocoContainer').style.display = 'block';
-}
-
-// Finalizar venda SIMPLIFICADO - envia dados simples, a API calcula
-async function finalizarVenda() {
-    if (carrinho.length === 0) {
-        showToast('Carrinho vazio! Adicione produtos para continuar.', "#ef4444");
-        return;
-    }
-
-    const formaPagamentoSelecionadaId = document.getElementById('formaPagamentoSelect').value;
-    if (!formaPagamentoSelecionadaId) {
-        showToast('Por favor, selecione uma forma de pagamento.', "#ef4444");
-        return;
-    }
-
-    const descontoPercentual = parseFloat(document.getElementById('descontoInput').value) || 0;
-    const totalEstimado = parseFloat(document.getElementById('totalValor').textContent) || 0;
-    const valorPago = parseFloat(document.getElementById('valorPagoInput').value) || totalEstimado;
-
-    // Dados SIMPLES - a API fará os cálculos reais
-    const dadosVenda = {
-        cliente_id: clienteSelecionado ? clienteSelecionado.id : null,
-        itens: carrinho.map(item => {
-            const itemData = {
-                quantidade: item.quantidade,
-                preco_unitario: item.preco_venda,
-                iva_percentual: item.iva_percentual || 0,
-                // Desconto por item baseado no percentual global
-                desconto_item: (item.preco_venda * item.quantidade) * (descontoPercentual / 100),
-                subtotal_item: item.preco_venda * item.quantidade
-            };
-
-            if (item.tipo === 'produto') {
-                itemData.produto_id = item.id;
-            } else if (item.tipo === 'servico') {
-                itemData.servico_id = item.id;
+    // Cálculos usando preços diretos do banco de dados
+    function calcularTotais() {
+        let subtotalSemDesconto = 0;
+        let ivaTotal = 0;
+        
+        // Usar preços diretos do banco de dados
+        carrinho.forEach(item => {
+            const subtotalItem = item.preco_venda * item.quantidade;
+            subtotalSemDesconto += subtotalItem;
+            
+            // IVA apenas se o produto/serviço tiver iva_percentual definido
+            if (item.iva_percentual && item.iva_percentual > 0) {
+                ivaTotal += subtotalItem * (item.iva_percentual / 100);
             }
-
-            return itemData;
-        }),
-        // Valores estimados - a API recalculará corretamente
-        subtotal: carrinho.reduce((sum, item) => sum + (item.preco_venda * item.quantidade), 0),
-        desconto_valor: carrinho.reduce((sum, item) => sum + (item.preco_venda * item.quantidade), 0) * (descontoPercentual / 100),
-        iva_valor: 0, // A API calculará
-        total: totalEstimado,
-        total_pago: valorPago,
-        troco: Math.max(0, valorPago - totalEstimado),
-        forma_pagamento_id: formaPagamentoSelecionadaId,
-        observacoes: '',
-    };
-
-    try {
-        const urlFinalizarVenda = "{% url 'vendas:api_finalizar_venda' %}";
-        const response = await fetch(urlFinalizarVenda, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken'),
-            },
-            body: JSON.stringify(dadosVenda)
         });
 
-        const data = await response.json();
+        // Aplicar desconto percentual global
+        const descontoPercentual = parseFloat(document.getElementById('descontoInput')?.value || 0);
+        const valorDesconto = subtotalSemDesconto * (descontoPercentual / 100);
+        const subtotalComDesconto = subtotalSemDesconto - valorDesconto;
 
-        if (data.success) {
-            showToast(data.message, "#22c55e");
-            limparCarrinho();
-            vendaAtualId = data.venda_id;
-            mostrarModalFatura();
-        } else {
-            showToast(`Erro na venda: ${data.message}`, "#ef4444");
+        // Total final
+        const totalFinal = subtotalComDesconto + ivaTotal;
+
+        // Atualizar interface desktop
+        if (document.getElementById('subtotalValor')) {
+            document.getElementById('subtotalValor').textContent = subtotalSemDesconto.toFixed(2) + " Kz";
+            document.getElementById('totalValor').textContent = totalFinal.toFixed(2);
+            
+            // Mostrar IVA apenas se houver IVA
+            const ivaContainer = document.getElementById('ivaContainer');
+            if (ivaTotal > 0) {
+                document.getElementById('taxaValor').textContent = ivaTotal.toFixed(2) + " Kz";
+                ivaContainer.style.display = 'flex';
+            } else {
+                ivaContainer.style.display = 'none';
+            }
         }
-    } catch (error) {
-        console.error('Erro de conexão:', error);
-        showToast('Erro de conexão com o servidor. Verifique a sua internet.', "#ef4444");
-    }
-}
 
-    
+        // Atualizar interface mobile
+        if (document.getElementById('subtotalMobile')) {
+            document.getElementById('subtotalMobile').textContent = subtotalSemDesconto.toFixed(2) + " Kz";
+            document.getElementById('totalMobile').textContent = totalFinal.toFixed(2) + " Kz";
+            document.getElementById('totalValorMobile').textContent = totalFinal.toFixed(2) + " Kz";
+            
+            // Mostrar IVA mobile apenas se houver IVA
+            const ivaMobileContainer = document.getElementById('ivaMobileContainer');
+            if (ivaTotal > 0) {
+                document.getElementById('ivaMobile').textContent = ivaTotal.toFixed(2) + " Kz";
+                ivaMobileContainer.style.display = 'flex';
+            } else {
+                ivaMobileContainer.style.display = 'none';
+            }
+        }
+
+        calcularTroco();
+        calcularTrocoMobile();
+        calcularTrocoSidebar();
+    }
+
+    function calcularTroco() {
+        const totalFinal = parseFloat(document.getElementById('totalValor')?.textContent || 0);
+        const valorPago = parseFloat(document.getElementById('valorPagoInput')?.value || 0);
+        
+        if (valorPago > 0) {
+            const troco = Math.max(0, valorPago - totalFinal);
+            const trocoContainer = document.getElementById('trocoContainer');
+            
+            if (troco > 0 && trocoContainer) {
+                document.getElementById('trocoValor').textContent = troco.toFixed(2);
+                trocoContainer.style.display = 'block';
+            } else if (trocoContainer) {
+                trocoContainer.style.display = 'none';
+            }
+        }
+    }
+
+    function calcularTrocoMobile() {
+        const totalFinal = parseFloat(document.getElementById('totalValorMobile')?.textContent.replace(' Kz', '') || 0);
+        const valorPago = parseFloat(document.getElementById('valorPagoInputMobile')?.value || 0);
+        
+        if (valorPago > 0) {
+            const troco = Math.max(0, valorPago - totalFinal);
+            const trocoContainer = document.getElementById('trocoContainerMobile');
+            
+            if (troco > 0 && trocoContainer) {
+                document.getElementById('trocoValorMobile').textContent = troco.toFixed(2) + ' Kz';
+                trocoContainer.style.display = 'block';
+            } else if (trocoContainer) {
+                trocoContainer.style.display = 'none';
+            }
+        }
+    }
+
+    function calcularTrocoSidebar() {
+        const totalFinal = parseFloat(document.getElementById('totalMobile')?.textContent.replace(' Kz', '') || 0);
+        const valorPago = parseFloat(document.getElementById('valorPagoSidebar')?.value || 0);
+        
+        if (valorPago > 0) {
+            const troco = Math.max(0, valorPago - totalFinal);
+            const trocoContainer = document.getElementById('trocoSidebar');
+            
+            if (troco > 0 && trocoContainer) {
+                document.getElementById('trocoSidebarValor').textContent = troco.toFixed(2) + ' Kz';
+                trocoContainer.style.display = 'block';
+            } else if (trocoContainer) {
+                trocoContainer.style.display = 'none';
+            }
+        }
+    }
+
     function toggleValorPago() {
         const select = document.getElementById('formaPagamentoSelect');
         const valorPagoContainer = document.getElementById('valorPagoContainer');
-        const formaPagamentoNome = select.options[select.selectedIndex]?.text?.toLowerCase() || '';
+        const formaPagamentoNome = select?.options[select.selectedIndex]?.text?.toLowerCase() || '';
 
-        if (formaPagamentoNome === 'dinheiro' || formaPagamentoNome === 'multicaixa') {
+        if (formaPagamentoNome.includes('dinheiro')) {
             valorPagoContainer.style.display = 'block';
         } else {
             valorPagoContainer.style.display = 'none';
@@ -1436,22 +1612,62 @@ async function finalizarVenda() {
         calcularTroco();
     }
 
-    // Finalizar venda corrigido para enviar desconto_item conforme views
+    function toggleValorPagoMobile() {
+        const select = document.getElementById('formaPagamentoSelectMobile');
+        const valorPagoContainer = document.getElementById('valorPagoContainerMobile');
+        const formaPagamentoNome = select?.options[select.selectedIndex]?.text?.toLowerCase() || '';
+
+        if (formaPagamentoNome.includes('dinheiro')) {
+            valorPagoContainer.style.display = 'block';
+        } else {
+            valorPagoContainer.style.display = 'none';
+            document.getElementById('valorPagoInputMobile').value = '';
+            document.getElementById('trocoContainerMobile').style.display = 'none';
+        }
+        calcularTrocoMobile();
+    }
+
+    function toggleValorPagoSidebar() {
+        const select = document.getElementById('formaPagamentoMobile');
+        const valorPagoContainer = document.getElementById('valorPagoSidebar');
+        const formaPagamentoNome = select?.options[select.selectedIndex]?.text?.toLowerCase() || '';
+
+        if (formaPagamentoNome.includes('dinheiro')) {
+            valorPagoContainer.style.display = 'block';
+        } else {
+            valorPagoContainer.style.display = 'none';
+            document.getElementById('valorPagoSidebar').value = '';
+            document.getElementById('trocoSidebar').style.display = 'none';
+        }
+        calcularTrocoSidebar();
+    }
+
     async function finalizarVenda() {
         if (carrinho.length === 0) {
             showToast('Carrinho vazio! Adicione produtos para continuar.', "#ef4444");
             return;
         }
 
-        const formaPagamentoSelecionadaId = document.getElementById('formaPagamentoSelect').value;
+        // Detectar qual form está sendo usado
+        let formaPagamentoSelect = document.getElementById('formaPagamentoSelect');
+        let valorPagoInput = document.getElementById('valorPagoInput');
+        
+        // Verificar se está no mobile
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile) {
+            formaPagamentoSelect = document.getElementById('formaPagamentoSelectMobile') || document.getElementById('formaPagamentoMobile');
+            valorPagoInput = document.getElementById('valorPagoInputMobile') || document.getElementById('valorPagoSidebar');
+        }
+
+        const formaPagamentoSelecionadaId = formaPagamentoSelect?.value;
         if (!formaPagamentoSelecionadaId) {
             showToast('Por favor, selecione uma forma de pagamento.', "#ef4444");
             return;
         }
 
-        const descontoPercentual = parseFloat(document.getElementById('descontoInput').value) || 0;
+        const descontoPercentual = parseFloat(document.getElementById('descontoInput')?.value || 0);
         
-        // Calcular totais conforme a view
+        // Calcular totais conforme as views
         let subtotalItens = carrinho.reduce((sum, item) => sum + (item.preco_venda * item.quantidade), 0);
         let valorDesconto = subtotalItens * (descontoPercentual / 100);
         let subtotalComDesconto = subtotalItens - valorDesconto;
@@ -1463,7 +1679,7 @@ async function finalizarVenda() {
         });
 
         const total = subtotalComDesconto + ivaTotal;
-        const valorPago = parseFloat(document.getElementById('valorPagoInput').value) || total;
+        const valorPago = parseFloat(valorPagoInput?.value || total);
         const troco = Math.max(0, valorPago - total);
 
         const dadosVenda = {
@@ -1622,22 +1838,34 @@ async function finalizarVenda() {
 
             if (data.success) {
                 formasPagamento = data.formas_pagamento;
-                const select = document.getElementById('formaPagamentoSelect');
-                select.innerHTML = '';
+                
+                // Atualizar todos os selects
+                const selects = [
+                    'formaPagamentoSelect',
+                    'formaPagamentoSelectMobile', 
+                    'formaPagamentoMobile'
+                ];
 
-                if (formasPagamento.length === 0) {
-                    const option = document.createElement('option');
-                    option.textContent = 'Nenhuma forma de pagamento cadastrada';
-                    option.disabled = true;
-                    select.appendChild(option);
-                    return;
-                }
+                selects.forEach(selectId => {
+                    const select = document.getElementById(selectId);
+                    if (select) {
+                        select.innerHTML = '';
 
-                formasPagamento.forEach(forma => {
-                    const option = document.createElement('option');
-                    option.value = forma.id;
-                    option.textContent = forma.nome;
-                    select.appendChild(option);
+                        if (formasPagamento.length === 0) {
+                            const option = document.createElement('option');
+                            option.textContent = 'Nenhuma forma de pagamento cadastrada';
+                            option.disabled = true;
+                            select.appendChild(option);
+                            return;
+                        }
+
+                        formasPagamento.forEach(forma => {
+                            const option = document.createElement('option');
+                            option.value = forma.id;
+                            option.textContent = forma.nome;
+                            select.appendChild(option);
+                        });
+                    }
                 });
             } else {
                 showToast(`Erro ao carregar formas de pagamento: ${data.message}`, "#ef4444");
@@ -1795,6 +2023,8 @@ async function finalizarVenda() {
         carregarDadosIniciais().then(() => {
             setTimeout(() => {
                 toggleValorPago();
+                toggleValorPagoMobile();
+                toggleValorPagoSidebar();
                 document.getElementById('searchInput').focus();
             }, 500);
         });
@@ -1852,7 +2082,7 @@ async function finalizarVenda() {
             document.getElementById('clienteInput').focus();
         } else if (event.key === 'F9') {
             event.preventDefault();
-            document.getElementById('formaPagamentoSelect').focus();
+            document.getElementById('formaPagamentoSelect')?.focus();
         } else if (event.key === 'F10') {
             event.preventDefault();
             if (modalAberto) {
