@@ -508,16 +508,27 @@ class IniciarInventarioView(LoginRequiredMixin, View):
             messages.error(request, e.message)
         return redirect('estoque:inventario_detail', pk=pk)
 
-class FinalizarInventarioView(LoginRequiredMixin, View):
+# Exemplo para FinalizarInventarioView
+from django.db import transaction
+
+class FinalizarInventarioView(LoginRequiredMixin, PermissaoAcaoMixin, View):
     def post(self, request, pk):
-        inventario = get_object_or_404(Inventario, pk=pk, empresa=request.user.funcionario.empresa)
+        inventario = get_object_or_404(
+            Inventario.objects.select_for_update(), 
+            pk=pk, empresa=request.user.funcionario.empresa
+        )
         try:
-            # A sua lógica de 'concluir_inventario' já gera os ajustes
-            inventario.concluir_inventario()
-            messages.success(request, f"Inventário '{inventario.numero_inventario}' concluído com sucesso! Os ajustes de estoque foram gerados.")
+            with transaction.atomic():
+                inventario.concluir_inventario()
+            messages.success(
+                request,
+                f"Inventário '{inventario.numero_inventario}' concluído com sucesso! Ajustes gerados."
+            )
         except ValidationError as e:
-            messages.error(request, e.message)
+            for msg in e.messages:
+                messages.error(request, msg)
         return redirect('estoque:inventario_detail', pk=pk)
+
 
 
 # ============================
@@ -583,12 +594,6 @@ class CancelarTransferenciaView(View):
 # ============================
 
 
-class FinalizarInventarioView(View):
-    def post(self, request, pk):
-        inventario = get_object_or_404(Inventario, pk=pk)
-        inventario.status = "concluido"
-        inventario.save()
-        return redirect("estoque:inventario_lista")
 
 class GerarAjustesInventarioView(View):
     def post(self, request, pk):
