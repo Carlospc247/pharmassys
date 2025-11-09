@@ -69,6 +69,8 @@ class PermissaoAcaoMixin(AccessMixin):
 # =============================
 # DASHBOARD
 # =============================
+
+
 class EstoqueDashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'estoque/estoque.html'
 
@@ -77,9 +79,7 @@ class EstoqueDashboardView(LoginRequiredMixin, TemplateView):
         user = self.request.user
         if hasattr(user, 'funcionario') and user.funcionario.empresa:
             return user.funcionario.empresa
-        # Adicione outras lógicas se necessário, por exemplo:
-        # if hasattr(user, 'profile') and user.profile.empresa:
-        #     return user.profile.empresa
+        
         return None
 
     def get_context_data(self, **kwargs):
@@ -106,6 +106,7 @@ class EstoqueDashboardView(LoginRequiredMixin, TemplateView):
         
         context['title'] = "Dashboard de Estoque" # Adicionado título para consistência
         return context
+
 
 # =============================
 # LISTAS
