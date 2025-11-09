@@ -296,6 +296,6 @@ class NotificationListView(LoginRequiredMixin, ListView):
     context_object_name = "notifications"
 
     def get_queryset(self):
-        empresa = self.request.user.usuario.empresa if hasattr(self.request.user, 'usuario') else None
-        return NotificacaoAlerta.objects.filter(empresa=empresa).order_by('-id')
+        empresa = getattr(self.request.user, 'usuario', None) and self.request.user.usuario.empresa
+        return NotificacaoAlerta.objects.filter(alerta__empresa=empresa).order_by('-id')
 

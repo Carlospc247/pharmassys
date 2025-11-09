@@ -1,6 +1,7 @@
 # apps/core/context_processors.py
 from django.utils import timezone
 from datetime import timedelta
+from apps.servicos.models import NotificacaoAgendamento
 from apps.vendas.models import Venda
 from apps.produtos.models import Lote
 
@@ -53,7 +54,7 @@ def dashboard_data(request):
     }
 
 
-from apps.notificacoes.models import NotificacaoAgendamento
+
 from apps.produtos.models import AlertaProdutoExpiracao
 
 def notifications_context(request):
