@@ -250,12 +250,35 @@ class ItemVenda(TimeStampedModel):
     total = models.DecimalField(max_digits=10, decimal_places=2)
 
     # ADICIONAR UM MÉTODO SAVE PARA PREENCHER OS NOVOS CAMPOS
+    from decimal import Decimal
+
     def save(self, *args, **kwargs):
-        if self.iva_percentual:
-            self.tax_type = self.iva_percentual.tax_type
-            self.tax_code = self.iva_percentual.tax_code
-            
+        """
+        Atualiza automaticamente os campos fiscais (tax_type, tax_code)
+        e calcula valores de IVA antes de salvar.
+        """
+        if self.taxa_iva:
+            self.tax_type = self.taxa_iva.tax_type
+            self.tax_code = self.taxa_iva.tax_code
+
+            # Define o percentual de IVA
+            percentual_iva = getattr(self.taxa_iva, 'tax_percentage', Decimal('0.00'))
+
+            # Calcula valores
+            base_calculo = (self.preco_unitario - self.desconto_item) * self.quantidade
+            self.subtotal_sem_iva = base_calculo
+            self.iva_valor = (base_calculo * percentual_iva) / Decimal('100.00')
+            self.total = base_calculo + self.iva_valor
+        else:
+            self.tax_type = None
+            self.tax_code = None
+            self.subtotal_sem_iva = (self.preco_unitario - self.desconto_item) * self.quantidade
+            self.iva_valor = Decimal('0.00')
+            self.total = self.subtotal_sem_iva
+
         super().save(*args, **kwargs)
+
+
 
       
     class Meta:
@@ -282,8 +305,10 @@ class ItemVenda(TimeStampedModel):
     
     @property
     def iva_percentual(self):
-        """MANTÉM A COMPATIBILIDADE com o código antigo (Property Getter)."""
-        return self.taxa_iva.percentual if self.taxa_iva else Decimal('0.00')
+        """Retorna a taxa percentual de IVA configurada."""
+        if self.taxa_iva:
+            return getattr(self.taxa_iva, 'tax_percentage', Decimal('0.00'))
+        return Decimal('0.00')
     
     @property
     def tipo(self):
