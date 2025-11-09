@@ -76,13 +76,13 @@ def notifications_context(request):
                 'url': f"/notificacoes/{n.id}/editar/",
                 'icon': 'bell',
                 'type': 'blue',
-                'created_at': n.created,
+                'created_at': n.created_at,
             })
 
         # Alertas de produtos prestes a vencer
         alertas = AlertaProdutoExpiracao.objects.filter(
             empresa=empresa, enviado=False
-        ).order_by('-created')[:5]
+        ).order_by('-created_at')[:20]
 
         for a in alertas:
             dias = (a.lote.data_validade - timezone.now().date()).days
@@ -92,7 +92,7 @@ def notifications_context(request):
                 'url': f"/produtos/lotes/{a.lote.id}/",
                 'icon': 'exclamation-triangle',
                 'type': 'red',
-                'created_at': a.created,
+                'created_at': a.created_at,#dicionário
             })
 
     return {
