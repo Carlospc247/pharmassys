@@ -60,28 +60,20 @@ class MovimentacaoEstoque(TimeStampedModel):
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='movimentacoes_usuario')
     
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    loja = models.ForeignKey('core.Loja', on_delete=models.PROTECT, related_name='movimentacoes_loja')
+
     quantidade = models.IntegerField()
     motivo = models.CharField(max_length=200)
     observacoes = models.TextField(blank=True)
     
     @classmethod
-    def calcular_estoque_atual(cls, produto, loja):
-        """
-        Calcula o estoque atual de um produto em uma loja específica,
-        somando todas as suas movimentações.
-        """
-        # Filtra todas as movimentações para o produto e loja específicos
-        # e soma o campo 'quantidade'.
-        # Assume que 'saídas' têm quantidade negativa e 'entradas' positiva.
-        resultado = cls.objects.filter(
-            produto=produto
-        ).aggregate(
-            estoque_total=Sum('quantidade')
-        )
-        
-        # Se não houver movimentações, o resultado['estoque_total'] será None.
-        # Neste caso, retornamos 0.
+    def calcular_estoque_atual(cls, produto, loja=None):
+        filtros = {'produto': produto}
+        if loja:
+            filtros['loja'] = loja
+        resultado = cls.objects.filter(**filtros).aggregate(estoque_total=Sum('quantidade'))
         return resultado['estoque_total'] or 0
+
     
     class Meta:
         verbose_name = 'Movimentação de Estoque'
@@ -480,7 +472,7 @@ class AlertaEstoque(TimeStampedModel):
         )
         
         for produto in produtos_estoque_baixo:
-            estoque_atual = MovimentacaoEstoque.calcular_estoque_atual(produto)
+            estoque_atual = MovimentacaoEstoque.calcular_estoque_atual(produto, loja=produto.loja_padrao)
             
             if estoque_atual <= 0:
                 # Alerta de estoque zerado
@@ -517,7 +509,7 @@ class AlertaEstoque(TimeStampedModel):
         data_limite = date.today() + timedelta(days=30)
         lotes_vencendo = Lote.objects.filter(
             produto__empresa=empresa,
-            __lte=data_limite,
+            data_validade__lte=data_limite,#era __lte=data_limite
             data_vencimento__gt=date.today(),
             quantidade_atual__gt=0,
             ativo=True

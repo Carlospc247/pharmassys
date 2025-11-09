@@ -1,4 +1,5 @@
 # apps/produtos/forms.py
+from apps.fiscal.models import TaxaIVAAGT
 from .models import Produto, Lote, Categoria, Fabricante
 from .models import Lote
 from django import forms
@@ -117,10 +118,6 @@ class ProdutoForm(forms.ModelForm):
         return cleaned_data                
 
 """
-from django import forms
-from decimal import Decimal
-from .models import Produto, Categoria, Fabricante, Fornecedor
-from fiscal.models import TaxaIVAAGT
 
 
 class ProdutoForm(forms.ModelForm):

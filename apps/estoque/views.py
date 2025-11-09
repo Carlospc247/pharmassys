@@ -519,8 +519,6 @@ class FinalizarInventarioView(LoginRequiredMixin, View):
             messages.error(request, e.message)
         return redirect('estoque:inventario_detail', pk=pk)
 
-# A view GerarAjustesInventarioView é redundante se FinalizarInventarioView já o faz.
-# Se precisar dela como uma ação separada, pode criá-la de forma semelhante.
 
 # ============================
 # DASHBOARD E LISTAS
