@@ -5,9 +5,20 @@
 <a href="{% url 'servicos:servico_create' %}" class="inline-flex items-center ...">
     <i class="fas fa-plus"></i> Novo Serviço
 </a>
+<a href="{% url 'servicos:agendamento_list' %}" class="inline-flex items-center ... bg-green-50>
+    <i class="fas fa-plus"></i> Ver agendamentos
+</a>
 {% endblock %}
 {% block content %}
 <div class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
+    <div class="mb-6">
+        <label for="search" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Pesquisar Serviço</label>
+        <input type="search" id="searchServico" placeholder="Nome do serviço..."
+            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm">
+    </div>
+
+    <div id="searchResultsServico" class="mt-2 space-y-2"></div>
+
     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
         <thead class="bg-gray-50 dark:bg-gray-700/50">
             <tr>
@@ -41,4 +52,38 @@
         </tbody>
     </table>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchServico');
+    const resultsDiv = document.getElementById('searchResultsServico');
+
+    searchInput.addEventListener('input', async function() {
+        const query = this.value.trim();
+        if (!query) {
+            resultsDiv.innerHTML = '';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/servicos/api/buscar/?q=${encodeURIComponent(query)}`);
+            const data = await response.json();
+
+            if (data.success) {
+                resultsDiv.innerHTML = data.servicos.map(s => `
+                    <div class="p-2 border rounded-lg bg-gray-50 dark:bg-gray-700">
+                        <strong>${s.nome}</strong> - ${s.categoria || 'Sem categoria'} - 
+                        AKZ ${s.preco_padrao.toFixed(2)} - IVA: ${s.iva_percentual.toFixed(2)}%
+                    </div>
+                `).join('');
+            } else {
+                resultsDiv.innerHTML = `<p class="text-red-500">${data.message}</p>`;
+            }
+        } catch (err) {
+            resultsDiv.innerHTML = `<p class="text-red-500">Erro na busca.</p>`;
+        }
+    });
+});
+</script>
+
 {% endblock %}

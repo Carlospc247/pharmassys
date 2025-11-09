@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Excluir Notificação{% endblock %}
+{% block page_title %}Excluir Notificação{% endblock %}
+
+{% block content %}
+<div class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800 p-6 text-center">
+    <p class="text-lg mb-4">Tem certeza que deseja excluir a notificação <strong>{{ notificacao.titulo }}</strong> para o cliente <strong>{{ notificacao.cliente.nome_completo }}</strong>?</p>
+    <form method="post">{% csrf_token %}
+        <button type="submit" class="inline-flex items-center rounded-md bg-red-600 px-4 py-2 text-white hover:bg-red-500">Sim, Excluir</button>
+        <a href="{% url 'notificacoes:notificacao_list' %}" class="ml-2 text-gray-600 hover:underline">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

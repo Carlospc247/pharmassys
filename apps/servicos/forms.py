@@ -149,3 +149,55 @@ class FinalizarServicoForm(forms.Form):
         })
     )
 
+
+
+from django import forms
+from .models import NotificacaoAgendamento, ConfiguracaoNotificacao
+
+class NotificacaoAgendamentoForm(forms.ModelForm):
+    class Meta:
+        model = NotificacaoAgendamento
+        fields = [
+            'agendamento', 'cliente', 'tipo_notificacao', 'dias_antecedencia',
+            'titulo', 'mensagem', 'data_agendada_envio', 'status'
+        ]
+        widgets = {
+            'data_agendada_envio': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'mensagem': forms.Textarea(attrs={'rows': 4}),
+        }
+        labels = {
+            'dias_antecedencia': 'Dias de Antecedência',
+            'data_agendada_envio': 'Data/Hora Agendada',
+        }
+
+
+class ConfiguracaoNotificacaoForm(forms.ModelForm):
+    class Meta:
+        model = ConfiguracaoNotificacao
+        fields = [
+            'email_ativo', 'sms_ativo', 'whatsapp_ativo',
+            'dias_notificacao', 'horario_inicio_envio', 'horario_fim_envio',
+            'template_email_titulo', 'template_email_mensagem', 'template_sms_mensagem',
+            'max_tentativas_envio', 'intervalo_tentativas_horas'
+        ]
+        widgets = {
+            'dias_notificacao': forms.TextInput(attrs={'placeholder': 'Ex: 15,7,3,1'}),
+            'horario_inicio_envio': forms.TimeInput(attrs={'type': 'time'}),
+            'horario_fim_envio': forms.TimeInput(attrs={'type': 'time'}),
+            'template_email_mensagem': forms.Textarea(attrs={'rows': 6}),
+            'template_sms_mensagem': forms.Textarea(attrs={'rows': 3}),
+        }
+        labels = {
+            'email_ativo': 'Email Ativo',
+            'sms_ativo': 'SMS Ativo',
+            'whatsapp_ativo': 'WhatsApp Ativo',
+            'dias_notificacao': 'Dias de Antecedência',
+            'horario_inicio_envio': 'Horário Início',
+            'horario_fim_envio': 'Horário Fim',
+            'max_tentativas_envio': 'Máx. Tentativas',
+            'intervalo_tentativas_horas': 'Intervalo entre Tentativas (h)',
+        }
+
+
+
+

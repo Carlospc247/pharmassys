@@ -26,6 +26,7 @@ from cloudinary.models import CloudinaryField
 # =====================================
 # MODELO 1: O CATÁLOGO DE SERVIÇOS
 # =====================================
+
 class Servico(TimeStampedModel):
     
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='servicos_catalogo')

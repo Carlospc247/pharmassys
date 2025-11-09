@@ -1,6 +1,5 @@
 # apps/produtos/models.py
 from django.conf import settings
-from django.db import models
 from decimal import Decimal
 from django.utils import timezone
 from django.utils.html import format_html
@@ -8,6 +7,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from apps.core.models import Empresa, TimeStampedModel, Categoria
 from cloudinary.models import CloudinaryField
+from apps.core.models import TimeStampedModel
 
 
 
@@ -221,5 +221,26 @@ class HistoricoPreco(models.Model):
         return Decimal("0")
     
 
+
+class AlertaProdutoExpiracao(TimeStampedModel):
+    """Alerta para produtos com lote prestes a vencer"""
+    lote = models.ForeignKey("Lote", on_delete=models.CASCADE, related_name="alertas_expiracao")
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
+    dias_alerta = models.IntegerField(default=30)
+    enviado = models.BooleanField(default=False)  # se já geramos a notificação
+
+    class Meta:
+        verbose_name = "Alerta de Produto Prestes a Expirar"
+        verbose_name_plural = "Alertas de Produtos Prestes a Expirar"
+
+    def __str__(self):
+        return f"{self.lote.produto.nome_comercial} - Lote {self.lote.numero_lote}"
+
+    def precisa_alerta(self):
+        """Retorna True se o lote está dentro do período de alerta"""
+        if not self.lote.data_validade:
+            return False
+        dias_restantes = (self.lote.data_validade - timezone.now().date()).days
+        return dias_restantes <= self.dias_alerta
 
   

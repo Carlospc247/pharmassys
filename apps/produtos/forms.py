@@ -38,7 +38,7 @@ checkbox_classes = (
 
 
 
-
+"""
 class ProdutoForm(forms.ModelForm):
     # Adicione o campo 'margem_lucro' aqui para que ele seja processado pelo formulário
     margem_lucro = forms.DecimalField(
@@ -115,6 +115,91 @@ class ProdutoForm(forms.ModelForm):
 
 
         return cleaned_data                
+
+"""
+from django import forms
+from decimal import Decimal
+from .models import Produto, Categoria, Fabricante, Fornecedor
+from fiscal.models import TaxaIVAAGT
+
+
+class ProdutoForm(forms.ModelForm):
+    margem_lucro = forms.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        initial=0,
+        label="Margem de Lucro (%)",
+        widget=forms.NumberInput(attrs={'step': '0.01', 'placeholder': 'Ex: 20.00'})
+    )
+
+    class Meta:
+        model = Produto
+        fields = [
+            'nome_produto', 'codigo_barras', 'codigo_interno',
+            'categoria', 'fabricante', 'fornecedor',
+            'preco_custo', 'preco_venda', 'margem_lucro',
+            'estoque_minimo', 'estoque_maximo',
+            'ativo', 'foto', 'taxa_iva', 'desconto_percentual'
+        ]
+        labels = {
+            'nome_produto': 'Nome Comercial do Produto',
+            'codigo_barras': 'Código de Barras (EAN)',
+            'codigo_interno': 'Código Interno / SKU',
+            'preco_custo': 'Preço de Custo',
+            'preco_venda': 'Preço de Venda ao Público',
+            'estoque_minimo': 'Nível Mínimo de Estoque',
+            'estoque_maximo': 'Nível Máximo de Estoque',
+            'ativo': 'Produto Ativo (disponível para venda)',
+            'taxa_iva': 'Taxa de IVA / Imposto (AGT)',
+            'desconto_percentual': 'Desconto Promocional (%)',
+        }
+        widgets = {
+            'preco_custo': forms.NumberInput(attrs={'step': '0.01'}),
+            'preco_venda': forms.NumberInput(attrs={'step': '0.01'}),
+            'foto': forms.FileInput(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        empresa = kwargs.pop('empresa', None)
+        super().__init__(*args, **kwargs)
+        self.empresa = empresa
+
+        # Aplica classes CSS consistentes
+        for field_name, field in self.fields.items():
+            if isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs['class'] = 'form-checkbox'
+            else:
+                field.widget.attrs['class'] = 'form-input'
+
+        # Filtra listas de seleção por empresa
+        if empresa:
+            if 'categoria' in self.fields:
+                self.fields['categoria'].queryset = Categoria.objects.filter(empresa=empresa, ativa=True)
+            if 'fabricante' in self.fields:
+                self.fields['fabricante'].queryset = Fabricante.objects.filter(empresa=empresa)
+            if 'fornecedor' in self.fields:
+                self.fields['fornecedor'].queryset = Fornecedor.objects.filter(empresa=empresa, ativo=True)
+            if 'taxa_iva' in self.fields:
+                self.fields['taxa_iva'].queryset = TaxaIVAAGT.objects.filter(empresa=empresa, ativo=True).order_by('-tax_percentage')
+
+        # Valor inicial da margem de lucro ao editar
+        if self.instance and self.instance.pk:
+            self.fields['margem_lucro'].initial = self.instance.margem_lucro
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        codigo_interno = cleaned_data.get("codigo_interno")
+        if codigo_interno and self.empresa:
+            queryset = Produto.objects.filter(empresa=self.empresa, codigo_interno=codigo_interno)
+            if self.instance and self.instance.pk:
+                queryset = queryset.exclude(pk=self.instance.pk)
+            if queryset.exists():
+                self.add_error('codigo_interno', 'Já existe um produto com este Código Interno nesta empresa.')
+
+        return cleaned_data
+
 
 
 class LoteForm(forms.ModelForm):

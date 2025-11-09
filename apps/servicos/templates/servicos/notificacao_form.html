@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}{% if form.instance.pk %}Editar{% else %}Nova{% endif %} Notificação{% endblock %}
+{% block page_title %}{% if form.instance.pk %}Editar{% else %}Nova{% endif %} Notificação{% endblock %}
+
+{% block content %}
+<div class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800 p-6">
+    <form method="post">{% csrf_token %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {{ form.as_p }}
+        </div>
+        <div class="mt-4">
+            <button type="submit" class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-500">
+                Salvar
+            </button>
+            <a href="{% url 'notificacoes:notificacao_list' %}" class="ml-2 text-gray-600 hover:underline">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

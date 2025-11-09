@@ -10,6 +10,20 @@ from django.urls import reverse_lazy
 from apps.clientes.models import Cliente
 from .models import Servico, AgendamentoServico
 from .forms import ServicoForm, AgendamentoServicoForm
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from .models import NotificacaoAgendamento, ConfiguracaoNotificacao
+from .forms import NotificacaoAgendamentoForm, ConfiguracaoNotificacaoForm
+from django.db.models import Q
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.urls import reverse
+from django.contrib.auth.decorators import login_required
+from .models import NotificacaoAgendamento
+
+
 
 
 
@@ -23,6 +37,13 @@ class ServicoPermissionMixin(LoginRequiredMixin):
         return self.request.user.funcionario.empresa
 
 # --- CRUD DO CATÁLOGO DE SERVIÇOS ---
+
+class ServicoDashboard(ServicoPermissionMixin, ListView):
+    model = Servico
+    template_name = 'servicos/dashboard_servicos.html'
+    #context_object_name = 'servicos'
+
+
 class ServicoListView(ServicoPermissionMixin, ListView):
     model = Servico
     template_name = 'servicos/servico_list.html'
@@ -120,10 +141,69 @@ class AgendamentoDeleteView(ServicoPermissionMixin, DeleteView):
         messages.success(self.request, f"Agendamento para '{self.object.cliente.nome_completo}' eliminado com sucesso.")
         return super().form_valid(form)
 
-# Adicione aqui as views IniciarServicoView e FinalizarServicoView se precisar delas
-# ...
 
-# Em apps/servicos/views.py
+
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.db.models import Q
+from .models import AgendamentoServico
+
+@login_required
+@require_http_methods(["GET"])
+def buscar_agendamento_api(request):
+    """
+    API para buscar agendamentos.
+    Suporta filtragem por cliente, serviço ou funcionário.
+    """
+    try:
+        query = request.GET.get('q', '').strip()
+        status = request.GET.get('status', '').strip()
+
+        # Empresa do usuário
+        if hasattr(request.user, 'funcionario') and request.user.funcionario:
+            empresa = request.user.funcionario.empresa
+        else:
+            return JsonResponse({'success': False, 'message': 'Empresa não encontrada'}, status=400)
+
+        # Query base
+        agendamentos = AgendamentoServico.objects.filter(
+            empresa=empresa
+        ).select_related('cliente', 'servico', 'funcionario')
+
+        # Filtrar por status
+        if status:
+            agendamentos = agendamentos.filter(status=status)
+
+        # Filtrar por pesquisa (cliente, serviço, funcionário)
+        if query:
+            agendamentos = agendamentos.filter(
+                Q(cliente__nome_completo__icontains=query) |
+                Q(servico__nome__icontains=query) |
+                Q(funcionario__nome_completo__icontains=query)
+            )
+
+        # Limitar resultados para performance
+        agendamentos = agendamentos[:100]
+
+        agendamentos_data = [
+            {
+                'id': a.id,
+                'data_hora': a.data_hora.isoformat(),
+                'servico': a.servico.nome if a.servico else '',
+                'cliente': a.cliente.nome_completo if a.cliente else '',
+                'funcionario': a.funcionario.nome_completo if a.funcionario else '',
+                'status': getattr(a, 'status', ''),
+            }
+            for a in agendamentos
+        ]
+
+        return JsonResponse({'success': True, 'agendamentos': agendamentos_data, 'total_encontrados': len(agendamentos_data)})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Erro interno: {str(e)}'}, status=500)
+
+
 
 from django.views.generic import View, DetailView
 from django.shortcuts import get_object_or_404, redirect
@@ -132,9 +212,6 @@ from django.core.exceptions import ValidationError
 from .models import Servico, AgendamentoServico
 from .forms import FinalizarServicoForm
 
-# ... (suas outras views CRUD) ...
-
-# --- VIEW DE DETALHES (ONDE FICAM OS BOTÕES) ---
 
 class AgendamentoDetailView(ServicoPermissionMixin, DetailView):
     model = AgendamentoServico
@@ -257,4 +334,195 @@ def listar_servicos_api(request):
             'message': f'Erro interno: {str(e)}'
         }, status=500)
     
+
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.db.models import Q
+from .models import Servico
+
+@login_required
+@require_http_methods(["GET"])
+def buscar_servicos_api(request):
+    """
+    API para buscar serviços da empresa do usuário.
+    Suporta filtragem por categoria e pesquisa por nome.
+    """
+    try:
+        busca = request.GET.get('q', '').strip()
+        categoria_id = request.GET.get('categoria', '').strip()
+
+        # Buscar serviços da empresa do usuário
+        if hasattr(request.user, 'funcionario') and request.user.funcionario:
+            empresa = request.user.funcionario.empresa
+        else:
+            return JsonResponse({'success': False, 'message': 'Empresa não encontrada'}, status=400)
+
+        # Query base
+        servicos = Servico.objects.filter(
+            empresa=empresa,
+            ativo=True
+        ).select_related('categoria')
+
+        # Filtrar por categoria se especificado
+        if categoria_id and categoria_id != 'todos':
+            servicos = servicos.filter(categoria_id=categoria_id)
+
+        # Filtrar por busca se especificado
+        if busca:
+            servicos = servicos.filter(nome__icontains=busca)
+
+        # Limitar resultados
+        servicos = servicos[:100]
+
+        servicos_data = [
+            {
+                'id': s.id,
+                'nome': s.nome,
+                'categoria': s.categoria.nome if s.categoria else '',
+                'categoria_id': s.categoria.id if s.categoria else None,
+                'preco_padrao': float(s.preco_padrao),
+                'desconto_percentual': float(s.desconto_percentual),
+                'iva_percentual': float(getattr(s, 'iva_percentual', 0)),
+            }
+            for s in servicos
+        ]
+
+        return JsonResponse({'success': True, 'servicos': servicos_data, 'total_encontrados': len(servicos_data)})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Erro interno: {str(e)}'}, status=500)
+
+
+
+
+# -----------------------
+# Notificações CRUD
+# -----------------------
+from django.shortcuts import render, get_object_or_404, redirect
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_http_methods
+from .models import NotificacaoAgendamento, ConfiguracaoNotificacao
+from .forms import NotificacaoAgendamentoForm, ConfiguracaoNotificacaoForm
+from django.db.models import Q
+
+
+# ------------------------------
+# Notificação de Agendamento
+# ------------------------------
+
+@login_required
+def notificacao_list(request):
+    """Listagem inicial de notificações (com busca AJAX)"""
+    return render(request, 'servicos/notificacao_list.html')
+
+
+@login_required
+def notificacao_create(request):
+    """Criar nova notificação"""
+    if request.method == 'POST':
+        form = NotificacaoAgendamentoForm(request.POST)
+        if form.is_valid():
+            notif = form.save(commit=False)
+            if hasattr(request.user, 'funcionario') and request.user.funcionario:
+                notif.empresa = request.user.funcionario.empresa
+            notif.save()
+            return redirect('servicos:notificacao_list')
+    else:
+        form = NotificacaoAgendamentoForm()
+    return render(request, 'servicos/notificacao_form.html', {'form': form})
+
+
+@login_required
+def notificacao_update(request, pk):
+    """Editar notificação existente"""
+    notif = get_object_or_404(NotificacaoAgendamento, pk=pk)
+    if request.method == 'POST':
+        form = NotificacaoAgendamentoForm(request.POST, instance=notif)
+        if form.is_valid():
+            form.save()
+            return redirect('servicos:notificacao_list')
+    else:
+        form = NotificacaoAgendamentoForm(instance=notif)
+    return render(request, 'servicos/notificacao_form.html', {'form': form})
+
+
+@login_required
+def notificacao_delete(request, pk):
+    notificacao = get_object_or_404(NotificacaoAgendamento, pk=pk, empresa=request.user.funcionario.empresa)
     
+    if request.method == "POST":
+        notificacao.delete()
+        messages.success(request, "Notificação deletada com sucesso.")
+        return redirect(reverse("servicos:notificacao_list"))
+    
+    # Se quiser uma página de confirmação
+    return render(request, "servicos/notificacao_confirm_delete.html", {"notificacao": notificacao})
+
+
+@login_required
+@require_http_methods(["GET"])
+def buscar_notificacao_api(request):
+    """Busca AJAX para notificações"""
+    busca = request.GET.get('q', '').strip()
+    status_filter = request.GET.get('status', '').strip()
+
+    if hasattr(request.user, 'funcionario') and request.user.funcionario:
+        empresa = request.user.funcionario.empresa
+    else:
+        return JsonResponse({'success': False, 'message': 'Empresa não encontrada'}, status=400)
+
+    queryset = NotificacaoAgendamento.objects.filter(empresa=empresa)
+
+    if busca:
+        queryset = queryset.filter(
+            Q(titulo__icontains=busca) |
+            Q(cliente__nome_completo__icontains=busca) |
+            Q(mensagem__icontains=busca)
+        )
+
+    if status_filter:
+        queryset = queryset.filter(status=status_filter)
+
+    queryset = queryset.select_related('cliente', 'agendamento')[:50]
+
+    data = []
+    for n in queryset:
+        data.append({
+            'id': n.id,
+            'titulo': n.titulo,
+            'cliente': n.cliente.nome_completo,
+            'tipo_notificacao': n.get_tipo_notificacao_display(),
+            'status': n.get_status_display(),
+            'data_agendada_envio': n.data_agendada_envio.strftime("%d/%m/%Y %H:%M"),
+        })
+
+    return JsonResponse({'success': True, 'servicos': data, 'total': len(data)})
+
+
+# ------------------------------
+# Configuração de Notificações
+# ------------------------------
+
+@login_required
+def configuracao_notificacao_update(request):
+    """Criar ou editar configuração da empresa"""
+    if hasattr(request.user, 'funcionario') and request.user.funcionario:
+        empresa = request.user.funcionario.empresa
+    else:
+        return redirect('home')  # ou página de erro
+
+    config, _ = ConfiguracaoNotificacao.objects.get_or_create(empresa=empresa)
+
+    if request.method == 'POST':
+        form = ConfiguracaoNotificacaoForm(request.POST, instance=config)
+        if form.is_valid():
+            form.save()
+            return redirect('servicos:configuracao_update')
+    else:
+        form = ConfiguracaoNotificacaoForm(instance=config)
+
+    return render(request, 'servicos/configuracao_form.html', {'form': form})
+
+

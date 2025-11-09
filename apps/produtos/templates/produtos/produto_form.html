@@ -98,6 +98,10 @@
                         <div class="flex h-6 items-center">{{ form.iva_percentual }}</div>
                         <div class="ml-3 text-sm leading-6">{{ form.iva_percentual.label_tag }}</div>
                     </div>
+                    <div class="flex items-center space-x-2">
+                        {{ form.taxa_iva }}
+                        <a href="{% url 'fiscal:taxas-iva-create' %}" class="btn btn-sm btn-outline-primary">+ Nova Taxa</a>
+                    </div>
                 </div>
                 <div class="md:col-span-3">
                     <div class="relative flex items-start">

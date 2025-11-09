@@ -1820,10 +1820,6 @@ def finalizar_venda_api(request):
         return JsonResponse({'success': False, 'message': 'Utilizador não autenticado.'}, status=401)
 
     try:
-        funcionario = request.user.funcionario
-        if not funcionario.pode_realizar_acao('vender'):
-            # Permissão de cargo negada!
-            return JsonResponse({'success': False, 'message': 'O seu cargo não permite finalizar vendas.'}, status=403)
         
         data = json.loads(request.body)
         

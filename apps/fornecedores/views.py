@@ -266,11 +266,6 @@ class PedidoCompraViewSet(viewsets.ModelViewSet):
         
         return Response(stats)
 
-# apps/fornecedores/views.py
-
-
-
-# Seu arquivo 'fornecedores/views.py'
 
 from django.views.generic import (
     ListView, 
@@ -300,7 +295,8 @@ class BaseFornecedorMixin(LoginRequiredMixin):
         return self.model.objects.filter(empresa=self.request.user.empresa)
 
 
-class FornecedorListView(EmpresaQuerysetMixin, ListView):
+class FornecedorListView(EmpresaQuerysetMixin, PermissaoAcaoMixin, ListView):
+    acao_requerida = 'acessar_fornecedores'
     model = Fornecedor
     paginate_by = 25
     template_name = 'fornecedores/fornecedor_list.html'
@@ -349,7 +345,8 @@ class FornecedorUpdateView(EmpresaQuerysetMixin, UpdateView):
     success_url = '/fornecedores/'  # ou reverse_lazy('fornecedores:list')
    
 
-class FornecedorDeleteView(EmpresaQuerysetMixin, DeleteView):
+class FornecedorDeleteView(EmpresaQuerysetMixin, PermissaoAcaoMixin, DeleteView):
+    acao_requerida = 'acessar_fornecedores'
     
     template_name = 'fornecedores/fornecedor_confirm_delete.html'
     success_url = SUCCESS_URL

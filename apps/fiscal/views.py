@@ -830,7 +830,7 @@ class TaxaIVADetailView(LoginRequiredMixin, DetailView):
 # ===============================
 # CRIAÇÃO
 # ===============================
-class TaxaIVACreateView(LoginRequiredMixin, CreateView):
+class TaxaIVACreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
     acao_requerida = 'criar_taxas_iva'
     """
     Criação de nova taxa de IVA.
