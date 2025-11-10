@@ -224,7 +224,7 @@ class HistoricoPreco(models.Model):
 
 class AlertaProdutoExpiracao(TimeStampedModel):
     """Alerta para produtos com lote prestes a vencer"""
-    lote = models.ForeignKey("Lote", on_delete=models.CASCADE, related_name="alertas_expiracao")
+    lote = models.ForeignKey('produtos.Lote', on_delete=models.CASCADE, related_name="alertas_expiracao")
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
     dias_alerta = models.IntegerField(default=30)
     enviado = models.BooleanField(default=False)  # se já geramos a notificação

@@ -87,8 +87,6 @@ class FormaPagamento(models.Model):
     def __str__(self):
         return self.nome
 
-
-
 class Venda(TimeStampedModel):
     """Venda realizada"""
     TIPO_VENDA_CHOICES = [
@@ -100,9 +98,9 @@ class Venda(TimeStampedModel):
     
     empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='vendas')
     loja = models.ForeignKey('core.Loja', on_delete=models.SET_NULL, null=True, blank=True)
-    cliente = models.ForeignKey('clientes.Cliente', on_delete=models.SET_NULL, null=True, blank=True)
+    cliente = models.ForeignKey('clientes.Cliente', on_delete=models.SET_NULL, null=True, blank=True, related_name='vendas')
     vendedor = models.ForeignKey('funcionarios.Funcionario', on_delete=models.SET_NULL, null=True, blank=True, related_name='vendas')
-    forma_pagamento = models.ForeignKey('vendas.FormaPagamento', on_delete=models.PROTECT, default=1)
+    forma_pagamento = models.ForeignKey(FormaPagamento, on_delete=models.PROTECT, default=1)
     
     iva_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Valor do IVA")
     
@@ -194,8 +192,6 @@ class Venda(TimeStampedModel):
     def quantidade_itens(self):
         return self.itens.count()
     quantidade_itens.short_description = 'Qtd Itens'
-
-
 
 class ItemVenda(TimeStampedModel):
     """Item da venda"""
@@ -318,7 +314,6 @@ class ItemVenda(TimeStampedModel):
             return "servico"
         return "indefinido"
 
-
 class PagamentoVenda(models.Model):
     STATUS_CHOICES = [
         ('pendente', 'Pendente'),
@@ -330,7 +325,7 @@ class PagamentoVenda(models.Model):
     ]
 
     venda = models.ForeignKey(Venda, on_delete=models.CASCADE, related_name='pagamentos')
-    forma_pagamento = models.ForeignKey('FormaPagamento', on_delete=models.PROTECT)
+    forma_pagamento = models.ForeignKey(FormaPagamento, on_delete=models.PROTECT)
     observacoes = models.CharField(max_length=255, blank=True, null=True)
     nsu = models.CharField(max_length=100, blank=True)
 
@@ -1119,8 +1114,6 @@ def verificar_meta_vencida(sender, instance, **kwargs):
         instance.save(update_fields=['status'])    
 
 
-
-
 class FaturaCredito(TimeStampedModel):
     """Fatura de Crédito (FT) - Documento de venda a crédito"""
     TIPO_FATURA_CHOICES = [
@@ -1226,7 +1219,6 @@ class FaturaCredito(TimeStampedModel):
         return self.total - self.valor_pago
 
 
-
 class Recibo(TimeStampedModel):
     """Recibo (REC) - Documento de quitação de pagamento"""
     TIPO_RECIBO_CHOICES = [
@@ -1323,7 +1315,6 @@ class Recibo(TimeStampedModel):
     
     def quantidade_itens(self):
         return self.itens.count()
-
 
 
 class ItemFatura(models.Model):
@@ -1556,8 +1547,6 @@ class ItemProforma(models.Model):
         # Opcional: Recalcular e salvar os totais da FaturaProforma após salvar o item
         self.proforma.calcular_totais()
 
-
-
 class NotaCredito(TimeStampedModel):
     """Nota de Crédito (NC) - Documento que reduz o valor de uma fatura"""
     TIPO_NOTA_CHOICES = [
@@ -1703,7 +1692,6 @@ class NotaCredito(TimeStampedModel):
             return self.fatura_credito_origem.numero_fatura
         return "N/A"
 
-
 class ItemNotaCredito(TimeStampedModel):
     """Itens específicos da Nota de Crédito"""
     nota_credito = models.ForeignKey(NotaCredito, on_delete=models.CASCADE, related_name='itens')
@@ -1754,8 +1742,6 @@ class ItemNotaCredito(TimeStampedModel):
 
     def __str__(self):
         return f"{self.descricao_item} - Qtd: {self.quantidade_creditada}"
-
-
 
 class NotaDebito(TimeStampedModel):
     """Nota de Débito (ND) - Documento que aumenta o valor de uma fatura"""
@@ -1917,8 +1903,6 @@ class NotaDebito(TimeStampedModel):
     def esta_paga(self):
         """Verifica se a nota de débito está totalmente paga"""
         return self.valor_pendente <= Decimal('0.00')
-
-
 
 class ItemNotaDebito(TimeStampedModel):
     """Itens específicos da Nota de Débito"""
@@ -2248,8 +2232,6 @@ class DocumentoTransporte(TimeStampedModel):
         self.status = 'em_transito'
         self.data_inicio_transporte = timezone.now()
         self.save()
-
-
 
 class ItemDocumentoTransporte(TimeStampedModel):
     """Itens do Documento de Transporte"""

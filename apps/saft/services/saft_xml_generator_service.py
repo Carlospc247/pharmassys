@@ -128,3 +128,4 @@ class SaftXmlGeneratorService:
             }
         }
         return xml_data
+

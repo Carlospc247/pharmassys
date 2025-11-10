@@ -23,6 +23,50 @@ class Ponto(models.Model):
     data = models.DateField(auto_now_add=True)
 
 
+class CategoriaCliente(TimeStampedModel):
+    """Categorias de clientes"""
+    nome = models.CharField(max_length=100, unique=True)
+    descricao = models.TextField(blank=True)
+    cor = models.CharField(max_length=7, default='#6B7280', help_text="Cor em hexadecimal")
+    
+    # Benefícios da categoria
+    desconto_padrao = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=0,
+        help_text="Desconto padrão em percentual"
+    )
+    limite_credito_padrao = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0,
+        help_text="Limite de crédito padrão"
+    )
+    prazo_pagamento_dias = models.IntegerField(default=0, help_text="Prazo para pagamento em dias")
+    
+    # Critérios automáticos
+    valor_minimo_compras = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0,
+        help_text="Valor mínimo em compras para esta categoria"
+    )
+    quantidade_minima_compras = models.IntegerField(
+        default=0,
+        help_text="Quantidade mínima de compras para esta categoria"
+    )
+    
+    ativa = models.BooleanField(default=True)
+    
+    class Meta:
+        verbose_name = "Categoria de Cliente"
+        verbose_name_plural = "Categorias de Clientes"
+        ordering = ['nome']
+    
+    def __str__(self):
+        return self.nome
+
+
 class Cliente(TimeStampedModel):
     TIPO_CLIENTE_CHOICES = [
         ('pessoa_fisica', 'Pessoa Física'),
@@ -79,12 +123,7 @@ class Cliente(TimeStampedModel):
         default=0,
         help_text="Desconto padrão em percentual"
     )
-    forma_pagamento_preferida = models.ForeignKey(
-        'vendas.FormaPagamento', 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True
-    )
+    forma_pagamento_preferida_id = models.IntegerField(null=True, blank=True, help_text="ID da forma de pagamento preferida")
     
     # Status e classificação
     ativo = models.BooleanField(default=True)
@@ -92,7 +131,7 @@ class Cliente(TimeStampedModel):
     motivo_bloqueio = models.TextField(blank=True)
     vip = models.BooleanField(default=False, help_text="Cliente VIP")
     categoria_cliente = models.ForeignKey(
-        'CategoriaCliente', 
+        CategoriaCliente, 
         on_delete=models.SET_NULL, 
         null=True, 
         blank=True
@@ -255,49 +294,6 @@ class Cliente(TimeStampedModel):
 
         return self.limite_credito - total_em_aberto
 
-
-class CategoriaCliente(TimeStampedModel):
-    """Categorias de clientes"""
-    nome = models.CharField(max_length=100, unique=True)
-    descricao = models.TextField(blank=True)
-    cor = models.CharField(max_length=7, default='#6B7280', help_text="Cor em hexadecimal")
-    
-    # Benefícios da categoria
-    desconto_padrao = models.DecimalField(
-        max_digits=5, 
-        decimal_places=2, 
-        default=0,
-        help_text="Desconto padrão em percentual"
-    )
-    limite_credito_padrao = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        default=0,
-        help_text="Limite de crédito padrão"
-    )
-    prazo_pagamento_dias = models.IntegerField(default=0, help_text="Prazo para pagamento em dias")
-    
-    # Critérios automáticos
-    valor_minimo_compras = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        default=0,
-        help_text="Valor mínimo em compras para esta categoria"
-    )
-    quantidade_minima_compras = models.IntegerField(
-        default=0,
-        help_text="Quantidade mínima de compras para esta categoria"
-    )
-    
-    ativa = models.BooleanField(default=True)
-    
-    class Meta:
-        verbose_name = "Categoria de Cliente"
-        verbose_name_plural = "Categorias de Clientes"
-        ordering = ['nome']
-    
-    def __str__(self):
-        return self.nome
 
 class EnderecoCliente(TimeStampedModel):
     """Endereços adicionais do cliente"""

@@ -1,10 +1,7 @@
 # apps/fiscal/models.py
 from django.db import models
 from decimal import Decimal
-from apps.core.models import Empresa, TimeStampedModel
-from apps.core.models import TimeStampedModel, Empresa
-from apps.financeiro.models import ContaPagar # Para rastrear o pagamento que gerou a retenção
-from apps.fornecedores.models import Fornecedor
+from apps.core.models import TimeStampedModel
 from apps.core.choices import TIPO_RETENCAO_CHOICES
 from decimal import Decimal
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -41,7 +38,7 @@ class TaxaIVAAGT(TimeStampedModel):
 
     # Vínculo com a empresa para personalização, embora as taxas sejam tipicamente globais.
     empresa = models.ForeignKey(
-        Empresa, 
+        'core.Empresa', 
         on_delete=models.CASCADE, 
         related_name='taxas_iva'
     )
@@ -90,7 +87,7 @@ class AssinaturaDigital(TimeStampedModel):
     utilizada para assinar documentos e garantir a cadeia de integridade.
     """
     empresa = models.OneToOneField(
-        Empresa, 
+        'core.Empresa', 
         on_delete=models.CASCADE, 
         related_name='assinatura_fiscal'
     )
@@ -156,14 +153,14 @@ class RetencaoFonte(TimeStampedModel):
     
     # Rastreamento Contábil
     conta_pagar = models.ForeignKey(
-        ContaPagar, 
+        'financeiro.ContaPagar', 
         on_delete=models.PROTECT, 
         null=True, 
         blank=True,
         help_text="Conta a pagar que gerou esta retenção"
     )
     fornecedor = models.ForeignKey(
-        Fornecedor, 
+        'fornecedores.Fornecedor', 
         on_delete=models.PROTECT, 
         help_text="Fornecedor/Prestador de serviço a quem foi efetuada a retenção"
     )
@@ -171,7 +168,7 @@ class RetencaoFonte(TimeStampedModel):
     # Controle
     paga_ao_estado = models.BooleanField(default=False, help_text="Indica se o valor retido já foi pago ao Estado")
     
-    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
+    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE)
 
     class Meta:
         verbose_name = "Retenção na Fonte"
@@ -264,7 +261,7 @@ class DocumentoFiscal(TimeStampedModel):
     # ==========================================
     
     empresa = models.ForeignKey(
-        Empresa,
+        'core.Empresa',
         on_delete=models.CASCADE,
         related_name='documentos_fiscais'
     )
@@ -336,7 +333,7 @@ class DocumentoFiscal(TimeStampedModel):
     # ==========================================
     
     cliente = models.ForeignKey(
-        Cliente,
+        'clientes.Cliente',
         on_delete=models.PROTECT,
         related_name='documentos_fiscais',
         blank=True,
@@ -1050,7 +1047,7 @@ class SAFTExport(TimeStampedModel):
     ]
 
     empresa = models.ForeignKey(
-        Empresa,
+        'core.Empresa',
         on_delete=models.CASCADE,
         related_name='saft_exports',
         verbose_name="Empresa"

@@ -1,7 +1,7 @@
 import os
 from django.db import models
 from django.core.validators import RegexValidator
-from apps.core.models import TimeStampedModel, Empresa, Usuario, Loja
+from apps.core.models import TimeStampedModel
 from datetime import date
 
 # ==============================================================================
@@ -10,7 +10,7 @@ from datetime import date
 
 class ConfiguracaoFiscal(TimeStampedModel):
     
-    empresa = models.OneToOneField(Empresa, on_delete=models.CASCADE, related_name='config_fiscal', help_text="Ex: Farmácia Neway LDA")
+    empresa = models.OneToOneField('core.Empresa', on_delete=models.CASCADE, related_name='config_fiscal', help_text="Ex: Farmácia Neway LDA")
     
     # Dados da empresa para documentos fiscais
     razao_social = models.CharField(max_length=255)
@@ -72,7 +72,7 @@ class BackupConfiguracao(TimeStampedModel):
     """
     Configurações de backup do sistema para cada empresa. Essencial para a segurança dos dados.
     """
-    empresa = models.OneToOneField(Empresa, on_delete=models.CASCADE, related_name='config_backup')
+    empresa = models.OneToOneField('core.Empresa', on_delete=models.CASCADE, related_name='config_backup')
     
     # Configurações de backup
     backup_automatico = models.BooleanField("Ativar Backup Automático", default=True)
@@ -112,8 +112,8 @@ class BackupConfiguracao(TimeStampedModel):
 
 class PersonalizacaoInterface(TimeStampedModel):
     
-    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, null=True, blank=True)
-    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, null=True, blank=True)
+    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, null=True, blank=True)
+    usuario = models.ForeignKey('core.Usuario', on_delete=models.CASCADE, null=True, blank=True)
     
     # Tema e cores
     tema = models.CharField(max_length=20, choices=[
@@ -158,7 +158,7 @@ class HistoricoBackup(TimeStampedModel):
         ('erro', 'Erro'),
     ]
 
-    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='historico_backups')
+    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='historico_backups')
     
     tipo = models.CharField("Tipo de Backup", max_length=15, choices=TIPO_CHOICES)
     status = models.CharField("Status", max_length=15, choices=STATUS_CHOICES, default='processando')
@@ -170,7 +170,7 @@ class HistoricoBackup(TimeStampedModel):
     tamanho_ficheiro = models.BigIntegerField("Tamanho (bytes)", default=0)
     
     solicitado_por = models.ForeignKey(
-        Usuario, 
+        'core.Usuario', 
         on_delete=models.SET_NULL, 
         null=True, 
         blank=True,
