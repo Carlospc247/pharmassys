@@ -76,6 +76,8 @@ class Cargo(TimeStampedModel):
     vale_transporte = models.DecimalField(max_digits=8, decimal_places=2, default=0)
 
     # 💼 Permissões de negócios
+    selecionar_todos = models.BooleanField(default=False, verbose_name="Selecionar todas as permissões")
+
     pode_estornar_pagamento = models.BooleanField(default=False)
     pode_pagar_salario = models.BooleanField(default=True)
 

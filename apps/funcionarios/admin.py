@@ -41,6 +41,10 @@ class CargoAdmin(admin.ModelAdmin):
         ('Remuneração', {
             'fields': ('salario_base', 'vale_alimentacao', 'vale_transporte', "pode_pagar_salario")
         }),
+        ('Permissões gerais', {
+            'fields': ('selecionar_todos',),
+            'description': "Marque para selecionar ou desmarcar todas as permissões abaixo."
+        }),
         ('Permissões de Vendas', {
             'fields': ('pode_vender', 'pode_fazer_desconto', 'limite_desconto_percentual',
                     'pode_cancelar_venda', 'pode_fazer_devolucao', 'pode_alterar_preco')

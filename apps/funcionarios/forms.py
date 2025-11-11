@@ -141,6 +141,12 @@ class AvaliacaoDesempenhoForm(forms.ModelForm):
 
 
 class CargoForm(forms.ModelForm):
+    selecionar_todos = forms.BooleanField(
+        required=False,
+        label="Selecionar todas permissões",
+        help_text="Marca ou desmarca todas as permissões booleanas automaticamente"
+    )
+
     class Meta:
         model = Cargo
         fields = [
@@ -164,82 +170,66 @@ class CargoForm(forms.ModelForm):
             'vale_alimentacao': forms.NumberInput(attrs={'class': 'form-control', 'step': 0.01}),
             'vale_transporte': forms.NumberInput(attrs={'class': 'form-control', 'step': 0.01}),
             'limite_desconto_percentual': forms.NumberInput(attrs={'class': 'form-control', 'step': 0.01}),
-            # ⚡ widgets para os booleans
-            'pode_pagar_salario': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'pode_vender': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'pode_fazer_desconto': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'pode_cancelar_venda': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'pode_fazer_devolucao': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'pode_alterar_preco': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'pode_gerenciar_estoque': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'pode_fazer_compras': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'pode_aprovar_pedidos': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'pode_gerenciar_funcionarios': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'pode_editar_produtos': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'pode_emitir_faturacredito': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'pode_liquidar_faturacredito': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'pode_emitir_proforma': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'pode_aprovar_proforma': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'ativo': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            # widgets para os booleans
+            **{f: forms.CheckboxInput(attrs={'class': 'form-checkbox'}) for f in [
+                'pode_pagar_salario', 'pode_vender', 'pode_fazer_desconto',
+                'pode_cancelar_venda', 'pode_fazer_devolucao', 'pode_alterar_preco',
+                'pode_gerenciar_estoque', 'pode_fazer_compras', 'pode_aprovar_pedidos',
+                'pode_gerenciar_funcionarios', 'pode_editar_produtos', 'pode_emitir_faturacredito',
+                'pode_liquidar_faturacredito', 'pode_emitir_proforma', 'pode_aprovar_proforma',
+                'ativo'
+            ]}
         }
 
+    def get_boolean_fields(self):
+        """Retorna todos os campos booleanos exceto 'ativo'."""
+        return [f.name for f in self.instance._meta.fields if isinstance(f, models.BooleanField) and f.name != "ativo"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields['selecionar_todos'].initial = all(getattr(self.instance, f) for f in self.get_boolean_fields())
+        else:
+            self.fields['selecionar_todos'].initial = False
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        boolean_fields = self.get_boolean_fields()
+        if self.cleaned_data.get('selecionar_todos'):
+            for field in boolean_fields:
+                setattr(instance, field, True)
+        else:
+            for field in boolean_fields:
+                setattr(instance, field, False)
+        if commit:
+            instance.save()
+        return instance
 
     def clean(self):
-        """
-        Garante a coerência entre as permissões booleanas e seus limites/contextos.
-        """
         cleaned_data = super().clean()
 
         # --- Regra 1: Coerência de Desconto ---
         pode_fazer_desconto = cleaned_data.get('pode_fazer_desconto')
-        limite_desconto = cleaned_data.get('limite_desconto_percentual', Decimal('0'))
+        limite_desconto = cleaned_data.get('limite_desconto_percentual') or Decimal('0')
 
-        if limite_desconto is None:
-            limite_desconto = Decimal('0')
-        
-        # Se não pode fazer desconto, o limite deve ser zero.
         if not pode_fazer_desconto and limite_desconto > Decimal('0'):
-            # Força o valor a zero e adiciona um aviso (não impede o save)
-            self.add_error('limite_desconto_percentual', 
-                           "O limite de desconto deve ser 0% se o cargo não tiver permissão para descontar.")
-            cleaned_data['limite_desconto_percentual'] = Decimal('0') # Correção automática
-        
-        # Se pode fazer desconto, mas o limite é zero ou nulo, forçamos um erro.
+            self.add_error('limite_desconto_percentual', "O limite de desconto deve ser 0% se o cargo não tiver permissão para descontar.")
+            cleaned_data['limite_desconto_percentual'] = Decimal('0')
         elif pode_fazer_desconto and limite_desconto <= Decimal('0'):
-             raise ValidationError(
-                {'limite_desconto_percentual': "Se o cargo pode fazer desconto, o limite percentual deve ser maior que 0."},
-                code='limite_invalido'
-            )
-        
-        # --- Regra 2: Aprovação de Documentos Fiscais (Hierarquia de Poder) ---
-        pode_aprovar_proforma = cleaned_data.get('pode_aprovar_proforma')
-        pode_emitir_proforma = cleaned_data.get('pode_emitir_proforma')
-        
-        # É uma regra de negócio forte: quem aprova deve ter uma hierarquia de poder.
-        # Se puder aprovar, deve ter pelo menos a permissão de emitir ou o sistema fica incoerente.
-        if pode_aprovar_proforma and not pode_emitir_proforma:
-            raise ValidationError(
-                {'pode_aprovar_proforma': "O cargo não pode ter permissão apenas para Aprovar Proforma sem poder Emiti-la. Ajuste as permissões."},
-                code='inconsistencia_aprovacao'
-            )
+            raise ValidationError({'limite_desconto_percentual': "Se o cargo pode fazer desconto, o limite percentual deve ser maior que 0."}, code='limite_invalido')
 
-        # --- Regra 3: Permissões Críticas e Nível Hierárquico (Exemplo) ---
-        pode_pagar_salario = cleaned_data.get('pode_pagar_salario')
-        nivel_hierarquico = cleaned_data.get('nivel_hierarquico')
-        categoria = cleaned_data.get('categoria')
-        
-        # Exemplo de regra empresarial: Apenas cargos de alta gerência/RH podem pagar salário.
-        # Assumindo que Nível 5 é "baixo" (operacional) e Nível 1 é "alto" (diretoria).
-        if pode_pagar_salario and nivel_hierarquico > 3 and categoria not in ['rh', 'diretoria', 'gerencia']:
-            raise ValidationError(
-                {'pode_pagar_salario': "Somente cargos de RH, Diretoria ou Nível Hierárquico até 3 podem pagar salário."},
-                code='nivel_inadequado'
-            )
+        # --- Regra 2: Aprovação de Documentos Fiscais ---
+        if cleaned_data.get('pode_aprovar_proforma') and not cleaned_data.get('pode_emitir_proforma'):
+            raise ValidationError({'pode_aprovar_proforma': "O cargo não pode ter permissão apenas para Aprovar Proforma sem poder Emiti-la."}, code='inconsistencia_aprovacao')
+
+        # --- Regra 3: Pagamento de salário ---
+        if cleaned_data.get('pode_pagar_salario'):
+            nivel_hierarquico = cleaned_data.get('nivel_hierarquico')
+            categoria = cleaned_data.get('categoria')
+            if nivel_hierarquico > 3 and categoria not in ['rh', 'diretoria', 'gerencia']:
+                raise ValidationError({'pode_pagar_salario': "Somente cargos de RH, Diretoria ou Nível Hierárquico até 3 podem pagar salário."}, code='nivel_inadequado')
 
         return cleaned_data
-
-
-
 
 
 class DepartamentoForm(forms.ModelForm):

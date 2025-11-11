@@ -42,8 +42,7 @@ $ordem = @(
     "financeiro",
     "relatorios",
     "configuracoes",
-    "fiscal",
-    "saft"
+    "fiscal"
 )
 
 foreach ($app in $ordem) {

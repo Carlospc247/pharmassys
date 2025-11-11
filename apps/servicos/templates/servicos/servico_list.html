@@ -11,6 +11,26 @@
 {% endblock %}
 {% block content %}
 <div class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
+    
+    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+        <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow-sm sm:p-6">
+            <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">Faturação no Mês</dt>
+            <dd class="mt-1 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">AKZ {{ faturamento_mes|floatformat:2|intcomma }}</dd>
+        </div>
+        <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow-sm sm:p-6">
+            <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">Serviços no Mês</dt>
+            <dd class="mt-1 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{{ total_servicos_mes|intcomma }}</dd>
+        </div>
+        <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow-sm sm:p-6">
+            <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">Agendamentos Hoje</dt>
+            <dd class="mt-1 text-3xl font-bold tracking-tight text-blue-500">{{ servicos_hoje|intcomma }}</dd>
+        </div>
+        <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow-sm sm:p-6">
+            <dt class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">Agendamentos Pendentes</dt>
+            <dd class="mt-1 text-3xl font-bold tracking-tight text-yellow-500">{{ agendamentos_pendentes|intcomma }}</dd>
+        </div>
+    </div>
+
     <div class="mb-6">
         <label for="search" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Pesquisar Serviço</label>
         <input type="search" id="searchServico" placeholder="Nome do serviço..."
@@ -18,6 +38,37 @@
     </div>
 
     <div id="searchResultsServico" class="mt-2 space-y-2"></div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-1">
+            <div class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
+                <div class="p-6">
+                    <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-white">
+                        <i class="fas fa-calendar-day mr-2 text-blue-500"></i>
+                        Agenda de Hoje
+                    </h3>
+                    <ul role="list" class="mt-4 divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for agendamento in agenda_hoje %}
+                            <li class="py-3">
+                                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ agendamento.servico.nome }}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">
+                                    <i class="fas fa-user"></i> {{ agendamento.cliente.nome_completo }}
+                                </p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">
+                                    <i class="fas fa-clock"></i> {{ agendamento.data_agendamento|date:"H:i" }}
+                                    <span class="ml-2 inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20 dark:bg-blue-900/50 dark:text-blue-300">
+                                        {{ agendamento.get_status_display }}
+                                    </span>
+                                </p>
+                            </li>
+                        {% empty %}
+                            <li class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">Nenhum agendamento para hoje.</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>    
+    </div>
 
     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
         <thead class="bg-gray-50 dark:bg-gray-700/50">
