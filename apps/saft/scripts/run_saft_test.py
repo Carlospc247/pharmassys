@@ -68,3 +68,4 @@ def run_saft_generation_and_validation():
 
 if __name__ == '__main__':
     run_saft_generation_and_validation()
+

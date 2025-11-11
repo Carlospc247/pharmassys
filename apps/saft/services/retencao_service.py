@@ -1,7 +1,7 @@
 # apps/saft/services/retencao_service.py
 
 from typing import List, Dict
-from apps.fiscais.models import RetencaoFonte
+from apps.fiscal.models import RetencaoFonte
 from apps.core.models import Empresa 
 from datetime import datetime
 
@@ -54,3 +54,4 @@ class SaftRetencaoService:
             })
 
         return saft_entries
+

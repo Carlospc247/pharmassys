@@ -1,6 +1,4 @@
 # apps/saft/views.py
-
-
 from django.shortcuts import render
 from django.views import View
 from django.http import HttpResponse
@@ -24,21 +22,17 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from datetime import datetime, date, timedelta
 from typing import Dict, List, Optional
-
 from apps.fiscal.models import TaxaIVAAGT
 from apps.fiscal.services import SAFTExportService
-from apps.saft.models import SaftXmlGeneratorService
 from apps.core.models import Empresa
-
 from apps.fiscal.models import TaxaIVAAGT
-from apps.saft.models import SaftXmlGeneratorService
 from django.contrib.auth.mixins import AccessMixin
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.contrib import messages
-# Adicionar ao final do arquivo existente
 from django.urls import reverse
-from django.shortcuts import redirect
+from apps.saft.services.saft_xml_generator_service import SaftXmlGeneratorService
+
 
 
 

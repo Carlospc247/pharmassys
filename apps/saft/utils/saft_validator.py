@@ -60,3 +60,4 @@ class SaftValidator:
             # Outros erros
             print(f"❌ ERRO INESPERADO: {e}")
             return [str(e)]
+

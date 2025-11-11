@@ -4,6 +4,10 @@ __pycache__/
 *.pyo
 *.pyd
 
+# Configurações sensíveis
+pharmassys/settings.py
+.env
+
 # Environments
 venv/
 .env/
@@ -18,8 +22,3 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-# Variáveis de ambiente
-.env
-
-# Configs sensíveis
-*/settings.py
