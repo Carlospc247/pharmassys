@@ -62,7 +62,8 @@ class PlanoContas(TimeStampedModel):
     ativa = models.BooleanField(default=True)
     ordem = models.IntegerField(default=0, help_text="Ordem de exibição")
     
-    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='planos_contas')
+
     
     class Meta:
         verbose_name = "Plano de Contas"

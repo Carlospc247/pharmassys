@@ -83,7 +83,7 @@ class VendaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Venda
         fields = '__all__'
-        read_only_fields = ['numero_venda', 'created_at', 'updated_at', 'subtotal_sem_iva', 'iva_valor', 'total']
+        read_only_fields = ['numero_documento', 'created_at', 'updated_at', 'subtotal_sem_iva', 'iva_valor', 'total']
     
     def validate(self, data):
         """Validações de negócio e pré-cálculo dos totais da fatura."""
@@ -114,7 +114,7 @@ class VendaSerializer(serializers.ModelSerializer):
         itens_data = validated_data.pop('itens')
 
         # 1. Criação da Venda (Status: Pendente ou Preparação)
-        # Salvamos inicialmente sem o hash/numero_venda para entrar na lógica do service
+        # Salvamos inicialmente sem o hash/numero_documento para entrar na lógica do service
         venda = Venda.objects.create(**validated_data)
         
         # 2. Criação das Linhas da Venda
@@ -137,7 +137,7 @@ class VendaSerializer(serializers.ModelSerializer):
 
         # 3. Assinatura e Finalização (Chamada Crítica ao Service Fiscal)
         try:
-            # O service irá gerar numero_venda, hash_documento e atcud
+            # O service irá gerar numero_documento, hash_documento e atcud
             venda.status = 'finalizada'
             venda.assinar_e_finalizar() 
             
@@ -149,7 +149,7 @@ class VendaSerializer(serializers.ModelSerializer):
         return venda
 
 class DevolucaoSerializer(serializers.ModelSerializer):
-    venda_numero = serializers.CharField(source='venda.numero_venda', read_only=True)
+    venda_numero = serializers.CharField(source='venda.numero_documento', read_only=True)
     
     class Meta:
         model = DevolucaoVenda

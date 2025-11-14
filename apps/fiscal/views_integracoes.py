@@ -79,10 +79,10 @@ def integracao_agt_validar(request):
 
     try:
         data = json.loads(request.body.decode('utf-8'))
-        numero_fatura = data.get('numero_fatura')
+        numero_documento = data.get('numero_documento')
         nif_cliente = data.get('nif_cliente')
 
-        logger.info(f"Validando fatura AGT: Nº {numero_fatura} | NIF {nif_cliente}")
+        logger.info(f"Validando fatura AGT: Nº {numero_documento} | NIF {nif_cliente}")
 
         # Aqui podes chamar a API real da AGT, se tiveres integração
         # resposta = requests.post("https://api.agt.gov.ao/validar", json=data)
@@ -90,7 +90,7 @@ def integracao_agt_validar(request):
 
         # Simulação de resposta
         return JsonResponse({
-            "numero_fatura": numero_fatura,
+            "numero_documento": numero_documento,
             "nif_cliente": nif_cliente,
             "status": "válido",
             "mensagem": "Documento validado com sucesso pela AGT."

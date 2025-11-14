@@ -36,7 +36,7 @@ class GeradorDocumentos:
         # Número da fatura
         p.setFont("Helvetica-Bold", 12)
         p.setFillColor(black)
-        p.drawString(15*cm, y, f"Nº {venda.numero_venda or venda.id:06d}")
+        p.drawString(15*cm, y, f"Nº {venda.numero_documento or venda.id:06d}")
         
         # Dados do cliente
         y -= 1.5*cm
@@ -83,7 +83,7 @@ class GeradorDocumentos:
         # Número
         p.setFont("Helvetica-Bold", 14)
         p.setFillColor(black)
-        p.drawString(15*cm, y, f"Nº {venda.numero_venda or venda.id:06d}")
+        p.drawString(15*cm, y, f"Nº {venda.numero_documento or venda.id:06d}")
         
         # Valor em destaque
         y -= 2*cm
@@ -164,7 +164,7 @@ class GeradorDocumentos:
         # Dados
         p.setFont("Helvetica", 10)
         y = 9*cm
-        p.drawString(0.5*cm, y, f"Venda: {venda.numero_venda or venda.id:06d}")
+        p.drawString(0.5*cm, y, f"Venda: {venda.numero_documento or venda.id:06d}")
         y -= 0.5*cm
         p.drawString(0.5*cm, y, f"Data: {venda.data_venda.strftime('%d/%m/%Y %H:%M')}")
         y -= 0.5*cm
@@ -306,7 +306,7 @@ class GeradorDocumentos:
         """Adiciona QR Code ao documento"""
         try:
             # Dados para o QR Code
-            qr_data = f"venda:{venda.id}:{venda.numero_venda or 'SN'}:{float(venda.total or 0):.2f}"
+            qr_data = f"venda:{venda.id}:{venda.numero_documento or 'SN'}:{float(venda.total or 0):.2f}"
             
             # Gerar QR Code
             qr = qrcode.QRCode(version=1, box_size=3, border=1)
@@ -402,353 +402,6 @@ class GeradorDocumentos:
 import qrcode
 import base64
 from io import BytesIO
-"""
-def gerar_qr_fatura(fatura, request=None):
-    
-    usuario = getattr(request.user, 'get_full_name', lambda: None)() if request else "Sistema"
-    cliente = getattr(fatura.cliente, 'nome', 'Consumidor Final')
-    data_emissao = getattr(fatura, 'data_emissao', None)
-    tipo_documento = getattr(fatura, 'tipo_venda', 'Documento')
-    numero = getattr(fatura, 'numero', getattr(fatura, 'numero_proforma', 'N/A'))
-    status = getattr(fatura, 'status', 'N/A')
-    nome_empresa = getattr(fatura.empresa, 'razao_social', getattr(fatura.empresa, 'nome_fantasia', 'Empresa'))
-    site_empresa = getattr(fatura.empresa, 'site', 'https://vistogest.com')
-
-    dados_qr = (
-        f"Empresa: {nome_empresa}\n"
-        f"Data Emissão: {data_emissao.strftime('%d/%m/%Y %H:%M') if data_emissao else 'N/A'}\n"
-        f"Utilizador: {usuario}\n"
-        f"Número/Tipo: {numero} / {tipo_documento}\n"
-        f"Status: {status}\n"
-        f"Cliente: {cliente}\n"
-        f"Site: {site_empresa}"
-    )
-
-    # Gerar QR Code
-    qr = qrcode.QRCode(
-        version=1,
-        box_size=4,
-        border=2
-    )
-    qr.add_data(dados_qr)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-
-    # Converter para base64 para embutir no HTML
-    buffer = BytesIO()
-    img.save(buffer, format="PNG")
-    img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
-    return f"data:image/png;base64,{img_base64}"
-
-"""
-
-
-
-"""
-
-def gerar_qr_fatura(fatura, request=None):
-    
-    usuario = getattr(request.user, 'get_full_name', lambda: None)() if request else "Sistema"
-    cliente = getattr(fatura.cliente, 'nome', 'Consumidor Final')
-    data_emissao = getattr(fatura, 'data_emissao', None)
-    tipo_documento = getattr(fatura, 'tipo_venda', 'Documento')
-    numero = getattr(fatura, 'numero', getattr(fatura, 'numero_proforma', 'N/A'))
-    status = getattr(fatura, 'status', 'N/A')
-    nome_empresa = getattr(fatura.empresa, 'razao_social', getattr(fatura.empresa, 'nome_fantasia', 'Empresa'))
-    site_empresa = getattr(fatura.empresa, 'site', 'https://vistogest.com')
-    total_fatura = getattr(fatura, 'total', 0)  # Obter total da fatura
-
-    # Formatar dados do QR de acordo com o tipo de documento
-    dados_qr = (
-        f"Tipo de Documento: {tipo_documento}\n"
-        f"Empresa: {nome_empresa}\n"
-        f"Data Emissão: {data_emissao.strftime('%d/%m/%Y %H:%M') if data_emissao else 'N/A'}\n"
-        f"Utilizador: {usuario}\n"
-        f"Número: {numero}\n"
-        f"Status: {status}\n"
-        f"Cliente: {cliente}\n"
-        f"Total: {total_fatura:.2f} Kz\n"
-        f"Site: {site_empresa}\n"
-    )
-
-    # Adicionar informações específicas para cada tipo de documento, se necessário
-    if 'Recibo' in tipo_documento:
-        forma_pagamento = getattr(fatura, 'forma_pagamento', 'N/A')
-        dados_qr += f"Forma de Pagamento: {forma_pagamento}\n"
-
-    if 'Crédito' in tipo_documento or 'Proforma' in tipo_documento:
-        data_vencimento = getattr(fatura, 'data_vencimento', None)
-        dados_qr += (
-            f"Data Vencimento: {data_vencimento.strftime('%d/%m/%Y') if data_vencimento else 'N/A'}\n"
-        )
-
-    # Gerar QR Code
-    qr = qrcode.QRCode(
-        version=1,
-        box_size=4,
-        border=2
-    )
-    qr.add_data(dados_qr)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-
-    # Converter para base64 para embutir no HTML
-    buffer = BytesIO()
-    img.save(buffer, format="PNG")
-    img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
-    return f"data:image/png;base64,{img_base64}"
-
-
-"""
-
-"""
-def gerar_qr_fatura(fatura, request=None):
-    
-    usuario = getattr(request.user, 'get_full_name', lambda: None)() if request else "Sistema"
-    cliente_nome = getattr(fatura.cliente, 'nome', 'Consumidor Final')
-    data_emissao = getattr(fatura, 'data_emissao', None)
-    tipo_documento = getattr(fatura, 'tipo_venda', 'Documento')
-    numero = getattr(fatura, 'numero', getattr(fatura, 'numero_proforma', 'N/A'))
-    status = getattr(fatura, 'status', 'N/A')
-    nome_empresa = getattr(fatura.empresa, 'razao_social', getattr(fatura.empresa, 'nome_fantasia', 'Empresa'))
-    site_empresa = getattr(fatura.empresa, 'site', 'https://vistogest.com')
-    total_fatura = getattr(fatura, 'total', 0)  # Obter total da fatura
-
-    # Formatar dados do QR de acordo com o tipo de documento
-    dados_qr = (
-        f"Tipo de Documento: {tipo_documento}\n"
-        f"Empresa: {nome_empresa}\n"
-        f"Data Emissão: {data_emissao.strftime('%d/%m/%Y %H:%M') if data_emissao else 'N/A'}\n"
-        f"Utilizador: {usuario}\n"
-        f"Número: {numero}\n"
-        f"Status: {status}\n"
-        f"Cliente: {cliente_nome}\n"  # Corrigido para 'cliente_nome'
-        f"Total: {total_fatura:.2f} Kz\n"
-        f"Site: {site_empresa}\n"
-    )
-
-    # Adicionar informações específicas para cada tipo de documento, se necessário
-    if 'Recibo' in tipo_documento:
-        forma_pagamento = getattr(fatura, 'forma_pagamento', 'N/A')
-        dados_qr += f"Forma de Pagamento: {forma_pagamento}\n"
-
-    if 'Crédito' in tipo_documento or 'Proforma' in tipo_documento:
-        data_vencimento = getattr(fatura, 'data_vencimento', None)
-        dados_qr += (
-            f"Data Vencimento: {data_vencimento.strftime('%d/%m/%Y') if data_vencimento else 'N/A'}\n"
-        )
-
-    # Gerar QR Code
-    qr = qrcode.QRCode(
-        version=1,
-        box_size=4,
-        border=2
-    )
-    qr.add_data(dados_qr)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-
-    # Converter para base64 para embutir no HTML
-    buffer = BytesIO()
-    img.save(buffer, format="PNG")
-    img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
-    return f"data:image/png;base64,{img_base64}"
-
-"""
-"""
-
-def gerar_qr_fatura(fatura, request=None):
-    
-    usuario = getattr(request.user, 'get_full_name', lambda: None)() if request else "Sistema"
-    cliente_nome = getattr(fatura.cliente, 'nome', 'Consumidor Final')
-    data_emissao = getattr(fatura, 'data_emissao', None)
-    tipo_documento = getattr(fatura, 'tipo_venda', 'Documento')
-    numero = getattr(fatura, 'numero', getattr(fatura, 'numero_proforma', 'N/A'))
-    status = getattr(fatura, 'status', 'N/A')
-    nome_empresa = getattr(fatura.empresa, 'razao_social', getattr(fatura.empresa, 'nome_fantasia', 'Empresa'))
-    site_empresa = getattr(fatura.empresa, 'site', 'https://vistogest.com')
-    total_fatura = getattr(fatura, 'total', 0)  # Obter total da fatura
-
-    # Formatar dados do QR de acordo com o tipo de documento
-    dados_qr = (
-        f"Tipo de Documento: {tipo_documento}\n"
-        f"Empresa: {nome_empresa}\n"
-        f"Data Emissão: {data_emissao.strftime('%d/%m/%Y %H:%M') if data_emissao else 'N/A'}\n"
-        f"Utilizador: {usuario}\n"
-        f"Número: {numero}\n"
-        f"Status: {status}\n"
-        f"Cliente: {cliente_nome}\n"
-        f"Total: {total_fatura:.2f} Kz\n"
-        f"Site: {site_empresa}\n"
-    )
-
-    # Adicionar informações específicas para cada tipo de documento, se necessário
-    if 'Recibo' in tipo_documento:
-        forma_pagamento = getattr(fatura, 'forma_pagamento', 'N/A')
-        dados_qr += f"Forma de Pagamento: {forma_pagamento}\n"
-
-    if 'Crédito' in tipo_documento or 'Proforma' in tipo_documento:
-        data_vencimento = getattr(fatura, 'data_vencimento', None)
-        dados_qr += (
-            f"Data Vencimento: {data_vencimento.strftime('%d/%m/%Y') if data_vencimento else 'N/A'}\n"
-        )
-
-    # Gerar QR Code
-    qr = qrcode.QRCode(
-        version=1,
-        box_size=4,
-        border=2
-    )
-    qr.add_data(dados_qr)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-
-    # Converter para base64 para embutir no HTML
-    buffer = BytesIO()
-    img.save(buffer, format="PNG")
-    img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
-    return f"data:image/png;base64,{img_base64}"
-
-"""
-
-"""
-def gerar_qr_fatura(fatura, request=None):
-   
-    usuario = getattr(request.user, 'get_full_name', lambda: None)() if request else "Sistema"
-    cliente_nome = getattr(fatura.cliente, 'nome', 'Consumidor Final')
-    data_emissao = getattr(fatura, 'data_emissao', None)
-    tipo_documento = getattr(fatura, 'tipo_venda', 'tipo_recibo', 'fatura_credito','Proforma')
-    status = getattr(fatura, 'status', 'N/A')
-    nome_empresa = getattr(fatura.empresa, 'razao_social', getattr(fatura.empresa, 'nome_fantasia', 'Empresa'))
-    site_empresa = getattr(fatura.empresa, 'site', 'https://vistogest.com')
-    total_fatura = getattr(fatura, 'total', 0)  # Obter total da fatura
-
-    # Determina o número de acordo com o tipo de documento
-    if 'Recibo' in tipo_documento:
-        numero = getattr(fatura, 'numero_recibo', 'N/A')  # Número do recibo
-    elif 'Crédito' in tipo_documento:
-        numero = getattr(fatura, 'numero_fatura', 'N/A')  # Número da fatura de crédito
-    elif 'Proforma' in tipo_documento:
-        numero = getattr(fatura, 'numero_proforma', 'N/A')  # Número da fatura proforma
-    else:
-        numero = getattr(fatura, 'numero', 'N/A')  # Número da fatura padrão
-
-    # Formatar dados do QR de acordo com o tipo de documento
-    dados_qr = (
-        f"Tipo de Documento: {tipo_documento}\n"
-        f"Empresa: {nome_empresa}\n"
-        f"Data Emissão: {data_emissao.strftime('%d/%m/%Y %H:%M') if data_emissao else 'N/A'}\n"
-        f"Utilizador: {usuario}\n"
-        f"Número: {numero}\n"
-        f"Status: {status}\n"
-        f"Cliente: {cliente_nome}\n"
-        f"Total: {total_fatura:.2f} Kz\n"
-        f"Site: {site_empresa}\n"
-    )
-
-    # Adicionar informações específicas para cada tipo de documento, se necessário
-    if 'Recibo' in tipo_documento:
-        forma_pagamento = getattr(fatura, 'forma_pagamento', 'N/A')
-        dados_qr += f"Forma de Pagamento: {forma_pagamento}\n"
-
-    if 'Crédito' in tipo_documento or 'Proforma' in tipo_documento:
-        data_vencimento = getattr(fatura, 'data_vencimento', None)
-        dados_qr += (
-            f"Data Vencimento: {data_vencimento.strftime('%d/%m/%Y') if data_vencimento else 'N/A'}\n"
-        )
-
-    # Gerar QR Code
-    qr = qrcode.QRCode(
-        version=1,
-        box_size=4,
-        border=2
-    )
-    qr.add_data(dados_qr)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-
-    # Converter para base64 para embutir no HTML
-    buffer = BytesIO()
-    img.save(buffer, format="PNG")
-    img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
-    return f"data:image/png;base64,{img_base64}"
-
-"""
-
-
-"""
-import pytz
-
-def gerar_qr_fatura(fatura, request=None):
-    
-    usuario = getattr(request.user, 'get_full_name', lambda: None)() if request else "Sistema"
-    cliente_nome = getattr(fatura.cliente, 'nome', 'Consumidor Final')
-    data_emissao_utc = getattr(fatura, 'data_emissao', None)
-    
-    # Ajustar para o fuso horário local (substitua 'Africa/Luanda' pelo fuso horário correto se necessário)
-    local_tz = pytz.timezone('Africa/Luanda')  
-    if data_emissao_utc:
-        data_emissao = data_emissao_utc.astimezone(local_tz)  # Converte para o fuso horário local
-    else:
-        data_emissao = None
-
-    tipo_documento = getattr(fatura, 'tipo_venda', 'Documento')
-    status = getattr(fatura, 'status', 'N/A')
-    nome_empresa = getattr(fatura.empresa, 'razao_social', getattr(fatura.empresa, 'nome_fantasia', 'Empresa'))
-    site_empresa = getattr(fatura.empresa, 'site', 'https://vistogest.com')
-    total_fatura = getattr(fatura, 'total', 0)  # Obter total da fatura
-
-    # Determina o número de acordo com o tipo de documento
-    if 'Recibo' in tipo_documento:
-        numero = getattr(fatura, 'numero_recibo', 'N/A')
-    elif 'Crédito' in tipo_documento:
-        numero = getattr(fatura, 'numero_fatura', 'N/A')
-    elif 'Proforma' in tipo_documento:
-        numero = getattr(fatura, 'numero_proforma', 'N/A')
-    else:
-        numero = getattr(fatura, 'numero_venda', 'N/A')
-
-    # Formatar dados do QR de acordo com o tipo de documento
-    dados_qr = (
-        f"Tipo de Documento: {tipo_documento}\n"
-        f"Empresa: {nome_empresa}\n"
-        f"Data Emissão: {data_emissao.strftime('%d/%m/%Y %H:%M') if data_emissao else 'N/A'}\n"
-        f"Utilizador: {usuario}\n"
-        f"Número: {numero}\n"
-        f"Status: {status}\n"
-        f"Cliente: {cliente_nome}\n"
-        f"Total: {total_fatura:.2f} Kz\n"
-        f"Site: {site_empresa}\n"
-    )
-
-    # Adicionar informações específicas para cada tipo de documento, se necessário
-    if 'Recibo' in tipo_documento:
-        forma_pagamento = getattr(fatura, 'forma_pagamento', 'N/A')
-        dados_qr += f"Forma de Pagamento: {forma_pagamento}\n"
-
-    if 'Crédito' in tipo_documento or 'Proforma' in tipo_documento:
-        data_vencimento = getattr(fatura, 'data_vencimento', None)
-        dados_qr += (
-            f"Data Vencimento: {data_vencimento.strftime('%d/%m/%Y') if data_vencimento else 'N/A'}\n"
-        )
-
-    # Gerar QR Code
-    qr = qrcode.QRCode(
-        version=1,
-        box_size=4,
-        border=2
-    )
-    qr.add_data(dados_qr)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-
-    # Converter para base64 para embutir no HTML
-    buffer = BytesIO()
-    img.save(buffer, format="PNG")
-    img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
-    return f"data:image/png;base64,{img_base64}"
-
-"""
 
 import pytz
 from io import BytesIO
@@ -776,11 +429,11 @@ def gerar_qr_fatura(fatura, request=None):
 
     # Determina o número de acordo com o tipo de documento
     if 'Recibo' in tipo_documento:
-        numero = getattr(fatura, 'numero_recibo', 'N/A')
+        numero = getattr(fatura, 'numero_documento', 'N/A')
     elif 'Crédito' in tipo_documento:
-        numero = getattr(fatura, 'numero_fatura', 'N/A')
+        numero = getattr(fatura, 'numero_documento', 'N/A')
     elif 'Proforma' in tipo_documento:
-        numero = getattr(fatura, 'numero_proforma', 'N/A')
+        numero = getattr(fatura, 'numero_documento', 'N/A')
     else:
         numero = getattr(fatura, 'numero', 'N/A')
 

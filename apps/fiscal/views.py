@@ -26,7 +26,7 @@ from apps.fiscal.utils import validar_documentos_fiscais
 from .models import SAFTExport, TaxaIVAAGT, AssinaturaDigital, RetencaoFonte
 from .services import (
     TaxaIVAService, AssinaturaDigitalService, RetencaoFonteService,
-    SAFTExportService, FiscalDashboardService, FiscalServiceError
+    FiscalDashboardService, FiscalServiceError
 )
 from .serializers import (
     TaxaIVAAGTSerializer, AssinaturaDigitalSerializer, RetencaoFonteSerializer
@@ -126,6 +126,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
 from apps.core.permissions import MultiplePermissions, EmpresaPermission, FiscalPermission  # ajusta o import conforme teu projeto
 from django.contrib.auth.mixins import AccessMixin
+from apps.fiscal.services import SAFTExportService
+
 
 
 
@@ -153,6 +155,44 @@ class PermissaoAcaoMixin(AccessMixin):
 
         return super().dispatch(request, *args, **kwargs)
  
+from functools import wraps
+ 
+def permissao_acao_required(acao_requerida=None):
+    """
+    Decorator para function-based views que verifica:
+    1. Usuário autenticado
+    2. Usuário ligado a um registro Funcionario
+    3. Permissão de ação específica
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                messages.error(request, "Acesso negado. Usuário não autenticado.")
+                return redirect(reverse_lazy('core:login'))  # ou handle customizado
+
+            try:
+                funcionario = request.user.funcionario
+            except Exception:
+                messages.error(
+                    request,
+                    "Acesso negado. O seu usuário não está ligado a um registro de funcionário."
+                )
+                return redirect(reverse_lazy('core:dashboard'))
+
+            if acao_requerida:
+                if not funcionario.pode_realizar_acao(acao_requerida):
+                    messages.error(
+                        request,
+                        f"Acesso negado. O seu cargo não permite realizar a ação de '{acao_requerida}'."
+                    )
+                    return redirect(reverse_lazy('core:dashboard'))
+
+            return view_func(request, *args, **kwargs)
+        return _wrapped_view
+    return decorator
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -163,12 +203,12 @@ logger = logging.getLogger('fiscais.views')
 
 
 
-class SAFTExportView(LoginRequiredMixin, APIView):
+class SAFTExportView(LoginRequiredMixin, PermissaoAcaoMixin, APIView):
     acao_requerida = 'exportar_saft'
     """
     View para exportação completa de dados SAF-T AO
     """
-    permission_classes = [permissions.IsAuthenticated]
+    #permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):
         """Gera arquivo SAF-T AO para período especificado"""
@@ -218,6 +258,7 @@ class SAFTExportView(LoginRequiredMixin, APIView):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 
 class FiscalDashboardView(LoginRequiredMixin, PermissaoAcaoMixin, APIView):
     acao_requerida = 'acessar_dashboard_fiscal'
@@ -287,7 +328,7 @@ class FiscalDashboardView(LoginRequiredMixin, PermissaoAcaoMixin, APIView):
 # =====================================
 
 class TaxaIVAAGTViewSet(viewsets.ModelViewSet):
-    acao_requerida = 'ver_taxaiva_agt'
+    
     """
     ViewSet para gestão de Taxas de IVA com funcionalidades SAF-T
     """
@@ -391,7 +432,7 @@ class TaxaIVAAGTViewSet(viewsets.ModelViewSet):
         })
 
 class AssinaturaDigitalViewSet(viewsets.ModelViewSet):
-    acao_requerida = 'gerir_assinatura_digital'
+    
     """
     ViewSet para gestão de Assinatura Digital
     """
@@ -483,7 +524,6 @@ class AssinaturaDigitalViewSet(viewsets.ModelViewSet):
             })
 
 class RetencaoFonteViewSet(viewsets.ModelViewSet):
-    acao_requerida = 'gerir_retencoes_na_fonte'
     """
     ViewSet para gestão de Retenções na Fonte
     """
@@ -598,16 +638,10 @@ class RetencaoFonteViewSet(viewsets.ModelViewSet):
             'gerado_em': timezone.now().isoformat()
         })
 
-# =====================================
-# Views Funcionais Específicas
-# =====================================
 
-# =====================================
-# Views Funcionais (não-API)
-# =====================================
 
 @method_decorator([login_required, csrf_exempt], name='dispatch')
-class ValidarDocumentoView(View):
+class ValidarDocumentoView(View, PermissaoAcaoMixin):
     acao_requerida = 'validar_documentos_fiscais'
     """
     View para validação de documentos fiscais
@@ -686,8 +720,8 @@ class ValidarDocumentoView(View):
 
 @require_http_methods(["GET"])
 @login_required
+@permissao_acao_required(acao_requerida='verificar_integridade_hash')
 def verificar_integridade_hash(request):
-    acao_requerida = 'verificar_integridade_hash'
     """
     Verifica a integridade da cadeia de hash dos documentos
     """
@@ -757,7 +791,7 @@ from django.db.models import Q
 # ===============================
 # DASHBOARD FISCAL
 # ===============================
-class FiscalDashboardTemplateView(LoginRequiredMixin, TemplateView):
+class FiscalDashboardTemplateView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
     acao_requerida = 'acessar_painel_principal_fiscal'
     """
     Painel principal da área fiscal — apresenta resumo de taxas, retenções e status SAF-T.
@@ -781,7 +815,7 @@ class FiscalDashboardTemplateView(LoginRequiredMixin, TemplateView):
 # ===============================
 # LISTAGEM DE TAXAS DE IVA
 # ===============================
-class TaxaIVAListView(LoginRequiredMixin, ListView):
+class TaxaIVAListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
     acao_requerida = 'ver_taxas_iva'
     """
     Lista todas as Taxas de IVA (AGT) registradas pela empresa.
@@ -806,7 +840,7 @@ class TaxaIVAListView(LoginRequiredMixin, ListView):
 # ===============================
 # DETALHE
 # ===============================
-class TaxaIVADetailView(LoginRequiredMixin, DetailView):
+class TaxaIVADetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
     acao_requerida = 'ver_taxas_iva'
     """
     Exibe detalhes de uma taxa de IVA específica.
@@ -856,7 +890,7 @@ class TaxaIVACreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
 # ===============================
 # EDIÇÃO
 # ===============================
-class TaxaIVAUpdateView(LoginRequiredMixin, UpdateView):
+class TaxaIVAUpdateView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
     acao_requerida = 'criar_taxas_iva'
     """
     Edição de taxa de IVA existente.
@@ -888,7 +922,7 @@ class TaxaIVAUpdateView(LoginRequiredMixin, UpdateView):
 # ===============================
 # EXCLUSÃO
 # ===============================
-class TaxaIVADeleteView(LoginRequiredMixin, DeleteView):
+class TaxaIVADeleteView(LoginRequiredMixin, PermissaoAcaoMixin, DeleteView):
     acao_requerida = 'apagar_taxas_iva'
     """
     Exclusão lógica ou física de uma taxa.
@@ -918,7 +952,7 @@ class TaxaIVADeleteView(LoginRequiredMixin, DeleteView):
 # === GESTÃO DE ASSINATURA DIGITAL ===
 # ============================================================
 
-class AssinaturaDigitalView(LoginRequiredMixin, TemplateView):
+class AssinaturaDigitalView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
     acao_requerida = 'ver_status_atual_assinatura_digital'
     """
     Exibe o status atual da assinatura digital da empresa.
@@ -938,7 +972,7 @@ class AssinaturaDigitalView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class AssinaturaConfigurarView(LoginRequiredMixin, UpdateView):
+class AssinaturaConfigurarView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
     acao_requerida = 'configurar_assinatura_digital'
     """
     Permite ao usuário configurar ou atualizar informações da assinatura digital.
@@ -962,7 +996,7 @@ class AssinaturaConfigurarView(LoginRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class AssinaturaGerarChavesView(LoginRequiredMixin, View):
+class AssinaturaGerarChavesView(LoginRequiredMixin, PermissaoAcaoMixin, View):
     acao_requerida = 'gerar_par_chave_publica_ou_privada'
     """
     Gera par de chaves pública/privada para assinatura digital e salva no modelo.
@@ -993,7 +1027,7 @@ class AssinaturaGerarChavesView(LoginRequiredMixin, View):
 # === GESTÃO DE RETENÇÕES NA FONTE ===
 # ============================================================
 
-class RetencaoFonteListView(LoginRequiredMixin, ListView):
+class RetencaoFonteListView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
     acao_requerida = 'gerir_retencoes_na_fonte'
     """
     Lista de retenções na fonte da empresa.
@@ -1001,10 +1035,6 @@ class RetencaoFonteListView(LoginRequiredMixin, ListView):
     model = RetencaoFonte
     template_name = "fiscal/retencao_list.html"
     context_object_name = "retencoes"
-    permission_classes = [MultiplePermissions]
-    multiple_permissions = {
-        'AND': [EmpresaPermission, FiscalPermission]
-    }
 
     def get_queryset(self):
         empresa = self.request.user.empresa
@@ -1015,10 +1045,10 @@ class RetencaoFonteListView(LoginRequiredMixin, ListView):
                 Q(fornecedor__nome__icontains=search) |
                 Q(documento_referencia__icontains=search)
             )
-        return queryset.order_by("-data_emissao")
+        return queryset.order_by("-data_retencao")
 
 
-class RetencaoFonteDetailView(LoginRequiredMixin, DetailView):
+class RetencaoFonteDetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView):
     acao_requerida = 'gerir_retencoes_na_fonte'
     """
     Exibe detalhes de uma retenção na fonte específica.
@@ -1039,7 +1069,7 @@ class RetencaoFonteDetailView(LoginRequiredMixin, DetailView):
         return obj
 
 
-class RetencaoFonteCreateView(LoginRequiredMixin, CreateView):
+class RetencaoFonteCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
     acao_requerida = 'criar_retencoes_na_fonte'
     """
     Criação de nova retenção na fonte.
@@ -1061,7 +1091,7 @@ class RetencaoFonteCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class RetencaoFonteUpdateView(LoginRequiredMixin, UpdateView):
+class RetencaoFonteUpdateView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
     acao_requerida = 'criar_retencoes_na_fonte'
     """
     Edição de uma retenção existente.
@@ -1088,7 +1118,7 @@ class RetencaoFonteUpdateView(LoginRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class RetencaoFonteDeleteView(LoginRequiredMixin, DeleteView):
+class RetencaoFonteDeleteView(LoginRequiredMixin, PermissaoAcaoMixin, DeleteView):
     acao_requerida = 'apagar_retencoes_na_fonte'
     """
     Exclusão de retenção.
@@ -1113,7 +1143,7 @@ class RetencaoFonteDeleteView(LoginRequiredMixin, DeleteView):
         return super().delete(request, *args, **kwargs)
 
 
-class RetencaoMarcarPagaView(LoginRequiredMixin, View):
+class RetencaoMarcarPagaView(LoginRequiredMixin, PermissaoAcaoMixin, View):
     acao_requerida = 'marcar_retencoes_como_pago'
     """
     Marca uma retenção como paga.
@@ -1140,7 +1170,7 @@ class RetencaoMarcarPagaView(LoginRequiredMixin, View):
 # === RELATÓRIOS FISCAIS ===
 # ============================================================
 
-class RelatoriosView(LoginRequiredMixin, TemplateView):
+class RelatoriosView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
     acao_requerida = 'ver_relatorio_fiscal'
     """
     Dashboard geral dos relatórios fiscais disponíveis.
@@ -1159,7 +1189,7 @@ class RelatoriosView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class RelatorioRetencoesView(LoginRequiredMixin, ListView):
+class RelatorioRetencoesView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
     acao_requerida = 'ver_relatorio_retencoes'
     
     """
@@ -1191,7 +1221,7 @@ class RelatorioRetencoesView(LoginRequiredMixin, ListView):
         return context
 
 
-class RelatorioTaxasIVAView(LoginRequiredMixin, ListView):
+class RelatorioTaxasIVAView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
     acao_requerida = 'ver_relatorio_taxas_iva'
 
     """
@@ -1226,7 +1256,7 @@ class RelatorioTaxasIVAView(LoginRequiredMixin, ListView):
 # === EXPORTAÇÕES SAF-T AGT ===
 # ============================================================
 
-class SAFTView(LoginRequiredMixin, TemplateView):
+class SAFTView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
     acao_requerida = 'acessar_dashboard_saft'
     """
     Painel principal de exportação SAF-T (AGT Angola).
@@ -1247,41 +1277,61 @@ class SAFTView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class SAFTExportWebView(LoginRequiredMixin, View):
+from django.http import HttpResponse, JsonResponse
+from django.utils import timezone
+from datetime import datetime
+import json, traceback
+from apps.fiscal.services import SAFTExportService
+
+
+class SAFTExportWebView(PermissaoAcaoMixin, View):
     acao_requerida = 'exportar_saft'
-    """
-    Gera ficheiro SAF-T e faz download imediato (web trigger).
-    """
-    permission_classes = [MultiplePermissions]
-    multiple_permissions = {'AND': [EmpresaPermission, FiscalPermission]}
 
-    def get(self, request, *args, **kwargs):
-        empresa = request.user.empresa
+    def post(self, request, *args, **kwargs):
+        print("===== DEBUG SAF-T =====")
 
-        # Execução síncrona ou async dependendo do setup
         try:
-            #ficheiro, nome_ficheiro = gerar_ficheiro_saft_local(empresa)
-            ficheiro, nome_ficheiro = gerar_saft_ao(empresa)
+            empresa = request.user.empresa
+            data = json.loads(request.body)
+
+            data_inicio_str = data.get('dataInicio')
+            data_fim_str = data.get('dataFim')
+
+            # Converter para objetos date
+            data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d').date() if data_inicio_str else None
+            data_fim = datetime.strptime(data_fim_str, '%Y-%m-%d').date() if data_fim_str else None
+
+            incluir_stock = data.get('incluirMovimentosStock', True)
+            incluir_clientes = data.get('incluirDadosClientes', True)
+
+            print("Empresa:", empresa)
+            print("Período:", data_inicio, "->", data_fim)
+            print("Incluir stock:", incluir_stock, "| Incluir clientes:", incluir_clientes)
+
+            # Gera o XML SAF-T
+            xml_saft = SAFTExportService.gerar_saft_ao(empresa, data_inicio, data_fim)
+
+            # Cria nome do ficheiro
+            nome_ficheiro = f"SAFT_{empresa.nif}_{timezone.now().strftime('%Y%m%d')}.xml"
+
+            # Retorna o ficheiro XML como anexo (download)
+            response = HttpResponse(xml_saft, content_type="application/xml")
+            response['Content-Disposition'] = f'attachment; filename="{nome_ficheiro}"'
+            return response
+
         except Exception as e:
-            messages.error(request, f"Erro ao gerar ficheiro SAF-T: {e}")
-            return redirect("fiscal:saft")
-
-        # Retorna o ficheiro SAF-T como resposta
-        response = HttpResponse(ficheiro, content_type="application/xml")
-        response["Content-Disposition"] = f'attachment; filename="{nome_ficheiro}"'
-        messages.success(request, "Exportação SAF-T concluída com sucesso.")
-        return response
+            print("===== ERRO NO PROCESSO SAF-T =====")
+            traceback.print_exc()
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
-class SAFTHistoricoView(LoginRequiredMixin, ListView):
+class SAFTHistoricoView(LoginRequiredMixin, PermissaoAcaoMixin, ListView):
     acao_requerida = 'ver_historico_saft'
     """
     Exibe histórico de ficheiros SAF-T gerados.
     """
     template_name = "fiscal/saft_historico.html"
     context_object_name = "historicos"
-    permission_classes = [MultiplePermissions]
-    multiple_permissions = {'AND': [EmpresaPermission, FiscalPermission]}
 
     def get_queryset(self):
         empresa = self.request.user.empresa
@@ -1293,7 +1343,13 @@ class SAFTHistoricoView(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         empresa = self.request.user.empresa
         context["empresa"] = empresa
+
+        # Obter o funcionario (já está garantido pelo PermissaoAcaoMixin)
+        funcionario = self.request.user.funcionario
+        context["funcionario"] = funcionario
+
         return context
+
 
 
 
@@ -1455,7 +1511,7 @@ logger = logging.getLogger('fiscal.ajax')
 # 🔹 AJAX: Calcular IVA
 # -------------------------
 @login_required
-@empresa_required
+#@empresa_required
 @require_POST
 def ajax_calcular_iva(request):
     """Calcula o valor do IVA com base na taxa ativa e no valor informado."""
@@ -1487,7 +1543,7 @@ def ajax_calcular_iva(request):
 # 🔹 AJAX: Buscar Fornecedores
 # -------------------------
 @login_required
-@empresa_required
+#@empresa_required
 @require_GET
 def ajax_buscar_fornecedores(request):
     """Busca fornecedores pelo nome ou NIF para autocomplete."""
@@ -1508,7 +1564,7 @@ def ajax_buscar_fornecedores(request):
 # 🔹 AJAX: Validar NIF
 # -------------------------
 @login_required
-@empresa_required
+#@empresa_required
 @require_POST
 def ajax_validar_nif(request):
     """Valida formato e duplicidade de NIF."""
@@ -1533,7 +1589,7 @@ def ajax_validar_nif(request):
 # 🔹 AJAX: Gerar Hash
 # -------------------------
 @login_required
-@empresa_required
+#@empresa_required
 @require_POST
 def ajax_gerar_hash(request):
     """Gera hash SHA256 a partir de dados fiscais ou documento."""
@@ -1559,7 +1615,7 @@ def ajax_gerar_hash(request):
 # 🔹 AJAX: Dados Dashboard
 # -------------------------
 @login_required
-@empresa_required
+#@empresa_required
 @require_GET
 def ajax_dados_dashboard(request):
     """Retorna dados consolidados para o dashboard fiscal."""
@@ -1584,7 +1640,7 @@ def ajax_dados_dashboard(request):
 # 🔹 AJAX: Métricas por Período
 # -------------------------
 @login_required
-@empresa_required
+#@empresa_required
 @require_GET
 def ajax_metricas_periodo(request):
     """Retorna métricas fiscais e financeiras por período (mês/ano)."""
@@ -1609,7 +1665,7 @@ def ajax_metricas_periodo(request):
 # 🔹 AJAX: Gráfico de Retenções
 # -------------------------
 @login_required
-@empresa_required
+#@empresa_required
 @require_GET
 def ajax_grafico_retencoes(request):
     """Gera dados de gráfico para retenções mensais."""
@@ -1631,7 +1687,7 @@ def ajax_grafico_retencoes(request):
 # 🔹 AJAX: Verificar Documento
 # -------------------------
 @login_required
-@empresa_required
+#@empresa_required
 @require_POST
 def ajax_verificar_documento(request):
     """Valida integridade de documento via hash e assinatura digital."""
@@ -1653,7 +1709,7 @@ def ajax_verificar_documento(request):
 # 🔹 AJAX: Status da Assinatura Digital
 # -------------------------
 @login_required
-@empresa_required
+#@empresa_required
 @require_GET
 def ajax_status_assinatura(request):
     acao_requerida = 'ver_status_atual_assinatura_digital'
@@ -1910,10 +1966,10 @@ def integracao_agt_validar(request):
 
     try:
         data = json.loads(request.body.decode('utf-8'))
-        numero_fatura = data.get('numero_fatura')
+        numero_documento = data.get('numero_documento')
         nif_cliente = data.get('nif_cliente')
 
-        logger.info(f"Validando fatura AGT: Nº {numero_fatura} | NIF {nif_cliente}")
+        logger.info(f"Validando fatura AGT: Nº {numero_documento} | NIF {nif_cliente}")
 
         # Aqui podes chamar a API real da AGT, se tiveres integração
         # resposta = requests.post("https://api.agt.gov.ao/validar", json=data)
@@ -1921,7 +1977,7 @@ def integracao_agt_validar(request):
 
         # Simulação de resposta
         return JsonResponse({
-            "numero_fatura": numero_fatura,
+            "numero_documento": numero_documento,
             "nif_cliente": nif_cliente,
             "status": "válido",
             "mensagem": "Documento validado com sucesso pela AGT."
@@ -1969,7 +2025,7 @@ logger = logging.getLogger('fiscal.debug')
 # 🔹 DEBUG: Gerar Dados de Teste
 # -------------------------
 @login_required
-@empresa_required
+#@empresa_required
 @require_POST
 @transaction.atomic
 def debug_gerar_dados_teste(request):
@@ -2022,7 +2078,7 @@ def debug_gerar_dados_teste(request):
 # 🔹 DEBUG: Limpar Cache
 # -------------------------
 @login_required
-@empresa_required
+#@empresa_required
 @require_POST
 def debug_limpar_cache(request):
     """Limpa completamente o cache do sistema em ambiente de debug."""
@@ -2071,7 +2127,7 @@ def debug_info_sistema(request):
 # 🔹 DEBUG: Testar Assinatura Digital
 # -------------------------
 @login_required
-@empresa_required
+#@empresa_required
 @require_POST
 def debug_testar_assinatura(request):
     """Executa um teste de validação da assinatura digital."""
@@ -2103,7 +2159,7 @@ def debug_testar_assinatura(request):
 # 🔹 DEBUG: Simular Comunicação com AGT
 # -------------------------
 @login_required
-@empresa_required
+#@empresa_required
 @require_GET
 def debug_simular_agt(request):
     """Simula uma comunicação com o servidor da AGT para teste de integração."""

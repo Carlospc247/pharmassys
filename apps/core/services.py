@@ -1,45 +1,57 @@
+#apps/core/services.py
 from django.db import transaction
 from django.utils import timezone
 from apps.core.models import ContadorDocumento # Assumindo a localização
 
+import random
+import string
+from django.db import transaction
+from django.utils import timezone
+from apps.core.models import ContadorDocumento
+
 def gerar_numero_documento(empresa, tipo_documento):
     """
-    Gera e reserva o próximo número sequencial para um tipo de documento.
+    Gera e reserva o próximo número sequencial no formato:
+    FR PMA1XYZ2025/001
     
-    Args:
-        empresa (Empresa): A instância da empresa que emite o documento.
-        tipo_documento (str): O prefixo do documento ('FR', 'FT', 'REC', 'PP').
-        
-    Returns:
-        str: O número formatado do documento (ex: FR EMP001/001/2025).
+    Onde:
+        FR    -> Tipo do documento
+        PMA   -> 3 iniciais da empresa
+        1     -> ID da empresa
+        XYZ   -> 3 letras aleatórias (A–Z)
+        2025  -> Ano em curso
+        /001  -> Número sequencial de 6 dígitos
     """
     ano_atual = timezone.now().year
-    
-    # Usa transaction.atomic para garantir que a atualização e leitura sejam atômicas
+
     with transaction.atomic():
-        # Obtém ou Cria o contador. Usa select_for_update() para bloquear o registro.
         contador, created = ContadorDocumento.objects.select_for_update().get_or_create(
             empresa=empresa,
             tipo_documento=tipo_documento,
             ano=ano_atual,
             defaults={'ultimo_numero': 0}
         )
-        
-        # 1. Incrementa o contador
+
         contador.ultimo_numero += 1
         contador.save()
-        
-        # 2. Formata o número (Lógica de Numeração Centralizada)
-        
-        # Adaptação para usar parte do nome da empresa para identificação interna, se necessário.
-        identificador_empresa = (empresa.nome[:4].upper().replace(" ", "") + str(empresa.pk))
-        
-        # Formato: PREFIXO IDENTIFICADOR/SEQUENCIAL/ANO
-        # Exemplo: FR EMPR1/001/2025
-        numero_sequencial = f"{contador.ultimo_numero:03d}" # 001, 002, 003...
-        
-        numero_final = f"{tipo_documento} {identificador_empresa}/{numero_sequencial}/{ano_atual}"
-        
+
+        # 1️⃣ Três primeiras letras da empresa (sem espaços)
+        prefixo_empresa = ''.join(empresa.nome.upper().split())[:5]
+
+        # 2️⃣ ID da empresa
+        id_empresa = str(empresa.pk)
+
+        # 3️⃣ Sufixo aleatório (3 letras entre A–Z)
+        sufixo_random = ''.join(random.choices(string.ascii_uppercase, k=3))
+
+        # 4️⃣ Ano atual
+        ano = str(ano_atual)
+
+        # 5️⃣ Sequencial
+        numero_sequencial = f"{contador.ultimo_numero:03d}"
+
+        # 6️⃣ Montagem final
+        numero_final = f"{tipo_documento} {prefixo_empresa}{id_empresa}{sufixo_random}{ano}/{numero_sequencial}"
+
         return numero_final
-    
-    
+  

@@ -633,17 +633,253 @@ class RegistrarPontoView(LoginRequiredMixin, TemplateView):
                 'message': 'Funcionário não encontrado'
             })
 
-class HistoricoPontoView(LoginRequiredMixin, ListView):
+
+# apps/funcionarios/views.py (adicionar esta view)
+
+from django.views.generic import ListView
+from django.shortcuts import get_object_or_404
+from django.db.models import Q, Sum, Count, Avg
+from django.utils import timezone
+from datetime import datetime, timedelta, date
+from .models import PontoEletronico, Funcionario
+
+class HistoricoPontoView(ListView):
     model = PontoEletronico
     template_name = 'ponto/historico.html'
     context_object_name = 'pontos'
     paginate_by = 30
-    
+    ordering = ['-data']
+
     def get_queryset(self):
-        funcionario_pk = self.kwargs['funcionario_pk']
-        return PontoEletronico.objects.filter(
-            funcionario_id=funcionario_pk
-        ).order_by('-data')
+        # Obter funcionário da URL
+        self.funcionario = get_object_or_404(Funcionario, pk=self.kwargs['funcionario_pk'])
+        
+        queryset = super().get_queryset().filter(funcionario=self.funcionario)
+        
+        # Filtros aplicados
+        data_inicio = self.request.GET.get('data_inicio')
+        data_fim = self.request.GET.get('data_fim')
+        status = self.request.GET.get('status')
+        mes = self.request.GET.get('mes')
+        ano = self.request.GET.get('ano')
+        
+        # Filtrar por período específico
+        if data_inicio:
+            try:
+                data_inicio = datetime.strptime(data_inicio, '%Y-%m-%d').date()
+                queryset = queryset.filter(data__gte=data_inicio)
+            except ValueError:
+                pass
+                
+        if data_fim:
+            try:
+                data_fim = datetime.strptime(data_fim, '%Y-%m-%d').date()
+                queryset = queryset.filter(data__lte=data_fim)
+            except ValueError:
+                pass
+        
+        # Filtrar por mês/ano
+        if mes and ano:
+            try:
+                mes = int(mes)
+                ano = int(ano)
+                queryset = queryset.filter(data__month=mes, data__year=ano)
+            except ValueError:
+                pass
+        elif ano:  # Apenas ano
+            try:
+                ano = int(ano)
+                queryset = queryset.filter(data__year=ano)
+            except ValueError:
+                pass
+                
+        # Filtrar por status
+        if status:
+            queryset = queryset.filter(status=status)
+            
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Adicionar funcionário ao contexto
+        context['funcionario'] = self.funcionario
+        
+        # Choices para filtros
+        context['status_choices'] = PontoEletronico.STATUS_CHOICES
+        
+        # Filtros aplicados
+        context['filtros'] = {
+            'data_inicio': self.request.GET.get('data_inicio'),
+            'data_fim': self.request.GET.get('data_fim'),
+            'status': self.request.GET.get('status'),
+            'mes': self.request.GET.get('mes'),
+            'ano': self.request.GET.get('ano'),
+        }
+        
+        # Estatísticas do período filtrado
+        pontos_periodo = self.get_queryset()
+        
+        # Contadores por status
+        total_pontos = pontos_periodo.count()
+        total_presencas = pontos_periodo.filter(status='presente').count()
+        total_faltas = pontos_periodo.filter(status='falta').count()
+        total_faltas_justificadas = pontos_periodo.filter(status='falta_justificada').count()
+        total_ferias = pontos_periodo.filter(status='ferias').count()
+        total_feriados = pontos_periodo.filter(status='feriado').count()
+        
+        # Calcular total de horas trabalhadas
+        total_segundos_trabalhados = 0
+        pontos_trabalhados = pontos_periodo.filter(status='presente')
+        
+        for ponto in pontos_trabalhados:
+            horas_dia = ponto.horas_trabalhadas_dia
+            if horas_dia and horas_dia.total_seconds() > 0:
+                total_segundos_trabalhados += horas_dia.total_seconds()
+        
+        total_horas_trabalhadas = total_segundos_trabalhados / 3600
+        
+        # Calcular médias
+        media_horas_dia = total_horas_trabalhadas / total_presencas if total_presencas > 0 else 0
+        percentual_presenca = (total_presencas / total_pontos * 100) if total_pontos > 0 else 0
+        
+        context['estatisticas'] = {
+            'total_pontos': total_pontos,
+            'total_presencas': total_presencas,
+            'total_faltas': total_faltas,
+            'total_faltas_justificadas': total_faltas_justificadas,
+            'total_ferias': total_ferias,
+            'total_feriados': total_feriados,
+            'total_horas_trabalhadas': round(total_horas_trabalhadas, 2),
+            'media_horas_dia': round(media_horas_dia, 2),
+            'percentual_presenca': round(percentual_presenca, 1),
+        }
+        
+        # Meses e anos disponíveis para filtro
+        context['meses'] = [
+            (1, 'Janeiro'), (2, 'Fevereiro'), (3, 'Março'), (4, 'Abril'),
+            (5, 'Maio'), (6, 'Junho'), (7, 'Julho'), (8, 'Agosto'),
+            (9, 'Setembro'), (10, 'Outubro'), (11, 'Novembro'), (12, 'Dezembro')
+        ]
+        
+        # Anos baseados nos registros existentes
+        anos_com_registros = PontoEletronico.objects.filter(
+            funcionario=self.funcionario
+        ).dates('data', 'year').distinct()
+        
+        context['anos'] = [data.year for data in anos_com_registros]
+        
+        # Se não há registros, incluir o ano atual
+        if not context['anos']:
+            context['anos'] = [timezone.now().year]
+        
+        # Dados para gráfico de horas por semana (últimas 8 semanas)
+        hoje = timezone.now().date()
+        horas_por_semana = []
+        
+        for i in range(8):
+            inicio_semana = hoje - timedelta(days=hoje.weekday() + (i * 7))
+            fim_semana = inicio_semana + timedelta(days=6)
+            
+            pontos_semana = PontoEletronico.objects.filter(
+                funcionario=self.funcionario,
+                data__range=[inicio_semana, fim_semana],
+                status='presente'
+            )
+            
+            total_horas_semana = 0
+            for ponto in pontos_semana:
+                horas = ponto.horas_trabalhadas_dia
+                if horas:
+                    total_horas_semana += horas.total_seconds() / 3600
+            
+            horas_por_semana.append({
+                'semana': f"{inicio_semana.strftime('%d/%m')} - {fim_semana.strftime('%d/%m')}",
+                'horas': round(total_horas_semana, 1)
+            })
+        
+        context['horas_por_semana'] = list(reversed(horas_por_semana))
+        
+        # Resumo mensal (últimos 6 meses)
+        resumo_mensal = []
+        for i in range(6):
+            if i == 0:
+                mes_ref = hoje.replace(day=1)
+            else:
+                mes_anterior = resumo_mensal[-1]['data'] - timedelta(days=1)
+                mes_ref = mes_anterior.replace(day=1)
+            
+            pontos_mes = PontoEletronico.objects.filter(
+                funcionario=self.funcionario,
+                data__year=mes_ref.year,
+                data__month=mes_ref.month
+            )
+            
+            presencas_mes = pontos_mes.filter(status='presente').count()
+            faltas_mes = pontos_mes.filter(status='falta').count()
+            
+            total_horas_mes = 0
+            for ponto in pontos_mes.filter(status='presente'):
+                horas = ponto.horas_trabalhadas_dia
+                if horas:
+                    total_horas_mes += horas.total_seconds() / 3600
+            
+            resumo_mensal.append({
+                'data': mes_ref,
+                'mes_nome': mes_ref.strftime('%B'),
+                'ano': mes_ref.year,
+                'presencas': presencas_mes,
+                'faltas': faltas_mes,
+                'horas_trabalhadas': round(total_horas_mes, 1)
+            })
+            # Converter horas trabalhadas em decimal por registro
+            for p in context['pontos']:
+                horas = p.horas_trabalhadas_dia
+                p.horas_decimal = horas.total_seconds() / 3600 if horas else 0
+
+        
+        context['resumo_mensal'] = resumo_mensal
+        
+        # Alertas
+        alertas = []
+        
+        # Verificar faltas excessivas no mês atual
+        faltas_mes_atual = PontoEletronico.objects.filter(
+            funcionario=self.funcionario,
+            data__year=hoje.year,
+            data__month=hoje.month,
+            status='falta'
+        ).count()
+        
+        if faltas_mes_atual >= 3:
+            alertas.append({
+                'tipo': 'warning',
+                'titulo': 'Faltas Excessivas',
+                'mensagem': f'{faltas_mes_atual} faltas no mês atual'
+            })
+        
+        # Verificar registros de ponto incompletos (últimos 7 dias)
+        uma_semana_atras = hoje - timedelta(days=7)
+        pontos_incompletos = PontoEletronico.objects.filter(
+            funcionario=self.funcionario,
+            data__gte=uma_semana_atras,
+            data__lt=hoje,
+            status='presente'
+        ).filter(
+            Q(entrada_manha__isnull=True) |
+            Q(saida__isnull=True)
+        ).count()
+        
+        if pontos_incompletos > 0:
+            alertas.append({
+                'tipo': 'danger',
+                'titulo': 'Registros Incompletos',
+                'mensagem': f'{pontos_incompletos} registros com horários em falta nos últimos 7 dias'
+            })
+        
+        context['alertas'] = alertas
+        
+        return context
 
 class RelatorioPontoView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
     acao_requerida = 'acessar_rh'

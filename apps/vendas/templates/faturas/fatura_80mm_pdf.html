@@ -297,6 +297,15 @@
         <div class="page-info">
             {{ fatura.data_emissao|date:"d/m/Y H:i:s" }} | Pág. 1/1
         </div>
+
+        <div class="qr-code-container" style="text-align: center;">
+            <p></p>
+        
+            <img src="{{ qr_code_base64 }}" alt="QR Code de Autenticação da Fatura" style="width: 150px; height: 150px;"
+                style="width: 100px; height: 100px;" />
+        
+        </div>
+
     </div>
 </body>
 

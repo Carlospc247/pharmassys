@@ -24,19 +24,24 @@ from django.core.exceptions import ValidationError
 logger = logging.getLogger('fiscais')
 
 
+from decimal import Decimal
+from django.db import transaction
+from apps.fiscal.models import DocumentoFiscal, DocumentoFiscalLinha, TaxaIVAAGT
+
+import hashlib
+from django.utils.encoding import force_bytes
+
 
 class DocumentoFiscalService:
     """
-    Serviço responsável pela criação, confirmação e gestão de Documentos Fiscais.
-    Encapsula regras de negócio fora do Model e das Views.
+    Serviço para criação e gestão de Documentos Fiscais.
     """
-
     @staticmethod
     @transaction.atomic
-    def criar_documento(empresa, tipo_documento, cliente, linhas, usuario, **dados_extra):
-        """
-        Cria um novo Documento Fiscal e suas linhas.
-        """
+    def criar_documento(empresa, tipo_documento, cliente, linhas, usuario, dados_extra=None):
+        dados_extra = dados_extra or {}
+
+        # Criar documento
         documento = DocumentoFiscal.objects.create(
             empresa=empresa,
             tipo_documento=tipo_documento,
@@ -45,16 +50,73 @@ class DocumentoFiscalService:
             **dados_extra
         )
 
+        # Criar linhas
         for idx, linha in enumerate(linhas, start=1):
+            if linha.get('produto'):
+                # É um produto
+                taxa_iva_obj = linha['produto'].taxa_iva
+                codigo = linha['produto'].codigo_interno
+                descricao = linha['produto'].nome_produto
+            elif linha.get('servico'):
+                # É um serviço
+                taxa_iva_obj = linha['servico'].taxa_iva
+                codigo = f"S-{linha['servico'].id}"  # identificador único do serviço
+                descricao = linha['servico'].nome
+            else:
+                raise ValueError("Linha deve ter 'produto' ou 'servico'.")
+
             DocumentoFiscalLinha.objects.create(
                 documento=documento,
                 numero_linha=idx,
-                **linha
+                produto=linha.get('produto'),   # None se for serviço
+                codigo_produto=codigo,
+                descricao=descricao,
+                unidade=linha.get('unidade', 'UN'),
+                quantidade=linha.get('quantidade', Decimal('1.0')),
+                preco_unitario=linha.get('preco_unitario', Decimal('0.00')),
+                valor_desconto_linha=linha.get('desconto', Decimal('0.00')),
+                taxa_iva=taxa_iva_obj,
+                observacoes_linha=linha.get('observacoes', '')
             )
 
-        # Atualiza totais
+        # Recalcular totais do documento
         DocumentoFiscalService.recalcular_totais(documento)
 
+        # ====== GERAÇÃO DE HASH E ATCUD ======
+        # Importar função utilitária do SAF-T se existir
+        from apps.fiscal.utils import gerar_hash_documento
+
+        # Se o hash não foi definido ainda
+        if not documento.hash_documento:
+            documento.hash_documento = gerar_hash_documento(documento)
+
+        # Gera ATCUD (código único do documento)
+        if not documento.atcud:
+            documento.atcud = f"{documento.empresa.codigo_validacao}-{documento.numero}"
+
+        # Salva com os novos campos
+        documento.save(update_fields=["hash_documento", "atcud"])
+
+
+
+
+        return documento
+
+    @staticmethod
+    def recalcular_totais(documento: DocumentoFiscal):
+        """
+        Recalcula os totais do documento com base nas linhas.
+        """
+        linhas = documento.linhas.all()
+
+        valor_base = sum([l.valor_liquido for l in linhas])
+        valor_iva = sum([l.valor_iva_linha for l in linhas])
+        valor_total = sum([l.valor_total_linha for l in linhas])
+
+        documento.valor_base = valor_base
+        documento.valor_iva = valor_iva
+        documento.valor_total = valor_total
+        documento.save(update_fields=['valor_base', 'valor_iva', 'valor_total'])
         return documento
 
     @staticmethod
@@ -76,22 +138,6 @@ class DocumentoFiscalService:
         documento.cancelar_documento(usuario, motivo)
         return documento
 
-    @staticmethod
-    def recalcular_totais(documento: DocumentoFiscal):
-        """
-        Recalcula os totais do documento com base nas linhas.
-        """
-        linhas = documento.linhas.all()
-
-        valor_base = sum([l.valor_liquido for l in linhas])
-        valor_iva = sum([l.valor_iva_linha for l in linhas])
-        valor_total = sum([l.valor_total_linha for l in linhas])
-
-        documento.valor_base = valor_base
-        documento.valor_iva = valor_iva
-        documento.valor_total = valor_total
-        documento.save(update_fields=['valor_base', 'valor_iva', 'valor_total'])
-        return documento
 
 
 class FiscalServiceError(Exception):
@@ -131,7 +177,7 @@ class TaxaIVAService:
                     tax_percentage=dados.get('tax_percentage', Decimal('0.00')),
                     exemption_reason=dados.get('exemption_reason'),
                     legislacao_referencia=dados.get('legislacao_referencia', ''),
-                    ativo=dados.get('ativo', True)
+                    ativa=dados.get('ativa', True)
                 )
                 
                 logger.info(
@@ -512,188 +558,693 @@ class RetencaoFonteService:
             logger.error(f"Erro ao processar pagamento: {e}")
             raise FiscalServiceError(f"Erro no processamento: {e}")
 
+
+import os
+import zipfile
+import hashlib
+import logging
+from pathlib import Path
+import xml.etree.ElementTree as ET
+from datetime import date
+from decimal import Decimal
+from django.conf import settings
+from django.utils import timezone
+from lxml import etree
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+
+logger = logging.getLogger(__name__)
+
+class FiscalServiceError(Exception):
+    pass
+
+
+import os
+import hashlib
+import zipfile
+import xml.etree.ElementTree as ET
+from datetime import date
+from decimal import Decimal
+from pathlib import Path
+from django.conf import settings
+from django.utils import timezone
+from lxml import etree
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class FiscalServiceError(Exception):
+    pass
+
+
 class SAFTExportService:
     """
-    Serviço para exportação de dados no formato SAF-T AO v1.01
+    Serviço completo para exportação SAF-T AO v1.01_01 (AGT)
+    100% compatível com o esquema XSD oficial SAFTAO1.01_01.xsd
     """
-    
+
+    NAMESPACE = "urn:OECD:StandardAuditFile-Tax:AO_1.01_01"
+
     @staticmethod
-    def gerar_saft_ao(empresa: Empresa, data_inicio: date, data_fim: date) -> str:
-        """
-        Gera arquivo SAF-T AO completo para o período especificado
-        
-        Args:
-            empresa: Empresa a exportar
-            data_inicio: Data de início do período
-            data_fim: Data de fim do período
-            
-        Returns:
-            str: XML SAF-T AO v1.01
-        """
+    def validar_xsd(xml_str: str):
+        """Valida o XML conforme schema oficial SAF-T AO 1.01_01"""
+        xsd_path = os.path.join(settings.BASE_DIR, "apps", "fiscal", "schemas", "SAFTAO1.01_01.xsd")
+        xmlschema_doc = etree.parse(str(Path(xsd_path)))
+        xmlschema = etree.XMLSchema(xmlschema_doc)
+        xml_doc = etree.fromstring(xml_str.encode('utf-8'))
+        xmlschema.assertValid(xml_doc)
+        logger.info("Validação XSD SAF-T AO concluída com sucesso.")
+
+    @staticmethod
+    def gerar_saft_ao(empresa, data_inicio: date, data_fim: date) -> str:
+        """Gera o arquivo SAF-T AO completo e validado"""
         try:
             logger.info(
                 f"Iniciando geração SAF-T AO",
-                extra={
-                    'empresa_id': empresa.id,
-                    'data_inicio': data_inicio.isoformat(),
-                    'data_fim': data_fim.isoformat()
-                }
+                extra={'empresa_id': empresa.id, 'data_inicio': data_inicio.isoformat(),
+                       'data_fim': data_fim.isoformat()}
             )
-            
-            # Criar estrutura XML base
-            root = ET.Element("AuditFile", xmlns="urn:OECD:StandardAuditFile-Tax:AO_1.01_01")
-            
-            # Header
-            header = SAFTExportService._criar_header(empresa, data_inicio, data_fim)
-            root.append(header)
-            
-            # Master Files
-            master_files = SAFTExportService._criar_master_files(empresa)
-            root.append(master_files)
-            
-            # Source Documents
-            source_documents = SAFTExportService._criar_source_documents(
-                empresa, data_inicio, data_fim
-            )
-            root.append(source_documents)
-            
-            # Converter para string XML
+
+            ET.register_namespace('', SAFTExportService.NAMESPACE)
+            root = ET.Element("{%s}AuditFile" % SAFTExportService.NAMESPACE)
+
+            root.append(SAFTExportService._criar_header(empresa, data_inicio, data_fim))
+            root.append(SAFTExportService._criar_master_files(empresa))
+
+            general_ledger = SAFTExportService._criar_general_ledger_entries(empresa, data_inicio, data_fim)
+            if general_ledger is not None:
+                root.append(general_ledger)
+
+            source_docs = SAFTExportService._criar_source_documents(empresa, data_inicio, data_fim)
+            if source_docs is not None:
+                root.append(source_docs)
+
             xml_string = ET.tostring(root, encoding='utf-8', xml_declaration=True)
             xml_formatted = xml_string.decode('utf-8')
-            
-            logger.info(
-                f"SAF-T AO gerado com sucesso",
-                extra={
-                    'empresa_id': empresa.id,
-                    'xml_size': len(xml_formatted)
-                }
-            )
-            
+
+            SAFTExportService.validar_xsd(xml_formatted)
+
+            logger.info("SAF-T AO gerado e validado com sucesso.")
             return xml_formatted
-            
+
         except Exception as e:
             logger.error(f"Erro ao gerar SAF-T AO: {e}")
-            raise FiscalServiceError(f"Erro na geração: {e}")
-    
+            raise FiscalServiceError(f"Erro na geração SAF-T: {e}")
+
     @staticmethod
-    def _criar_header(empresa: Empresa, data_inicio: date, data_fim: date) -> ET.Element:
-        """Cria o bloco Header do SAF-T"""
-        header = ET.Element("Header")
-        
-        # Audit File Version
-        ET.SubElement(header, "AuditFileVersion").text = "1.01_01"
-        
-        # Company ID
-        ET.SubElement(header, "CompanyID").text = empresa.nif or empresa.id
-        
-        # Tax Registration Number
-        ET.SubElement(header, "TaxRegistrationNumber").text = empresa.nif
-        
-        # Tax Accounting Basis
-        ET.SubElement(header, "TaxAccountingBasis").text = "F"  # Faturação
-        
-        # Company Name
-        ET.SubElement(header, "CompanyName").text = empresa.nome
-        
-        # Business Name (se diferente)
-        ET.SubElement(header, "BusinessName").text = empresa.nome_comercial or empresa.nome
-        
-        # Company Address
-        address = ET.SubElement(header, "CompanyAddress")
-        ET.SubElement(address, "AddressDetail").text = empresa.endereco_completo or ""
-        ET.SubElement(address, "City").text = empresa.cidade or ""
-        ET.SubElement(address, "PostalCode").text = empresa.codigo_postal or ""
-        ET.SubElement(address, "Country").text = "AO"
-        
-        # Fiscal Year
-        ET.SubElement(header, "FiscalYear").text = str(data_inicio.year)
-        
-        # Start Date
-        ET.SubElement(header, "StartDate").text = data_inicio.strftime("%Y-%m-%d")
-        
-        # End Date
-        ET.SubElement(header, "EndDate").text = data_fim.strftime("%Y-%m-%d")
-        
-        # Currency Code
-        ET.SubElement(header, "CurrencyCode").text = "AOA"
-        
-        # Date Created
-        ET.SubElement(header, "DateCreated").text = timezone.now().strftime("%Y-%m-%d")
-        
-        # Time Created
-        ET.SubElement(header, "TimeCreated").text = timezone.now().strftime("%H:%M:%S")
-        
-        # Product ID
-        ET.SubElement(header, "ProductID").text = "PharmaSys Fiscal"
-        
-        # Product Version
-        ET.SubElement(header, "ProductVersion").text = "1.0"
-        
+    def _criar_elemento(tag, texto=None):
+        """Cria elemento XML com namespace correto"""
+        elem = ET.Element("{%s}%s" % (SAFTExportService.NAMESPACE, tag))
+        if texto is not None:
+            elem.text = str(texto)
+        return elem
+
+    @staticmethod
+    def _criar_subelemento(parent, tag, texto=None):
+        """Cria subelemento XML com namespace correto"""
+        elem = ET.SubElement(parent, "{%s}%s" % (SAFTExportService.NAMESPACE, tag))
+        if texto is not None:
+            elem.text = str(texto)
+        return elem
+
+    @staticmethod
+    def _criar_header(empresa, data_inicio: date, data_fim: date):
+        """Cria o elemento Header conforme XSD"""
+        header = SAFTExportService._criar_elemento("Header")
+
+        SAFTExportService._criar_subelemento(header, "AuditFileVersion", "1.01_01")
+        SAFTExportService._criar_subelemento(header, "CompanyID", empresa.nif or str(empresa.id))
+        SAFTExportService._criar_subelemento(header, "TaxRegistrationNumber", empresa.nif)
+        SAFTExportService._criar_subelemento(header, "TaxAccountingBasis", "F")
+        SAFTExportService._criar_subelemento(header, "CompanyName", empresa.nome[:200])
+
+        if empresa.nome_fantasia:
+            SAFTExportService._criar_subelemento(header, "BusinessName", empresa.nome_fantasia[:60])
+
+        company_address = SAFTExportService._criar_subelemento(header, "CompanyAddress")
+        SAFTExportService._criar_subelemento(company_address, "AddressDetail", empresa.endereco or "Desconhecido")
+        SAFTExportService._criar_subelemento(company_address, "City", empresa.cidade or "Luanda")
+        if empresa.postal:
+            SAFTExportService._criar_subelemento(company_address, "PostalCode", empresa.postal[:10])
+        SAFTExportService._criar_subelemento(company_address, "Country", "AO")
+
+        SAFTExportService._criar_subelemento(header, "FiscalYear", str(data_inicio.year))
+        SAFTExportService._criar_subelemento(header, "StartDate", data_inicio.strftime("%Y-%m-%d"))
+        SAFTExportService._criar_subelemento(header, "EndDate", data_fim.strftime("%Y-%m-%d"))
+        SAFTExportService._criar_subelemento(header, "CurrencyCode", "AOA")
+        SAFTExportService._criar_subelemento(header, "DateCreated", timezone.now().strftime("%Y-%m-%d"))
+
+        tax_entity = getattr(empresa, 'estabelecimento', None) or "Sede"
+        SAFTExportService._criar_subelemento(header, "TaxEntity", tax_entity[:20])
+
+        product_company_tax_id = getattr(settings, "PRODUCT_COMPANY_TAX_ID", empresa.nif or "999999999")
+        SAFTExportService._criar_subelemento(header, "ProductCompanyTaxID", product_company_tax_id[:20])
+
+        software_validation_number = getattr(settings, "SOFTWARE_VALIDATION_NUMBER", "0")
+        SAFTExportService._criar_subelemento(header, "SoftwareValidationNumber", software_validation_number)
+
+        product_id = getattr(settings, "ERP_PRODUCT_ID", "ERP/SoftwareHouse")
+        SAFTExportService._criar_subelemento(header, "ProductID", product_id)
+
+        product_version = getattr(settings, "ERP_PRODUCT_VERSION", "1.0")
+        SAFTExportService._criar_subelemento(header, "ProductVersion", product_version[:30])
+
+        if hasattr(empresa, 'telefone') and empresa.telefone:
+            SAFTExportService._criar_subelemento(header, "Telephone", empresa.telefone[:20])
+
+        if hasattr(empresa, 'email') and empresa.email:
+            SAFTExportService._criar_subelemento(header, "Email", empresa.email[:255])
+
+        if hasattr(empresa, 'website') and empresa.website:
+            SAFTExportService._criar_subelemento(header, "Website", empresa.website[:60])
+
         return header
-    
+
     @staticmethod
-    def _criar_master_files(empresa: Empresa) -> ET.Element:
-        """Cria o bloco MasterFiles do SAF-T"""
-        master_files = ET.Element("MasterFiles")
-        
-        # General Ledger Accounts
-        gl_accounts = ET.SubElement(master_files, "GeneralLedgerAccounts")
-        
-        for conta in empresa.planos_contas.filter(ativo=True):
-            account = ET.SubElement(gl_accounts, "Account")
-            ET.SubElement(account, "AccountID").text = conta.codigo
-            ET.SubElement(account, "AccountDescription").text = conta.nome
-            ET.SubElement(account, "StandardAccountID").text = conta.codigo
-            ET.SubElement(account, "AccountType").text = conta.tipo_conta.upper()
-        
-        # Tax Table
-        tax_table = ET.SubElement(master_files, "TaxTable")
-        
-        for taxa in empresa.taxas_iva.filter(ativo=True):
-            tax_entry = ET.SubElement(tax_table, "TaxTableEntry")
-            ET.SubElement(tax_entry, "TaxType").text = taxa.tax_type
-            ET.SubElement(tax_entry, "TaxCode").text = taxa.tax_code
-            ET.SubElement(tax_entry, "Description").text = taxa.nome
-            
-            if taxa.tax_type == 'IVA':
-                ET.SubElement(tax_entry, "TaxPercentage").text = str(taxa.tax_percentage)
-            else:
-                ET.SubElement(tax_entry, "TaxExemptionCode").text = taxa.exemption_reason
-        
+    def _criar_master_files(empresa):
+        """Cria o elemento MasterFiles conforme XSD"""
+        master_files = SAFTExportService._criar_elemento("MasterFiles")
+
+        SAFTExportService._criar_general_ledger_accounts(master_files, empresa)
+        SAFTExportService._criar_customers(master_files, empresa)
+        SAFTExportService._criar_suppliers(master_files, empresa)
+        SAFTExportService._criar_products(master_files, empresa)
+        SAFTExportService._criar_tax_table(master_files, empresa)
+
         return master_files
-    
+
     @staticmethod
-    def _criar_source_documents(empresa: Empresa, data_inicio: date, data_fim: date) -> ET.Element:
-        """Cria o bloco SourceDocuments do SAF-T"""
-        source_documents = ET.Element("SourceDocuments")
-        
-        # Sales Invoices
-        sales_invoices = ET.SubElement(source_documents, "SalesInvoices")
-        ET.SubElement(sales_invoices, "NumberOfEntries").text = "0"
-        ET.SubElement(sales_invoices, "TotalDebit").text = "0.00"
-        ET.SubElement(sales_invoices, "TotalCredit").text = "0.00"
-        
-        # Adicionar vendas se existirem
+    def _criar_general_ledger_accounts(master_files, empresa):
+        """Cria GeneralLedgerAccounts conforme XSD"""
+        if not hasattr(empresa, 'planos_contas'):
+            return
+
+        contas = empresa.planos_contas.filter(ativa=True)
+        for conta in contas:
+            gl_account = SAFTExportService._criar_subelemento(master_files, "GeneralLedgerAccounts")
+            account = SAFTExportService._criar_subelemento(gl_account, "Account")
+
+            SAFTExportService._criar_subelemento(account, "AccountID", conta.codigo[:30])
+            SAFTExportService._criar_subelemento(account, "AccountDescription", conta.nome[:100])
+
+            saldo_abertura_debito = getattr(conta, 'saldo_abertura_debito', Decimal("0.00"))
+            SAFTExportService._criar_subelemento(account, "OpeningDebitBalance", f"{saldo_abertura_debito:.2f}")
+
+            saldo_abertura_credito = getattr(conta, 'saldo_abertura_credito', Decimal("0.00"))
+            SAFTExportService._criar_subelemento(account, "OpeningCreditBalance", f"{saldo_abertura_credito:.2f}")
+
+            saldo_encerramento_debito = getattr(conta, 'saldo_encerramento_debito', Decimal("0.00"))
+            SAFTExportService._criar_subelemento(account, "ClosingDebitBalance", f"{saldo_encerramento_debito:.2f}")
+
+            saldo_encerramento_credito = getattr(conta, 'saldo_encerramento_credito', Decimal("0.00"))
+            SAFTExportService._criar_subelemento(account, "ClosingCreditBalance", f"{saldo_encerramento_credito:.2f}")
+
+            grouping_category = SAFTExportService._determinar_grouping_category(conta)
+            SAFTExportService._criar_subelemento(account, "GroupingCategory", grouping_category)
+
+            if hasattr(conta, 'conta_pai') and conta.conta_pai and grouping_category != "GR":
+                SAFTExportService._criar_subelemento(account, "GroupingCode", conta.conta_pai.codigo[:30])
+
+    @staticmethod
+    def _determinar_grouping_category(conta):
+        """Determina a categoria da conta"""
+        if hasattr(conta, 'grouping_category'):
+            return conta.grouping_category
+
+        if hasattr(conta, 'nivel'):
+            if conta.nivel == 1:
+                return "GR"
+            elif hasattr(conta, 'tem_filhos') and conta.tem_filhos:
+                return "GA"
+            else:
+                return "GM"
+
+        return "GM"
+
+    @staticmethod
+    def _criar_customers(master_files, empresa):
+        """Cria elementos Customer conforme XSD"""
+        from apps.clientes.models import Cliente
+
+        clientes = Cliente.objects.filter(empresa=empresa)
+        for cliente in clientes:
+            customer = SAFTExportService._criar_subelemento(master_files, "Customer")
+
+            SAFTExportService._criar_subelemento(customer, "CustomerID", str(cliente.id)[:30])
+
+            account_id = getattr(cliente, 'conta_contabil', None)
+            if account_id:
+                SAFTExportService._criar_subelemento(customer, "AccountID", str(account_id)[:30])
+            else:
+                SAFTExportService._criar_subelemento(customer, "AccountID", "Desconhecido")
+
+            customer_tax_id = cliente.nif if cliente.nif else "999999999"
+            SAFTExportService._criar_subelemento(customer, "CustomerTaxID", customer_tax_id[:30])
+
+            SAFTExportService._criar_subelemento(customer, "CompanyName", cliente.nome_exibicao[:200])
+
+            billing_address = SAFTExportService._criar_subelemento(customer, "BillingAddress")
+            SAFTExportService._criar_address_details(billing_address, cliente)
+
+            SAFTExportService._criar_subelemento(customer, "SelfBillingIndicator", "0")
+
+    @staticmethod
+    def _criar_suppliers(master_files, empresa):
+        """Cria elementos Supplier conforme XSD"""
+        from apps.fornecedores.models import Fornecedor
+
+        fornecedores = Fornecedor.objects.filter(empresa=empresa)
+        for fornecedor in fornecedores:
+            supplier = SAFTExportService._criar_subelemento(master_files, "Supplier")
+
+            SAFTExportService._criar_subelemento(supplier, "SupplierID", str(fornecedor.id)[:30])
+
+            account_id = getattr(fornecedor, 'conta_contabil', None)
+            if account_id:
+                SAFTExportService._criar_subelemento(supplier, "AccountID", str(account_id)[:30])
+            else:
+                SAFTExportService._criar_subelemento(supplier, "AccountID", "Desconhecido")
+
+            supplier_tax_id = fornecedor.nif if fornecedor.nif else "999999999"
+            SAFTExportService._criar_subelemento(supplier, "SupplierTaxID", supplier_tax_id[:20])
+
+            SAFTExportService._criar_subelemento(supplier, "CompanyName", fornecedor.nome[:200])
+
+            billing_address = SAFTExportService._criar_subelemento(supplier, "BillingAddress")
+            SAFTExportService._criar_address_details(billing_address, fornecedor)
+
+            SAFTExportService._criar_subelemento(supplier, "SelfBillingIndicator", "0")
+
+    @staticmethod
+    def _criar_address_details(address_element, entity):
+        """Adiciona detalhes de endereço"""
+        if hasattr(entity, 'numero_porta') and entity.numero_porta:
+            SAFTExportService._criar_subelemento(address_element, "BuildingNumber", str(entity.numero_porta)[:15])
+
+        if hasattr(entity, 'rua') and entity.rua:
+            SAFTExportService._criar_subelemento(address_element, "StreetName", entity.rua[:200])
+
+        endereco = getattr(entity, 'endereco', None) or "Desconhecido"
+        SAFTExportService._criar_subelemento(address_element, "AddressDetail", endereco[:250])
+
+        cidade = getattr(entity, 'cidade', None) or "Luanda"
+        SAFTExportService._criar_subelemento(address_element, "City", cidade[:50])
+
+        if hasattr(entity, 'codigo_postal') and entity.codigo_postal:
+            SAFTExportService._criar_subelemento(address_element, "PostalCode", entity.codigo_postal[:20])
+
+        if hasattr(entity, 'provincia') and entity.provincia:
+            SAFTExportService._criar_subelemento(address_element, "Province", entity.provincia[:50])
+
+        pais = getattr(entity, 'pais', None) or "AO"
+        SAFTExportService._criar_subelemento(address_element, "Country", pais[:2] if len(pais) >= 2 else "AO")
+
+    @staticmethod
+    def _criar_products(master_files, empresa):
+        """Cria elementos Product conforme XSD"""
+        if not hasattr(empresa, 'produtos'):
+            return
+
+        produtos = empresa.produtos.all()
+        for produto in produtos:
+            product = SAFTExportService._criar_subelemento(master_files, "Product")
+
+            product_type = getattr(produto, 'tipo_produto', 'P')
+            if product_type not in ['P', 'S', 'O', 'E', 'I']:
+                product_type = 'P'
+            SAFTExportService._criar_subelemento(product, "ProductType", product_type)
+
+            SAFTExportService._criar_subelemento(product, "ProductCode", produto.codigo_interno[:60])
+
+            if hasattr(produto, 'grupo') and produto.grupo:
+                SAFTExportService._criar_subelemento(product, "ProductGroup", str(produto.grupo)[:50])
+
+            SAFTExportService._criar_subelemento(product, "ProductDescription", produto.nome_produto[:200])
+
+            product_number_code = getattr(produto, 'codigo_ean', None) or produto.codigo_interno
+            SAFTExportService._criar_subelemento(product, "ProductNumberCode", product_number_code[:60])
+
+    @staticmethod
+    def _criar_tax_table(master_files, empresa):
+        """Cria elemento TaxTable conforme XSD"""
+        if not hasattr(empresa, 'taxas_iva'):
+            return
+
+        taxas = empresa.taxas_iva.filter(ativo=True)
+        if not taxas.exists():
+            return
+
+        tax_table = SAFTExportService._criar_subelemento(master_files, "TaxTable")
+
+        for taxa in taxas:
+            tax_entry = SAFTExportService._criar_subelemento(tax_table, "TaxTableEntry")
+
+            tax_type = getattr(taxa, 'tax_type', 'IVA')
+            if tax_type not in ['IVA', 'IS', 'NS']:
+                tax_type = 'IVA'
+            SAFTExportService._criar_subelemento(tax_entry, "TaxType", tax_type)
+
+            if hasattr(taxa, 'tax_country_region') and taxa.tax_country_region:
+                SAFTExportService._criar_subelemento(tax_entry, "TaxCountryRegion", taxa.tax_country_region[:6])
+
+            tax_code = getattr(taxa, 'tax_code', 'NOR')
+            SAFTExportService._criar_subelemento(tax_entry, "TaxCode", tax_code[:10])
+
+            SAFTExportService._criar_subelemento(tax_entry, "Description", taxa.nome[:255])
+
+            if hasattr(taxa, 'data_expiracao') and taxa.data_expiracao:
+                SAFTExportService._criar_subelemento(tax_entry, "TaxExpirationDate", taxa.data_expiracao.strftime("%Y-%m-%d"))
+
+            if hasattr(taxa, 'tax_percentage') and taxa.tax_percentage is not None:
+                SAFTExportService._criar_subelemento(tax_entry, "TaxPercentage", f"{taxa.tax_percentage:.2f}")
+            elif hasattr(taxa, 'tax_amount') and taxa.tax_amount is not None:
+                SAFTExportService._criar_subelemento(tax_entry, "TaxAmount", f"{taxa.tax_amount:.2f}")
+            else:
+                SAFTExportService._criar_subelemento(tax_entry, "TaxPercentage", "0.00")
+
+    @staticmethod
+    def _criar_general_ledger_entries(empresa, data_inicio: date, data_fim: date):
+        """Cria elemento GeneralLedgerEntries conforme XSD"""
+        from apps.financeiro.models import MovimentacaoFinanceira
+
+        if not hasattr(MovimentacaoFinanceira, 'objects'):
+            return None
+
+        movimentacoes = MovimentacaoFinanceira.objects.filter(
+            empresa=empresa,
+            data_movimentacao__gte=data_inicio,
+            data_movimentacao__lte=data_fim,
+            status="confirmada"
+        ).select_related('plano_contas', 'cliente', 'fornecedor').order_by('data_movimentacao', 'id')
+
+        if not movimentacoes.exists():
+            return None
+
+        gl_entries = SAFTExportService._criar_elemento("GeneralLedgerEntries")
+
+        SAFTExportService._criar_subelemento(gl_entries, "NumberOfEntries", str(movimentacoes.count()))
+
+        total_debit = sum(mov.debito or Decimal("0.00") for mov in movimentacoes)
+        SAFTExportService._criar_subelemento(gl_entries, "TotalDebit", f"{total_debit:.2f}")
+
+        total_credit = sum(mov.credito or Decimal("0.00") for mov in movimentacoes)
+        SAFTExportService._criar_subelemento(gl_entries, "TotalCredit", f"{total_credit:.2f}")
+
+        journals = {}
+        for mov in movimentacoes:
+            journal_id = getattr(mov, 'diario_id', None) or "GERAL"
+            if journal_id not in journals:
+                journals[journal_id] = []
+            journals[journal_id].append(mov)
+
+        for journal_id, movimentos in journals.items():
+            SAFTExportService._criar_journal(gl_entries, journal_id, movimentos)
+
+        return gl_entries
+
+    @staticmethod
+    def _criar_journal(gl_entries, journal_id, movimentos):
+        """Cria um Journal dentro de GeneralLedgerEntries"""
+        journal = SAFTExportService._criar_subelemento(gl_entries, "Journal")
+
+        SAFTExportService._criar_subelemento(journal, "JournalID", str(journal_id)[:30])
+        SAFTExportService._criar_subelemento(journal, "Description", f"Diário {journal_id}"[:200])
+
+        for mov in movimentos:
+            SAFTExportService._criar_transaction(journal, mov)
+
+    @staticmethod
+    def _criar_transaction(journal, mov):
+        """Cria uma Transaction dentro de Journal"""
+        transaction = SAFTExportService._criar_subelemento(journal, "Transaction")
+
+        transaction_date = mov.data_movimentacao.strftime("%Y-%m-%d")
+        journal_id = getattr(mov, 'diario_id', None) or "GERAL"
+        doc_arch_number = getattr(mov, 'numero_documento', None) or str(mov.id)
+        transaction_id = f"{transaction_date} {journal_id} {doc_arch_number}"
+        SAFTExportService._criar_subelemento(transaction, "TransactionID", transaction_id[:70])
+
+        periodo = mov.data_movimentacao.month
+        SAFTExportService._criar_subelemento(transaction, "Period", str(periodo))
+
+        SAFTExportService._criar_subelemento(transaction, "TransactionDate", transaction_date)
+
+        source_id = getattr(mov, 'usuario_id', None) or "Sistema"
+        SAFTExportService._criar_subelemento(transaction, "SourceID", str(source_id)[:30])
+
+        descricao = mov.descricao or "Movimento Financeiro"
+        SAFTExportService._criar_subelemento(transaction, "Description", descricao[:200])
+
+        SAFTExportService._criar_subelemento(transaction, "DocArchivalNumber", str(doc_arch_number)[:20])
+
+        transaction_type = getattr(mov, 'tipo_transacao', 'N')
+        if transaction_type not in ['N', 'R', 'A', 'J']:
+            transaction_type = 'N'
+        SAFTExportService._criar_subelemento(transaction, "TransactionType", transaction_type)
+
+        SAFTExportService._criar_subelemento(transaction, "GLPostingDate", transaction_date)
+
+        if hasattr(mov, 'cliente') and mov.cliente:
+            SAFTExportService._criar_subelemento(transaction, "CustomerID", str(mov.cliente.id)[:30])
+        elif hasattr(mov, 'fornecedor') and mov.fornecedor:
+            SAFTExportService._criar_subelemento(transaction, "SupplierID", str(mov.fornecedor.id)[:30])
+
+        lines = SAFTExportService._criar_subelemento(transaction, "Lines")
+
+        if mov.debito and mov.debito > 0:
+            debit_line = SAFTExportService._criar_subelemento(lines, "DebitLine")
+            SAFTExportService._criar_subelemento(debit_line, "RecordID", str(mov.id)[:30])
+            account_id = mov.plano_contas.codigo if mov.plano_contas else "Desconhecido"
+            SAFTExportService._criar_subelemento(debit_line, "AccountID", account_id[:30])
+            SAFTExportService._criar_subelemento(debit_line, "SystemEntryDate", mov.data_movimentacao.strftime("%Y-%m-%dT%H:%M:%S"))
+            SAFTExportService._criar_subelemento(debit_line, "Description", descricao[:200])
+            SAFTExportService._criar_subelemento(debit_line, "DebitAmount", f"{mov.debito:.2f}")
+
+        if mov.credito and mov.credito > 0:
+            credit_line = SAFTExportService._criar_subelemento(lines, "CreditLine")
+            SAFTExportService._criar_subelemento(credit_line, "RecordID", str(mov.id)[:30])
+            account_id = mov.plano_contas.codigo if mov.plano_contas else "Desconhecido"
+            SAFTExportService._criar_subelemento(credit_line, "AccountID", account_id[:30])
+            SAFTExportService._criar_subelemento(credit_line, "SystemEntryDate", mov.data_movimentacao.strftime("%Y-%m-%dT%H:%M:%S"))
+            SAFTExportService._criar_subelemento(credit_line, "Description", descricao[:200])
+            SAFTExportService._criar_subelemento(credit_line, "CreditAmount", f"{mov.credito:.2f}")
+
+    @staticmethod
+    def _criar_source_documents(empresa, data_inicio: date, data_fim: date):
+        """Cria elemento SourceDocuments conforme XSD"""
+        source_documents = SAFTExportService._criar_elemento("SourceDocuments")
+        has_content = False
+
+        sales_invoices = SAFTExportService._criar_sales_invoices(empresa, data_inicio, data_fim)
+        if sales_invoices is not None:
+            source_documents.append(sales_invoices)
+            has_content = True
+
+        movement_of_goods = SAFTExportService._criar_movement_of_goods(empresa, data_inicio, data_fim)
+        if movement_of_goods is not None:
+            source_documents.append(movement_of_goods)
+            has_content = True
+
+        working_documents = SAFTExportService._criar_working_documents(empresa, data_inicio, data_fim)
+        if working_documents is not None:
+            source_documents.append(working_documents)
+            has_content = True
+
+        payments = SAFTExportService._criar_payments(empresa, data_inicio, data_fim)
+        if payments is not None:
+            source_documents.append(payments)
+            has_content = True
+
+        return source_documents if has_content else None
+
+    @staticmethod
+    def _criar_sales_invoices(empresa, data_inicio: date, data_fim: date):
+        """Cria elemento SalesInvoices conforme XSD"""
+        from apps.vendas.models import Venda
+
         vendas = Venda.objects.filter(
             empresa=empresa,
-            data_venda__range=[data_inicio, data_fim]
-        )
-        
-        ET.SubElement(sales_invoices, "NumberOfEntries").text = str(vendas.count())
-        
-        # Working Documents (se houver)
-        working_documents = ET.SubElement(source_documents, "WorkingDocuments")
-        ET.SubElement(working_documents, "NumberOfEntries").text = "0"
-        ET.SubElement(working_documents, "TotalDebit").text = "0.00"
-        ET.SubElement(working_documents, "TotalCredit").text = "0.00"
-        
-        # Payments (se houver)
-        payments = ET.SubElement(source_documents, "Payments")
-        ET.SubElement(payments, "NumberOfEntries").text = "0"
-        ET.SubElement(payments, "TotalDebit").text = "0.00"
-        ET.SubElement(payments, "TotalCredit").text = "0.00"
-        
-        return source_documents
+            data_venda__date__gte=data_inicio,
+            data_venda__date__lte=data_fim,
+            status="finalizada"
+        ).select_related("cliente").prefetch_related("itens__taxa_iva").order_by('data_venda', 'id')
+
+        if not vendas.exists():
+            return None
+
+        sales_invoices = SAFTExportService._criar_elemento("SalesInvoices")
+
+        vendas_normais = [v for v in vendas if getattr(v, 'invoice_status', 'N') == 'N']
+        SAFTExportService._criar_subelemento(sales_invoices, "NumberOfEntries", str(len(vendas_normais)))
+
+        total_debit = Decimal("0.00")
+        total_credit = sum(v.total for v in vendas_normais)
+
+        SAFTExportService._criar_subelemento(sales_invoices, "TotalDebit", f"{total_debit:.2f}")
+        SAFTExportService._criar_subelemento(sales_invoices, "TotalCredit", f"{total_credit:.2f}")
+
+        for venda in vendas:
+            SAFTExportService._criar_invoice(sales_invoices, venda)
+
+        return sales_invoices
+
+    @staticmethod
+    def _criar_invoice(sales_invoices, venda):
+        """Cria um Invoice dentro de SalesInvoices"""
+        invoice = SAFTExportService._criar_subelemento(sales_invoices, "Invoice")
+
+        invoice_no = venda.numero_documento or f"FT SERIE001/{venda.id}"
+        SAFTExportService._criar_subelemento(invoice, "InvoiceNo", invoice_no[:60])
+
+        document_status = SAFTExportService._criar_subelemento(invoice, "DocumentStatus")
+        invoice_status = getattr(venda, 'invoice_status', 'N')
+        if invoice_status not in ['N', 'S', 'A', 'R']:
+            invoice_status = 'N'
+        SAFTExportService._criar_subelemento(document_status, "InvoiceStatus", invoice_status)
+
+        status_date = getattr(venda, 'data_status', None) or venda.data_venda
+        SAFTExportService._criar_subelemento(document_status, "InvoiceStatusDate", status_date.strftime("%Y-%m-%dT%H:%M:%S"))
+
+        if hasattr(venda, 'motivo_anulacao') and venda.motivo_anulacao:
+            SAFTExportService._criar_subelemento(document_status, "Reason", venda.motivo_anulacao[:50])
+
+        source_id = getattr(venda, 'usuario_id', None) or "Sistema"
+        SAFTExportService._criar_subelemento(document_status, "SourceID", str(source_id)[:30])
+
+        source_billing = getattr(venda, 'source_billing', 'P')
+        if source_billing not in ['P', 'I', 'M']:
+            source_billing = 'P'
+        SAFTExportService._criar_subelemento(document_status, "SourceBilling", source_billing)
+
+        hash_control = getattr(venda, 'hash_control', None) or "0"
+        hash_input = f"{venda.empresa.nif}{invoice_no}{venda.data_venda.strftime('%Y-%m-%d')}{venda.total}"
+        hash_str = hashlib.sha1(hash_input.encode('utf-8')).hexdigest()
+        SAFTExportService._criar_subelemento(invoice, "Hash", hash_str[:172])
+        SAFTExportService._criar_subelemento(invoice, "HashControl", str(hash_control)[:70])
+
+        if hasattr(venda, 'periodo') and venda.periodo:
+            SAFTExportService._criar_subelemento(invoice, "Period", str(venda.periodo))
+
+        SAFTExportService._criar_subelemento(invoice, "InvoiceDate", venda.data_venda.strftime("%Y-%m-%d"))
+
+        invoice_type = getattr(venda, 'invoice_type', 'FT')
+        if invoice_type not in ['FT', 'FR', 'GF', 'FG', 'AC', 'AR', 'ND', 'NC', 'AF', 'TV', 'RP', 'RE', 'CS', 'LD', 'RA']:
+            invoice_type = 'FT'
+        SAFTExportService._criar_subelemento(invoice, "InvoiceType", invoice_type)
+
+        special_regimes = SAFTExportService._criar_subelemento(invoice, "SpecialRegimes")
+        SAFTExportService._criar_subelemento(special_regimes, "SelfBillingIndicator", "0")
+        SAFTExportService._criar_subelemento(special_regimes, "CashVATSchemeIndicator", "0")
+        SAFTExportService._criar_subelemento(special_regimes, "ThirdPartiesBillingIndicator", "0")
+
+        SAFTExportService._criar_subelemento(invoice, "SourceID", str(source_id)[:30])
+
+        SAFTExportService._criar_subelemento(invoice, "SystemEntryDate", venda.data_venda.strftime("%Y-%m-%dT%H:%M:%S"))
+
+        customer_id = str(venda.cliente.id) if venda.cliente else "1"
+        SAFTExportService._criar_subelemento(invoice, "CustomerID", customer_id[:30])
+
+        line_number = 1
+        for item in venda.itens.all():
+            line = SAFTExportService._criar_subelemento(invoice, "Line")
+
+            SAFTExportService._criar_subelemento(line, "LineNumber", str(line_number))
+
+            product_code = str(item.produto.id) if item.produto else "1"
+            SAFTExportService._criar_subelemento(line, "ProductCode", product_code[:60])
+
+            descricao = item.nome_produto or item.nome_servico or "Produto/Serviço"
+            SAFTExportService._criar_subelemento(line, "ProductDescription", descricao[:200])
+
+            SAFTExportService._criar_subelemento(line, "Quantity", f"{item.quantidade:.2f}")
+
+            unidade = getattr(item, 'unidade_medida', 'UN')
+            SAFTExportService._criar_subelemento(line, "UnitOfMeasure", unidade[:20])
+
+            SAFTExportService._criar_subelemento(line, "UnitPrice", f"{item.preco_unitario:.2f}")
+
+            tax_point_date = getattr(item, 'data_envio', None) or venda.data_venda
+            SAFTExportService._criar_subelemento(line, "TaxPointDate", tax_point_date.strftime("%Y-%m-%d"))
+
+            SAFTExportService._criar_subelemento(line, "Description", descricao[:200])
+
+            SAFTExportService._criar_subelemento(line, "CreditAmount", f"{item.total:.2f}")
+
+            tax = SAFTExportService._criar_subelemento(line, "Tax")
+            tax_type = getattr(item, 'tax_type', 'IVA')
+            if tax_type not in ['IVA', 'IS', 'NS']:
+                tax_type = 'IVA'
+            SAFTExportService._criar_subelemento(tax, "TaxType", tax_type)
+
+            tax_code = getattr(item, 'tax_code', 'NOR')
+            SAFTExportService._criar_subelemento(tax, "TaxCode", tax_code[:10])
+
+            iva_percentual = item.iva_percentual or Decimal("0.00")
+            SAFTExportService._criar_subelemento(tax, "TaxPercentage", f"{iva_percentual:.2f}")
+
+            if iva_percentual == 0:
+                exemption_reason = getattr(item, 'motivo_isencao', 'Isento nos termos da legislação aplicável')
+                SAFTExportService._criar_subelemento(line, "TaxExemptionReason", exemption_reason[:60])
+
+                exemption_code = getattr(item, 'codigo_isencao', 'M01')
+                SAFTExportService._criar_subelemento(line, "TaxExemptionCode", exemption_code)
+
+            line_number += 1
+
+        document_totals = SAFTExportService._criar_subelemento(invoice, "DocumentTotals")
+
+        tax_payable = venda.iva_valor or Decimal("0.00")
+        SAFTExportService._criar_subelemento(document_totals, "TaxPayable", f"{tax_payable:.2f}")
+
+        net_total = venda.subtotal or Decimal("0.00")
+        SAFTExportService._criar_subelemento(document_totals, "NetTotal", f"{net_total:.2f}")
+
+        gross_total = venda.total or Decimal("0.00")
+        SAFTExportService._criar_subelemento(document_totals, "GrossTotal", f"{gross_total:.2f}")
+
+    @staticmethod
+    def _criar_movement_of_goods(empresa, data_inicio: date, data_fim: date):
+        """Cria elemento MovementOfGoods se existir"""
+        return None
+
+    @staticmethod
+    def _criar_working_documents(empresa, data_inicio: date, data_fim: date):
+        """Cria elemento WorkingDocuments se existir"""
+        return None
+
+    @staticmethod
+    def _criar_payments(empresa, data_inicio: date, data_fim: date):
+        """Cria elemento Payments se existir"""
+        return None
+
+    @staticmethod
+    def gerar_zip_assinado(xml_str: str, empresa):
+        """Gera arquivo ZIP com o XML e hash"""
+        xml_path = SAFTExportService.salvar_xml(xml_str, empresa)
+        hash_str = hashlib.sha256(xml_str.encode('utf-8')).hexdigest()
+        zip_path = xml_path.replace('.xml', '.zip')
+
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            zipf.write(xml_path, os.path.basename(xml_path))
+            zipf.writestr('hash.txt', hash_str)
+
+        logger.info(f"ZIP SAF-T assinado gerado: {zip_path}")
+        return zip_path
+
+    @staticmethod
+    def salvar_xml(xml_str: str, empresa) -> str:
+        """Salva o arquivo XML"""
+        pasta = os.path.join(settings.MEDIA_ROOT, "saft", empresa.nome.replace(" ", "_"))
+        os.makedirs(pasta, exist_ok=True)
+        caminho = os.path.join(pasta, f"SAFT_{empresa.nif}_{timezone.now().strftime('%Y%m%d%H%M%S')}.xml")
+
+        with open(caminho, "w", encoding="utf-8") as f:
+            f.write(xml_str)
+
+        return caminho
+
+
 
 class FiscalDashboardService:
     """

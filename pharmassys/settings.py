@@ -389,6 +389,13 @@ CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"  # se estiveres a usar tailwind
 CRISPY_TEMPLATE_PACK = "tailwind"
 #CRISPY_TEMPLATE_PACK = "bootstrap5"
 
+
+
+PRODUCT_COMPANY_TAX_ID = "5001304461"  # NIF da empresa produtora do software
+SOFTWARE_VALIDATION_NUMBER = "123/AGT/2019"  # Número de validação AGT (ex: "123/AGT/2024")
+ERP_PRODUCT_ID = "SOTARQ SOFTWARE ERP"  # Ex: "MeuERP/MinhaEmpresa Lda"
+ERP_PRODUCT_VERSION = "1.0.0"
+
 # =========================================
 # Configuração padrão de PK
 # =========================================

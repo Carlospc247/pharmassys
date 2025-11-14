@@ -152,7 +152,7 @@
                 {% with validade=proforma.data_validade|date:"Y-m-d" %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 {% if validade < hoje and proforma.status == 'emitida' %}proforma-expirada{% endif %}">
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                        {{ proforma.numero_proforma }}
+                        {{ proforma.numero_documento }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {{ proforma.cliente.nome_exibicao }}

@@ -105,7 +105,9 @@ class Venda(TimeStampedModel):
     iva_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Valor do IVA")
     
     # Identificação
-    numero_venda = models.CharField(max_length=200, unique=True, verbose_name="Nº Documento Fiscal")
+    #numero_documento = models.CharField(max_length=200, unique=True, verbose_name="Nº Documento Fiscal")
+    numero_documento = models.CharField(max_length=200, unique=True)
+    #numero_documento = models.CharField(max_length=200, unique=True, verbose_name="Nº Documento Fiscal")
     tipo_venda = models.CharField(max_length=20, choices=TIPO_VENDA_CHOICES, default='fatura_recibo')
     observacoes = models.TextField(blank=True, null=True)
 
@@ -146,34 +148,43 @@ class Venda(TimeStampedModel):
     tem_fatura_proforma = models.BooleanField(default=False)
 
 
-    def save(self, *args, criar_documento=True, **kwargs):
-        is_new = self._state.adding  # True se for um novo objeto
-        super().save(*args, **kwargs)
+    def gerar_documento_fiscal(self, usuario):
+        """
+        Gera número, hash e ATCUD da venda.
+        Deve ser chamado apenas **após adicionar todos os itens**.
+        """
+        if not usuario:
+            raise ValueError("Usuário é obrigatório para gerar Documento Fiscal")
+        if not self.itens.exists():
+            raise ValueError("Não é possível gerar documento sem itens")
+        if self.total <= 0:
+            raise ValueError("Total da venda inválido para gerar documento")
 
-        # Só gera hash e numeração se for uma nova venda finalizada
-        # e criar_documento=True (ou seja, fora da view finalizando venda)
-        if criar_documento and is_new and self.status == 'finalizada':
-            from apps.fiscal.services import DocumentoFiscalService
+        from apps.fiscal.services import DocumentoFiscalService
+        service = DocumentoFiscalService()
+        documento = service.criar_documento(
+            empresa=self.empresa,
+            tipo_documento='FR',
+            cliente=self.cliente,
+            usuario=usuario,
+            linhas=[{
+                'produto': item.produto,
+                'quantidade': item.quantidade,
+                'preco_unitario': item.preco_unitario,
+                'desconto': item.desconto_item,
+                'iva_valor': item.iva_valor,
+            } for item in self.itens.all()],
+            dados_extra={'data_emissao': self.data_venda, 'valor_total': self.total},
+        )
 
-            service = DocumentoFiscalService()
-            documento = service.criar_documento(
-                empresa=self.empresa,
-                tipo_documento='FR',
-                cliente=self.cliente,
-                usuario=self.vendedor.user,
-                linhas=[],  # linhas reais serão montadas na view
-                dados_extra={'data_emissao': self.data_venda, 'valor_total': self.total},
-            )
-
-            self.numero_venda = documento.numero
-            self.hash_documento = documento.hash_documento
-            self.atcud = documento.atcud
-            super().save(update_fields=['numero_venda', 'hash_documento', 'atcud'])
-
+        self.numero_documento = documento.numero
+        self.hash_documento = documento.hash_documento
+        self.atcud = documento.atcud
+        self.save(update_fields=['numero_documento', 'hash_documento', 'atcud'])
 
 
     def __str__(self):
-        return f"Venda {self.numero_venda}"
+        return f"Venda {self.numero_documento}"
 
     class Meta:
         verbose_name = 'Venda'
@@ -234,10 +245,13 @@ class ItemVenda(TimeStampedModel):
         default=0.00
     )
     taxa_iva = models.ForeignKey(
-        'fiscal.TaxaIVAAGT', # Usa string para evitar circular import se necessário
-        on_delete=models.PROTECT, 
-        verbose_name="Regime Fiscal (AGT)"
+        'fiscal.TaxaIVAAGT',
+        on_delete=models.PROTECT,
+        verbose_name="Regime Fiscal (AGT)",
+        null=True,  # permite vazio
+        blank=True
     )
+
 
     tax_type = models.CharField(max_length=3, blank=True, null=True, verbose_name="Tipo de Imposto") # IVA/IS/NS
     tax_code = models.CharField(max_length=3, blank=True, null=True, verbose_name="Código da Taxa") # NOR/ISE/NSU
@@ -353,7 +367,7 @@ class PagamentoVenda(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Pagamento de {self.valor_pago} para a Venda {self.venda.numero_venda}"
+        return f"Pagamento de {self.valor_pago} para a Venda {self.venda.numero_documento}"
             
 
     class Meta:
@@ -1132,7 +1146,7 @@ class FaturaCredito(TimeStampedModel):
     iva_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Valor do IVA")
     
     # Identificação
-    numero_fatura = models.CharField(max_length=200, unique=True, verbose_name="Nº Fatura")
+    numero_documento = models.CharField(max_length=200, unique=True, verbose_name="Nº Fatura")
     tipo_fatura = models.CharField(max_length=20, choices=TIPO_FATURA_CHOICES, default='credito')
     observacoes = models.TextField(blank=True, null=True)
 
@@ -1174,30 +1188,38 @@ class FaturaCredito(TimeStampedModel):
     tem_nota_liquidacao = models.BooleanField(default=False)
     tem_fatura_proforma = models.BooleanField(default=False)
 
-    def save(self, *args, criar_documento=True, **kwargs):
-        is_new = self._state.adding
-        super().save(*args, **kwargs)
+    def gerar_documento_fiscal(self, usuario):
+        if not usuario:
+            raise ValueError("Usuário obrigatório para gerar Documento Fiscal")
+        if not self.itens.exists():
+            raise ValueError("Não é possível gerar documento sem itens")
+        if self.total <= 0:
+            raise ValueError("Total da fatura inválido")
 
-        if criar_documento and is_new and self.status == 'emitida':
-            from apps.fiscal.services import DocumentoFiscalService
+        from apps.fiscal.services import DocumentoFiscalService
+        service = DocumentoFiscalService()
+        documento = service.criar_documento(
+            empresa=self.empresa,
+            tipo_documento='FT',
+            cliente=self.cliente,
+            usuario=usuario,
+            linhas=[{
+                'produto': item.produto,
+                'quantidade': item.quantidade,
+                'preco_unitario': item.preco_unitario,
+                'desconto': item.desconto_item,
+                'iva_valor': item.iva_valor,
+            } for item in self.itens.all()],
+            dados_extra={'data_emissao': self.data_fatura, 'valor_total': self.total},
+        )
 
-            service = DocumentoFiscalService()
-            documento = service.criar_documento(
-                empresa=self.empresa,
-                tipo_documento='FT',
-                cliente=self.cliente,
-                usuario=self.vendedor.user if self.vendedor else None,
-                linhas=[],
-                dados_extra={'data_emissao': self.data_fatura, 'valor_total': self.total},
-            )
-
-            self.numero_fatura = documento.numero
-            self.hash_documento = documento.hash_documento
-            self.atcud = documento.atcud
-            super().save(update_fields=['numero_fatura', 'hash_documento', 'atcud'])
+        self.numero_documento = documento.numero
+        self.hash_documento = documento.hash_documento
+        self.atcud = documento.atcud
+        self.save(update_fields=['numero_documento', 'hash_documento', 'atcud'])
 
     def __str__(self):
-        return f"Fatura {self.numero_fatura}"
+        return f"Fatura {self.numero_documento}"
 
     class Meta:
         verbose_name = 'Fatura de Crédito'
@@ -1276,28 +1298,35 @@ class Recibo(TimeStampedModel):
     tem_nota_liquidacao = models.BooleanField(default=False)
     tem_fatura_proforma = models.BooleanField(default=False)
 
-    def save(self, *args, criar_documento=True, **kwargs):
-        is_new = self._state.adding
-        super().save(*args, **kwargs)
+    def gerar_documento_fiscal(self):
+        if not self.vendedor:
+            raise ValueError("Vendedor obrigatório para gerar Documento Fiscal")
+        if not self.total > 0:
+            raise ValueError("Total do recibo inválido")
 
-        if criar_documento and is_new and self.status == 'emitido':
-            from apps.fiscal.services import DocumentoFiscalService
+        from apps.fiscal.services import DocumentoFiscalService
+        service = DocumentoFiscalService()
+        documento = service.criar_documento(
+            empresa=self.empresa,
+            tipo_documento='REC',
+            cliente=self.cliente,
+            usuario=self.vendedor.user,
+            linhas=[{
+                'produto': item.produto,
+                'quantidade': item.quantidade,
+                'preco_unitario': item.preco_unitario,
+                'desconto': item.desconto_item,
+                'iva_valor': item.iva_valor,
+            } for item in getattr(self, 'itens', [])],
+            dados_extra={'data_emissao': self.data_recibo, 'valor_total': self.total},
+        )
 
-            service = DocumentoFiscalService()
-            documento = service.criar_documento(
-                empresa=self.empresa,
-                tipo_documento='REC',
-                cliente=self.cliente,
-                usuario=self.vendedor.user if self.vendedor else None,
-                linhas=[],
-                dados_extra={'data_emissao': self.data_recibo, 'valor_total': self.total},
-            )
+        self.numero_recibo = documento.numero
+        self.hash_documento = documento.hash_documento
+        self.atcud = documento.atcud
+        self.save(update_fields=['numero_recibo', 'hash_documento', 'atcud'])
 
-            self.numero_recibo = documento.numero
-            self.hash_documento = documento.hash_documento
-            self.atcud = documento.atcud
-            super().save(update_fields=['numero_recibo', 'hash_documento', 'atcud'])
-
+        
     def __str__(self):
         return f"Recibo {self.numero_recibo}"
 
@@ -1353,7 +1382,13 @@ class ItemFatura(models.Model):
     desconto_item = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Desconto (Valor)")
     iva_percentual = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0.00'), verbose_name="% IVA")
     iva_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Valor do IVA")
-    
+    taxa_iva = models.ForeignKey(
+        'fiscal.TaxaIVAAGT',
+        on_delete=models.PROTECT,
+        verbose_name="Regime Fiscal (AGT)",
+        null=True,  # permite vazio
+        blank=True
+    )
     # Totais
     subtotal = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Subtotal Bruto")
     total = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Total do Item (c/ IVA)")
@@ -1410,7 +1445,7 @@ class FaturaProforma(TimeStampedModel):
     iva_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Valor do IVA")
     
     # Identificação
-    numero_proforma = models.CharField(max_length=200, unique=True, verbose_name="Nº Proforma")
+    numero_documento = models.CharField(max_length=200, unique=True, verbose_name="Nº Proforma")
     tipo_proforma = models.CharField(max_length=20, choices=TIPO_PROFORMA_CHOICES, default='orcamento')
     observacoes = models.TextField(blank=True, null=True)
 
@@ -1453,7 +1488,7 @@ class FaturaProforma(TimeStampedModel):
     tem_nota_liquidacao = models.BooleanField(default=False)
     tem_fatura_proforma = models.BooleanField(default=True)
 
-    def save(self, *args, criar_documento=True, **kwargs):
+    def save(self, *args, criar_documento=True, usuario_criacao=None, **kwargs):
         is_new = self._state.adding
         super().save(*args, **kwargs)
 
@@ -1461,22 +1496,29 @@ class FaturaProforma(TimeStampedModel):
             from apps.fiscal.services import DocumentoFiscalService
 
             service = DocumentoFiscalService()
+
+            # Usuário que será registrado como criador do DocumentoFiscal
+            usuario = self.vendedor.user if self.vendedor else usuario_criacao
+            if usuario is None:
+                raise ValueError("É necessário fornecer um usuário para criar o documento fiscal.")
+
             documento = service.criar_documento(
                 empresa=self.empresa,
                 tipo_documento='FP',
                 cliente=self.cliente,
-                usuario=self.vendedor.user if self.vendedor else None,
+                usuario=usuario,
                 linhas=[],
                 dados_extra={'data_emissao': self.data_proforma, 'valor_total': self.total},
             )
 
-            self.numero_proforma = documento.numero
+            self.numero_documento = documento.numero
             self.hash_documento = documento.hash_documento
             self.atcud = documento.atcud
-            super().save(update_fields=['numero_proforma', 'hash_documento', 'atcud'])
+            super().save(update_fields=['numero_documento', 'hash_documento', 'atcud'])
+
 
     def __str__(self):
-        return f"Proforma {self.numero_proforma}"
+        return f"Proforma {self.numero_documento}"
 
     class Meta:
         verbose_name = 'Fatura Proforma'
@@ -1530,10 +1572,17 @@ class ItemProforma(models.Model):
     quantidade = models.DecimalField(max_digits=10, decimal_places=2)
     preco_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     desconto_item = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     iva_percentual = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     iva_valor = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
+    taxa_iva = models.ForeignKey(
+        'fiscal.TaxaIVAAGT',
+        on_delete=models.PROTECT,
+        verbose_name="Regime Fiscal (AGT)",
+        null=True,  # permite vazio
+        blank=True
+    )
     
     def save(self, *args, **kwargs):
         # Lógica de negócio: Recálculo do total e IVA ANTES de salvar o item
@@ -1545,7 +1594,9 @@ class ItemProforma(models.Model):
         super().save(*args, **kwargs)
         
         # Opcional: Recalcular e salvar os totais da FaturaProforma após salvar o item
-        self.proforma.calcular_totais()
+        #self.proforma.calcular_totais()
+
+
 
 class NotaCredito(TimeStampedModel):
     """Nota de Crédito (NC) - Documento que reduz o valor de uma fatura"""
@@ -1644,7 +1695,7 @@ class NotaCredito(TimeStampedModel):
 
         if criar_documento and is_new and self.status == 'emitida':
             from apps.fiscal.services import DocumentoFiscalService
-
+    
             service = DocumentoFiscalService()
             documento = service.criar_documento(
                 empresa=self.empresa,
@@ -1687,9 +1738,9 @@ class NotaCredito(TimeStampedModel):
     def numero_documento_origem(self):
         """Retorna o número do documento de origem"""
         if self.venda_origem:
-            return self.venda_origem.numero_venda
+            return self.venda_origem.numero_documento
         elif self.fatura_credito_origem:
-            return self.fatura_credito_origem.numero_fatura
+            return self.fatura_credito_origem.numero_documento
         return "N/A"
 
 class ItemNotaCredito(TimeStampedModel):
@@ -1722,7 +1773,13 @@ class ItemNotaCredito(TimeStampedModel):
     # Impostos
     iva_percentual = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0.00'))
     iva_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
-    
+    taxa_iva = models.ForeignKey(
+        'fiscal.TaxaIVAAGT',
+        on_delete=models.PROTECT,
+        verbose_name="Regime Fiscal (AGT)",
+        null=True,  # permite vazio
+        blank=True
+    )
     # Total
     total_item_credito = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Total do Item Creditado")
     
@@ -1889,9 +1946,9 @@ class NotaDebito(TimeStampedModel):
     def numero_documento_origem(self):
         """Retorna o número do documento de origem"""
         if self.venda_origem:
-            return self.venda_origem.numero_venda
+            return self.venda_origem.numero_documento
         elif self.fatura_credito_origem:
-            return self.fatura_credito_origem.numero_fatura
+            return self.fatura_credito_origem.numero_documento
         return "N/A"
 
     @property
@@ -1920,7 +1977,13 @@ class ItemNotaDebito(TimeStampedModel):
     # Impostos
     iva_percentual = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0.00'))
     iva_valor = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
-    
+    taxa_iva = models.ForeignKey(
+        'fiscal.TaxaIVAAGT',
+        on_delete=models.PROTECT,
+        verbose_name="Regime Fiscal (AGT)",
+        null=True,  # permite vazio
+        blank=True
+    )
     # Total
     total_item = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Total do Item")
     
@@ -2192,9 +2255,9 @@ class DocumentoTransporte(TimeStampedModel):
     def numero_documento_origem(self):
         """Retorna o número do documento de origem"""
         if self.venda_origem:
-            return self.venda_origem.numero_venda
+            return self.venda_origem.numero_documento
         elif self.fatura_credito_origem:
-            return self.fatura_credito_origem.numero_fatura
+            return self.fatura_credito_origem.numero_documento
         return "N/A"
 
     @property

@@ -296,7 +296,7 @@ async function submeterVenda(event) {
 
         if (response.ok) {
             // SUCESSO: Apresentar os dados CRÍTICOS
-            document.getElementById('display-numero').textContent = data.documento.numero_venda;
+            document.getElementById('display-numero').textContent = data.documento.numero_documento;
             document.getElementById('display-atcud').textContent = data.documento.atcud;
             document.getElementById('display-hash').textContent = data.documento.hash_documento;
             

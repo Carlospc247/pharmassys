@@ -633,7 +633,7 @@ function renderTabelaVendas(vendas) {
     tbody.innerHTML = vendas.map(venda => `
         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             <td class="px-4 py-3">
-                <div class="font-medium text-gray-900 dark:text-white">${venda.numero_venda}</div>
+                <div class="font-medium text-gray-900 dark:text-white">${venda.numero_documento}</div>
             </td>
             <td class="px-4 py-3">
                 <div class="text-sm text-gray-900 dark:text-white">${formatDateTime(venda.data_venda)}</div>
@@ -805,7 +805,7 @@ async function verDetalhesVenda(vendaId) {
         const data = await response.json();
         
         if (data.success) {
-            document.getElementById('tituloDetalhes').textContent = `Detalhes da Venda ${data.venda.numero_venda}`;
+            document.getElementById('tituloDetalhes').textContent = `Detalhes da Venda ${data.venda.numero_documento}`;
             document.getElementById('conteudoDetalhes').innerHTML = renderDetalhesVenda(data.venda);
             document.getElementById('modalDetalhesVenda').classList.remove('hidden');
         } else {
@@ -827,7 +827,7 @@ function renderDetalhesVenda(venda) {
                 <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg space-y-2">
                     <div class="flex justify-between">
                         <span class="text-gray-600 dark:text-gray-400">Número:</span>
-                        <span class="font-semibold">${venda.numero_venda}</span>
+                        <span class="font-semibold">${venda.numero_documento}</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-600 dark:text-gray-400">Data/Hora:</span>

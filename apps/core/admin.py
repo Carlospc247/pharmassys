@@ -85,7 +85,7 @@ class EmpresaAdmin(admin.ModelAdmin):
     inlines = [LicencaInline, LojaInline]
     
     fieldsets = (
-        ('Dados Básicos', {'fields': ('nome', 'nome_fantasia', 'nif')}),
+        ('Dados Básicos', {'fields': ('nome', 'nome_fantasia', 'codigo_validacao', 'nif')}),
         ('Endereço', {'fields': (('endereco', 'numero'), ('bairro', 'cidade'), ('provincia', 'postal'))}),
         ('Contato', {'fields': ('telefone', 'email')}),
         ('Status', {'fields': ('ativa',)}),

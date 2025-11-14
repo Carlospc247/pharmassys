@@ -12,6 +12,14 @@ body {
     background-color: #f8f9fa;
 }
 
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+}
+
 .container {
     margin-top: 20px;
 }
@@ -144,6 +152,17 @@ body {
         </div>
     </div>
 
+
+    <a href="{% url 'vendas:nota_credito_lista' %}" class="btn-icon bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg">
+    <i class="fas fa-file-invoice-dollar"></i> Nota de Crédito
+    </a>
+    <a href="{% url 'vendas:nota_debito_lista' %}" class="btn-icon bg-red-700 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg">
+    <i class="fas fa-money-bill-wave"></i> Nota de Débito
+    </a>
+    <a href="{% url 'vendas:documento_transporte_lista' %}" class="btn-icon bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg">
+    <i class="fas fa-shipping-fast"></i> Doc. Transporte
+    </a>
+
     <!-- Detalhamento -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
@@ -212,7 +231,7 @@ body {
                     {% for venda in vendas_recentes %}
                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                            {{ venda.numero_venda }}
+                            {{ venda.numero_documento }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                             {% if venda.cliente %}

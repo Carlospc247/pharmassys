@@ -100,7 +100,7 @@ def _obter_tipo_documento(sender, instance):
 
 def _obter_numero_documento(instance):
     """Obtém o número do documento"""
-    for attr in ['numero_venda', 'numero_fatura', 'numero_nota', 'numero_recibo', 'numero_documento']:
+    for attr in ['numero_documento', 'numero_documento', 'numero_documento', 'numero_documento', 'numero_documento']:
         if hasattr(instance, attr):
             return getattr(instance, attr)
     return str(instance.id)

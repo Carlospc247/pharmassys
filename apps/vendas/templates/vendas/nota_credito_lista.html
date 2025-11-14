@@ -1,118 +1,401 @@
 <!-- templates/vendas/nota_credito_lista.html -->
 {% extends 'base.html' %}
 
-{% block content %}
+{% block extra_head %}
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#5D5CDE',
+                    'primary-dark': '#4c4bc9',
+                    secondary: '#10B981',
+                    danger: '#EF4444',
+                    warning: '#F59E0B',
+                    info: '#3B82F6',
+                    success: '#10B981',
+                    'gray-50': '#F9FAFB',
+                    'gray-900': '#111827'
+                }
+            }
+        },
+        darkMode: 'class'
+    }
+</script>
 <style>
-    /* static/css/styles.css */
-body {
-    font-family: 'Arial', sans-serif;
-    background-color: #f8f9fa;
-}
-
-.container {
-    margin-top: 20px;
-}
-
-.card {
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.card-header {
-    background-color: #007bff;
-    color: white;
-    font-weight: bold;
-}
-
-.table {
-    margin-top: 20px;
-}
-
-.table th {
-    background-color: #007bff;
-    color: white;
-}
-
-.btn {
-    margin: 5px;
-}
-
-.pagination {
-    margin-top: 20px;
-}
-
-.pagination a {
-    margin: 0 5px;
-    padding: 5px 10px;
-    border-radius: 5px;
-    background-color: #007bff;
-    color: white;
-    text-decoration: none;
-}
+    .transition-all { transition: all 0.3s ease; }
+    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+    
+    .status-badge {
+        @apply px-3 py-1 rounded-full text-xs font-semibold;
+    }
+    .status-pending { @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400; }
+    .status-applied { @apply bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400; }
+    .status-cancelled { @apply bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400; }
+    .status-expired { @apply bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400; }
 </style>
+{% endblock %}
 
-<div class="container">
-    <h1 class="mt-4">Notas de Crédito</h1>
-    <div class="card mb-4">
-        <div class="card-header">
-            <a href="{% url 'vendas:nota_credito_create' %}" class="btn btn-primary">Nova Nota de Crédito</a>
-        </div>
-        <div class="card-body">
-            <div class="row mb-3">
-                <div class="col-md-4">
-                    <input type="text" id="cliente" placeholder="Cliente" class="form-control" />
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900 transition-all">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Header Section -->
+        <div class="mb-8 animate-fade-in">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Notas de Crédito</h1>
+                    <p class="text-gray-600 dark:text-gray-400 mt-1">Gerencie e acompanhe todas as notas de crédito</p>
                 </div>
-                <div class="col-md-4">
-                    <select id="status" class="form-control">
-                        <option value="">Status</option>
+                <a href="{% url 'vendas:nota_credito_create' %}" 
+                   class="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-lg transition-all flex items-center gap-2 font-medium shadow-sm">
+                    <i class="fas fa-plus"></i>
+                    Nova Nota de Crédito
+                </a>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 animate-fade-in">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 card-hover transition-all">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-blue-100 dark:bg-blue-900">
+                        <i class="fas fa-file-invoice text-blue-600 dark:text-blue-400"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total de Notas</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-white">{{ total_notas|default:"0" }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 card-hover transition-all">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-green-100 dark:bg-green-900">
+                        <i class="fas fa-check-circle text-green-600 dark:text-green-400"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Aplicadas</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-white">{{ notas_aplicadas|default:"0" }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 card-hover transition-all">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-yellow-100 dark:bg-yellow-900">
+                        <i class="fas fa-clock text-yellow-600 dark:text-yellow-400"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Pendentes</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-white">{{ notas_pendentes|default:"0" }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 card-hover transition-all">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-purple-100 dark:bg-purple-900">
+                        <i class="fas fa-dollar-sign text-purple-600 dark:text-purple-400"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Valor Total</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-white">AOA {{ valor_total|default:"0,00" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters Section -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 animate-fade-in">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Filtros</h3>
+            <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Cliente</label>
+                    <div class="relative">
+                        <input type="text" 
+                               name="cliente" 
+                               value="{{ request.GET.cliente }}"
+                               placeholder="Buscar por cliente..." 
+                               class="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white text-base">
+                        <i class="fas fa-search absolute left-3 top-4 text-gray-400"></i>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
+                    <select name="status" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-3 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent text-base">
+                        <option value="">Todos os status</option>
                         {% for choice in status_choices %}
-                            <option value="{{ choice.0 }}">{{ choice.1 }}</option>
+                            <option value="{{ choice.0 }}" {% if request.GET.status == choice.0 %}selected{% endif %}>{{ choice.1 }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <button class="btn btn-outline-secondary" onclick="filterNotas()">Filtrar</button>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Data Inicial</label>
+                    <input type="date" 
+                           name="data_inicio" 
+                           value="{{ request.GET.data_inicio }}"
+                           class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-3 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent text-base">
+                </div>
+                
+                <div class="flex items-end gap-2">
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Data Final</label>
+                        <input type="date" 
+                               name="data_fim" 
+                               value="{{ request.GET.data_fim }}"
+                               class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-3 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent text-base">
+                    </div>
+                    <button type="submit" 
+                            class="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-lg transition-all flex items-center gap-2 text-base">
+                        <i class="fas fa-filter"></i>
+                        Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Table Section -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden animate-fade-in">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Lista de Notas de Crédito</h3>
+                    <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                        <span>{{ notas_credito|length }} de {{ total_notas|default:"0" }} notas</span>
+                    </div>
                 </div>
             </div>
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Número</th>
-                        <th>Cliente</th>
-                        <th>Total</th>
-                        <th>Status</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for nota in notas_credito %}
-                    <tr>
-                        <td>{{ nota.numero_nota }}</td>
-                        <td>{{ nota.cliente.nome_completo }}</td>
-                        <td>{{ nota.total_credito }}</td>
-                        <td>{{ nota.get_status_display }}</td>
-                        <td>
-                            <a href="{% url 'vendas:nota_credito_detail' nota.pk %}" class="btn btn-info">Ver</a>
-                            <a href="{% url 'vendas:nota_credito_update' nota.pk %}" class="btn btn-warning">Editar</a>
-                            <form action="{% url 'vendas:aplicar_nota_credito' nota.pk %}" method="post" style="display:inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-success">Aplicar</button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            <div class="pagination">
-                {% for page in paginator.page_range %}
-                    {% if page == paginator.number %}
-                        <strong>{{ page }}</strong>
-                    {% else %}
-                        <a href="?page={{ page }}">{{ page }}</a>
-                    {% endif %}
-                {% endfor %}
+
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                Número da Nota
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                Cliente
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                Data Emissão
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                Valor Total
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                Status
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                Ações
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {% for nota in notas_credito %}
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
+                                        <i class="fas fa-receipt text-primary"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-900 dark:text-white">{{ nota.numero_nota }}</div>
+                                        {% if nota.motivo %}
+                                        <div class="text-sm text-gray-500 dark:text-gray-400">{{ nota.motivo|truncatechars:30 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900 dark:text-white">{{ nota.cliente.nome_completo }}</div>
+                                {% if nota.cliente.email %}
+                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ nota.cliente.email }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                {{ nota.data_emissao|date:"d/m/Y" }}
+                                <div class="text-xs text-gray-500 dark:text-gray-400">{{ nota.data_emissao|date:"H:i" }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900 dark:text-white">AOA {{ nota.total_credito|floatformat:2 }}</div>
+                                {% if nota.valor_aplicado %}
+                                <div class="text-xs text-gray-500 dark:text-gray-400">Aplicado: AOA {{ nota.valor_aplicado|floatformat:2 }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if nota.status == 'pendente' %}
+                                    <span class="status-badge status-pending">Pendente</span>
+                                {% elif nota.status == 'aplicada' %}
+                                    <span class="status-badge status-applied">Aplicada</span>
+                                {% elif nota.status == 'cancelada' %}
+                                    <span class="status-badge status-cancelled">Cancelada</span>
+                                {% elif nota.status == 'expirada' %}
+                                    <span class="status-badge status-expired">Expirada</span>
+                                {% else %}
+                                    <span class="status-badge status-pending">{{ nota.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <div class="flex items-center space-x-2">
+                                    <a href="{% url 'vendas:nota_credito_detail' nota.pk %}" 
+                                       class="text-info hover:text-blue-700 dark:hover:text-blue-400 transition-colors" 
+                                       title="Ver detalhes">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    
+                                    {% if nota.status == 'pendente' %}
+                                    <a href="{% url 'vendas:nota_credito_update' nota.pk %}" 
+                                       class="text-warning hover:text-yellow-700 dark:hover:text-yellow-400 transition-colors" 
+                                       title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    
+                                    <button onclick="showApplyModal('{{ nota.pk }}', '{{ nota.numero_nota }}', '{{ nota.total_credito }}')" 
+                                            class="text-success hover:text-green-700 dark:hover:text-green-400 transition-colors" 
+                                            title="Aplicar nota">
+                                        <i class="fas fa-check-circle"></i>
+                                    </button>
+                                    {% endif %}
+                                    
+                                    <a href="{% url 'vendas:nota_credito_pdf' nota.pk %}" 
+                                       class="text-purple-600 hover:text-purple-700 dark:hover:text-purple-400 transition-colors" 
+                                       title="Baixar PDF" target="_blank">
+                                        <i class="fas fa-file-pdf"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="px-6 py-12 text-center">
+                                <div class="flex flex-col items-center">
+                                    <i class="fas fa-file-invoice text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
+                                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Nenhuma nota de crédito encontrada</h3>
+                                    <p class="text-gray-500 dark:text-gray-400 mb-6">Comece criando sua primeira nota de crédito</p>
+                                    <a href="{% url 'vendas:nota_credito_create' %}" 
+                                       class="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-lg transition-all text-base">
+                                        <i class="fas fa-plus mr-2"></i>Nova Nota de Crédito
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <span>Mostrando {{ page_obj.start_index }} a {{ page_obj.end_index }} de {{ page_obj.paginator.count }} resultados</span>
+                    </div>
+                    
+                    <div class="flex items-center space-x-2">
+                        {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                           class="px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <span class="px-3 py-2 text-sm font-medium text-white bg-primary border border-primary rounded-md">
+                                {{ num }}
+                            </span>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <a href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                               class="px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                {{ num }}
+                            </a>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                           class="px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
+
+<!-- Apply Credit Note Modal -->
+<div id="applyModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full mx-4">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Aplicar Nota de Crédito</h3>
+        </div>
+        
+        <div class="p-6">
+            <p class="text-gray-600 dark:text-gray-400 mb-4">
+                Tem certeza que deseja aplicar a nota de crédito <span id="modalNotaNumero" class="font-semibold"></span> 
+                no valor de AOA <span id="modalNotaValor" class="font-semibold"></span>?
+            </p>
+            
+            <form id="applyForm" method="post">
+                {% csrf_token %}
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeApplyModal()" 
+                            class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors text-base">
+                        Cancelar
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-success hover:bg-green-600 text-white rounded transition-colors text-base">
+                        <i class="fas fa-check mr-2"></i>Aplicar Nota
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Dark mode detection
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.classList.add('dark');
+    }
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+        if (event.matches) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    });
+
+    // Apply modal functions
+    function showApplyModal(notaId, numeroNota, valorNota) {
+        document.getElementById('modalNotaNumero').textContent = numeroNota;
+        document.getElementById('modalNotaValor').textContent = parseFloat(valorNota).toFixed(2);
+        document.getElementById('applyForm').action = `{% url 'vendas:aplicar_nota_credito' 0 %}`.replace('0', notaId);
+        document.getElementById('applyModal').classList.remove('hidden');
+    }
+
+    function closeApplyModal() {
+        document.getElementById('applyModal').classList.add('hidden');
+    }
+
+    // Close modal on click outside
+    document.getElementById('applyModal').addEventListener('click', function(event) {
+        if (event.target === this) {
+            closeApplyModal();
+        }
+    });
+</script>
 {% endblock %}

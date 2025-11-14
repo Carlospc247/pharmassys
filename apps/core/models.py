@@ -22,6 +22,12 @@ class Empresa(models.Model):
     nome = models.CharField(max_length=200)
     nome_fantasia = models.CharField(max_length=200, blank=True)
     nif = models.CharField(max_length=10, unique=True)
+    codigo_validacao = models.CharField(
+        max_length=500,  # ou maior, se precisar
+        blank=True,
+        null=True,
+        help_text="Código de validação fornecido pela AGT para ATCUD"
+    )
     
     # Endereço
     endereco = models.CharField(max_length=200)

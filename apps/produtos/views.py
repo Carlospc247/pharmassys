@@ -1005,7 +1005,7 @@ class TemplateProdutosView(LoginRequiredMixin, View):
                 "- Texto: Evite caracteres especiais",
                 "",
                 "NOTAS IMPORTANTES:",
-                "ATT: APENAS SÃO SUPORTADOS FICHEIROS COM ATÉ 100 LINHAS DE PRODUTOS/SERVIÇOS"
+                "ATT: APENAS SÃO SUPORTADOS FICHEIROS COM ATÉ 100 a 150 LINHAS DE PRODUTOS/SERVIÇOS"
                 "- Códigos de barras devem ser únicos",
                 "- Categorias e fabricantes serão criados automaticamente se não existirem",
                 "- Fornecedores devem existir previamente no sistema",

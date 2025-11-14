@@ -274,7 +274,7 @@
                         data-cliente="{{ fatura.cliente.nome_exibicao }}"
                         data-vencimento="{{ fatura.data_vencimento|date:'Y-m-d' }}">
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                            {{ fatura.numero_fatura }}
+                            {{ fatura.numero_documento }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                             {{ fatura.cliente.nome_exibicao}}
@@ -457,7 +457,7 @@ function liquidarFatura(faturaId) {
         })
         .then(data => {
             if (data.success) {
-                showToast(`Fatura ${data.numero_fatura} liquidada com sucesso! Recibo Nº ${data.numero_recibo} criado.`, "#10b981");
+                showToast(`Fatura ${data.numero_documento} liquidada com sucesso! Recibo Nº ${data.numero_documento} criado.`, "#10b981");
                 // Remove a linha da tabela (ou atualiza o status)
                 document.getElementById(`fatura-row-${faturaId}`).remove();
                 // Opcional: Recarregue a página para recontar os cards

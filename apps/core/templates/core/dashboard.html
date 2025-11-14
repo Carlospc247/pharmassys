@@ -3,30 +3,10 @@
 {% load humanize %}
 
 {% block title %}Dashboard Executivo{% endblock %}
-
 {% block page_title %}Dashboard Executivo{% endblock %}
 
-{% block page_subtitle %}
-    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Visão geral em tempo real - {% now "d/m/Y H:i" %}
-    </p>
-{% endblock %}
-
-{% block page_actions %}
-    <div class="flex items-center space-x-2">
-        <select id="periodFilter" class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white py-2 pl-3 pr-10 text-base focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm">
-            <option value="7">Últimos 7 dias</option>
-            <option value="30" selected>Últimos 30 dias</option>
-            <option value="90">Últimos 90 dias</option>
-        </select>
-        <button id="exportBtn" class="inline-flex items-center gap-x-2 rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-            <i class="fas fa-download -ml-0.5 h-5 w-5"></i>
-            Exportar
-        </button>
-    </div>
-{% endblock %}
-
 {% block content %}
+<!-- Cards de estatísticas -->
 <div class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
     <div class="flex-1 overflow-hidden rounded-lg bg-gradient-to-br from-green-400 to-green-600 px-6 py-8 shadow-md transition-transform duration-300 hover:scale-105">
         <div class="flex items-center">
@@ -83,8 +63,36 @@
 <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
     <div class="lg:col-span-2">
         <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-6 py-5 shadow-sm">
-            <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-white mb-4">Gráfico de Faturamento Mensal</h3>
-            <canvas id="faturamentoChart"></canvas>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-white">Análise de Vendas</h3>
+                <div class="flex space-x-2">
+                    <button id="btnMensal" class="px-3 py-1 text-sm bg-primary text-white rounded-lg hover:bg-primary-600 transition-colors" onclick="mostrarGrafico('mensal')">Mensal</button>
+                    <button id="btnSemanal" class="px-3 py-1 text-sm bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors" onclick="mostrarGrafico('semanal')">Semanal</button>
+                    <button id="btnAnual" class="px-3 py-1 text-sm bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors" onclick="mostrarGrafico('anual')">Anual</button>
+                </div>
+            </div>
+            <div style="height: 300px;">
+                <canvas id="vendasChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Gráficos adicionais -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            <!-- Formas de Pagamento -->
+            <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-6 py-5 shadow-sm">
+                <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-white mb-4">Formas de Pagamento</h3>
+                <div style="height: 200px;">
+                    <canvas id="pagamentoChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Metas vs Realizado -->
+            <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-6 py-5 shadow-sm">
+                <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-white mb-4">Meta vs Realizado</h3>
+                <div style="height: 200px;">
+                    <canvas id="metaChart"></canvas>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -101,8 +109,14 @@
                                 </span>
                             </div>
                             <div class="ml-3">
-                                <p class="text-sm font-medium text-gray-900 dark:text-white">Venda #{{ venda.id }}</p>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">{{ venda.cliente.nome_completo|default:"Consumidor Final" }}</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ venda.numero_documento }}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">
+                                    {% if venda.cliente %}
+                                        {{ venda.cliente.nome_completo|default:venda.cliente.nome|default:"Consumidor Final" }}
+                                    {% else %}
+                                        Consumidor Final
+                                    {% endif %}
+                                </p>
                             </div>
                             <div class="ml-auto flex flex-col items-end">
                                 <p class="text-sm font-semibold text-gray-900 dark:text-white">AKZ {{ venda.total|floatformat:2|intcomma }}</p>
@@ -115,128 +129,346 @@
                 </ul>
             </div>
         </div>
-    </div>
-
-    {% if user.is_superuser %}
-    <div class="lg:col-span-2 mt-8">
-        <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-sm">
+        
+        <!-- Performance de Vendedores -->
+        <div class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-sm mt-6">
             <div class="p-6">
-                <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-white">Administração do Sistema</h3>
-                <div class="mt-4 flow-root">
-                    <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-                        <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-                            <table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
-                                <thead>
-                                    <tr>
-                                        <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-white sm:pl-0">Empresa</th>
-                                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">NIF</th>
-                                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">Registo</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                                    {% for empresa in lista_empresas %}
-                                    <tr>
-                                        <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-white sm:pl-0">{{ empresa.nome }}</td>
-                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">{{ empresa.nif }}</td>
-                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">{{ empresa.data_cadastro|date:"d/m/Y" }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+                <h3 class="text-base font-semibold leading-6 text-gray-900 dark:text-white">Top Vendedores (Mês)</h3>
+                <ul role="list" class="mt-4 divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for vendedor in top_vendedores %}
+                        <li class="flex py-3">
+                            <div class="flex-shrink-0">
+                                <div class="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center text-sm">
+                                    {{ vendedor.vendedor__nome_completo|first|upper|default:"?" }}
+                                </div>
+                            </div>
+                            <div class="ml-3 flex-1">
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ vendedor.vendedor__nome_completo|default:"N/A" }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ vendedor.total_vendas }} vendas</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm font-semibold text-gray-900 dark:text-white">AKZ {{ vendedor.total_faturamento|floatformat:2|intcomma }}</p>
+                            </div>
+                        </li>
+                    {% empty %}
+                        <li class="py-4 text-center text-sm text-gray-500 dark:text-gray-400">Nenhum vendedor encontrado.</li>
+                    {% endfor %}
+                </ul>
             </div>
         </div>
     </div>
-    {% endif %}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const faturamentoLabels = JSON.parse("{{ faturamento_labels|safe }}");
-        const faturamentoData = JSON.parse("{{ faturamento_data|safe }}");
-
-        const ctx = document.getElementById('faturamentoChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'bar',
+document.addEventListener('DOMContentLoaded', function() {
+    // ⚠️ Verificar se os dados existem antes de usar
+    let dadosVendasMensal, dadosVendasSemanal, dadosVendasAnual, dadosFormasPagamento, dadosMetas;
+    
+    try {
+        dadosVendasMensal = {{ dados_vendas_mensal|safe }};
+        dadosVendasSemanal = {{ dados_vendas_semanal|safe }};
+        dadosVendasAnual = {{ dados_vendas_anual|safe }};
+        dadosFormasPagamento = {{ dados_formas_pagamento|safe }};
+        dadosMetas = {{ dados_metas|safe }};
+    } catch (e) {
+        console.error('Erro ao carregar dados:', e);
+        // Dados fallback
+        dadosVendasMensal = {labels: [], valores: []};
+        dadosVendasSemanal = {labels: [], valores: []};
+        dadosVendasAnual = {labels: [], valores: []};
+        dadosFormasPagamento = {labels: [], valores: []};
+        dadosMetas = {labels: [], metas: [], realizados: []};
+    }
+    
+    let vendasChart = null;
+    let pagamentoChart = null;
+    let metaChart = null;
+    let graficoAtivo = 'mensal';
+    
+    // Configuração de cores
+    const cores = {
+        primary: '#5D5CDE',
+        success: '#10B981',
+        warning: '#F59E0B',
+        danger: '#EF4444',
+        info: '#3B82F6'
+    };
+    
+    // Gráfico principal de vendas
+    function criarGraficoVendas(tipo) {
+        const ctx = document.getElementById('vendasChart');
+        if (!ctx) return;
+        
+        if (vendasChart) {
+            vendasChart.destroy();
+        }
+        
+        let dados, titulo, backgroundColor, borderColor;
+        
+        switch(tipo) {
+            case 'mensal':
+                dados = dadosVendasMensal;
+                titulo = 'Faturamento Mensal';
+                backgroundColor = 'rgba(93, 92, 222, 0.1)';
+                borderColor = cores.primary;
+                break;
+            case 'semanal':
+                dados = dadosVendasSemanal;
+                titulo = 'Faturamento Semanal';
+                backgroundColor = 'rgba(16, 185, 129, 0.1)';
+                borderColor = cores.success;
+                break;
+            case 'anual':
+                dados = dadosVendasAnual;
+                titulo = 'Faturamento Anual';
+                backgroundColor = 'rgba(59, 130, 246, 0.1)';
+                borderColor = cores.info;
+                break;
+        }
+        
+        // ⚠️ Verificar se há dados
+        if (!dados || !dados.labels || dados.labels.length === 0) {
+            ctx.getContext('2d').clearRect(0, 0, ctx.width, ctx.height);
+            const context = ctx.getContext('2d');
+            context.font = '16px Arial';
+            context.textAlign = 'center';
+            context.fillText('Nenhum dado disponível', ctx.width/2, ctx.height/2);
+            return;
+        }
+        
+        vendasChart = new Chart(ctx.getContext('2d'), {
+            type: 'line',
             data: {
-                labels: faturamentoLabels,
+                labels: dados.labels,
                 datasets: [{
-                    label: 'Faturamento Total (AKZ)',
-                    data: faturamentoData,
-                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
+                    label: 'Faturamento (AKZ)',
+                    data: dados.valores,
+                    backgroundColor: backgroundColor,
+                    borderColor: borderColor,
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.3,
+                    pointBackgroundColor: borderColor,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: titulo,
+                        font: { size: 16, weight: 'bold' },
+                        color: document.documentElement.classList.contains('dark') ? '#fff' : '#1f2937'
+                    },
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        callbacks: {
+                            label: function(context) {
+                                return 'Faturamento: AKZ ' + (context.parsed.y || 0).toLocaleString('pt-AO', {
+                                    minimumFractionDigits: 2
+                                });
+                            }
+                        }
+                    }
+                },
                 scales: {
+                    x: {
+                        grid: { color: document.documentElement.classList.contains('dark') ? '#374151' : '#f3f4f6' },
+                        ticks: { color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280' }
+                    },
                     y: {
                         beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Valor (AKZ)'
-                        }
-                    },
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Mês'
+                        grid: { color: document.documentElement.classList.contains('dark') ? '#374151' : '#f3f4f6' },
+                        ticks: {
+                            color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280',
+                            callback: function(value) {
+                                return 'AKZ ' + (value || 0).toLocaleString('pt-AO');
+                            }
                         }
                     }
                 }
             }
         });
+        
+        graficoAtivo = tipo;
+        atualizarBotoes();
+    }
+    
+    // Gráfico de Formas de Pagamento
+    function criarGraficoPagamento() {
+        const ctx = document.getElementById('pagamentoChart');
+        if (!ctx || !dadosFormasPagamento.labels || dadosFormasPagamento.labels.length === 0) return;
+        
+        if (pagamentoChart) {
+            pagamentoChart.destroy();
+        }
+        
+        pagamentoChart = new Chart(ctx.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: dadosFormasPagamento.labels,
+                datasets: [{
+                    data: dadosFormasPagamento.valores,
+                    backgroundColor: [cores.success, cores.primary, cores.warning, cores.info, cores.danger, '#8B5CF6'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280',
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentual = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : 0;
+                                return context.label + ': AKZ ' + (context.parsed || 0).toLocaleString('pt-AO', {
+                                    minimumFractionDigits: 2
+                                }) + ' (' + percentual + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Gráfico de Metas
+    function criarGraficoMetas() {
+        const ctx = document.getElementById('metaChart');
+        if (!ctx || !dadosMetas.labels || dadosMetas.labels.length === 0) return;
+        
+        if (metaChart) {
+            metaChart.destroy();
+        }
+        
+        metaChart = new Chart(ctx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: dadosMetas.labels,
+                datasets: [
+                    {
+                        label: 'Meta',
+                        data: dadosMetas.metas,
+                        backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                        borderColor: cores.danger,
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Realizado',
+                        data: dadosMetas.realizados,
+                        backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                        borderColor: cores.success,
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280' }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': AKZ ' + (context.parsed.y || 0).toLocaleString('pt-AO', {
+                                    minimumFractionDigits: 2
+                                });
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: document.documentElement.classList.contains('dark') ? '#374151' : '#f3f4f6' },
+                        ticks: { color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280' }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: document.documentElement.classList.contains('dark') ? '#374151' : '#f3f4f6' },
+                        ticks: {
+                            color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280',
+                            callback: function(value) {
+                                return 'AKZ ' + (value || 0).toLocaleString('pt-AO');
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Função para mostrar gráfico específico
+    window.mostrarGrafico = function(tipo) {
+        criarGraficoVendas(tipo);
+    }
+    
+    // Atualizar estilo dos botões
+    function atualizarBotoes() {
+        document.querySelectorAll('[id^="btn"]').forEach(btn => {
+            btn.className = 'px-3 py-1 text-sm bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors';
+        });
+        
+        const btnAtivo = document.getElementById(`btn${graficoAtivo.charAt(0).toUpperCase() + graficoAtivo.slice(1)}`);
+        if (btnAtivo) {
+            btnAtivo.className = 'px-3 py-1 text-sm bg-primary text-white rounded-lg hover:bg-primary-600 transition-colors';
+        }
+    }
+    
+    // Inicializar gráficos
+    criarGraficoVendas('mensal');
+    criarGraficoPagamento();
+    criarGraficoMetas();
+    
+    // Debug: Verificar dados no console
+    console.log('Dados Mensal:', dadosVendasMensal);
+    console.log('Dados Semanal:', dadosVendasSemanal);
+    console.log('Dados Anual:', dadosVendasAnual);
+    console.log('Dados Pagamento:', dadosFormasPagamento);
+    console.log('Dados Metas:', dadosMetas);
+    
+    // Export functionality
+    document.getElementById('exportBtn').addEventListener('click', function() {
+        const dadosExport = {
+            vendas_mensal: dadosVendasMensal,
+            vendas_semanal: dadosVendasSemanal,
+            vendas_anual: dadosVendasAnual,
+            formas_pagamento: dadosFormasPagamento,
+            metas: dadosMetas,
+            data_export: new Date().toISOString()
+        };
+        
+        const blob = new Blob([JSON.stringify(dadosExport, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `dashboard_vendas_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     });
+});
 </script>
 {% endblock %}
-
-<!--
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const faturamentoLabels = JSON.parse("{{ faturamento_labels|safe }}");
-        const faturamentoData = JSON.parse("{{ faturamento_data|safe }}");
-
-        const ctx = document.getElementById('faturamentoChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: faturamentoLabels,
-                datasets: [{
-                    label: 'Faturamento Total (AKZ)',
-                    data: faturamentoData,
-                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Valor (AKZ)'
-                        }
-                    },
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Mês'
-                        }
-                    }
-                }
-            }
-        });
-    });
-
-</script>
-
-
--->

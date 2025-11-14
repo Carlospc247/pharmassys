@@ -5,8 +5,20 @@ from apps.core.models import TimeStampedModel
 from apps.core.choices import TIPO_RETENCAO_CHOICES
 from decimal import Decimal
 from django.core.validators import MinValueValidator, MaxValueValidator
-
+from django.db import models
+from apps.core.models import Empresa, TimeStampedModel
+from django.utils import timezone
 from pharmassys import settings
+import hashlib
+import json
+from django.db import models, transaction
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
+from decimal import Decimal
+from datetime import datetime
+from apps.core.models import Empresa, TimeStampedModel
+from apps.clientes.models import Cliente
+from apps.produtos.models import Produto
 
 
 class TaxaIVAAGT(TimeStampedModel):
@@ -188,16 +200,6 @@ class RetencaoFonte(TimeStampedModel):
     def __str__(self):
         return f"Retenção {self.tipo_retencao} de {self.valor_retido} em {self.data_retencao}"
 
-import hashlib
-import json
-from django.db import models, transaction
-from django.core.validators import MinValueValidator, MaxValueValidator
-from django.core.exceptions import ValidationError
-from decimal import Decimal
-from datetime import datetime
-from apps.core.models import Empresa, TimeStampedModel
-from apps.clientes.models import Cliente
-from apps.produtos.models import Produto
 
 
 class DocumentoFiscal(TimeStampedModel):
@@ -726,7 +728,7 @@ class DocumentoFiscal(TimeStampedModel):
         """Atualiza campos calculados automaticamente."""
         # Atualizar dados do cliente se vinculado
         if self.cliente:
-            self.cliente_nome = self.cliente.nome
+            self.cliente_nome = self.cliente.nome_exibicao
             self.cliente_nif = self.cliente.nif or ''
             self.cliente_endereco = str(self.cliente.endereco) if hasattr(self.cliente, 'endereco') else ''
             self.cliente_email = self.cliente.email or ''
@@ -1027,10 +1029,6 @@ class DocumentoFiscalLinha(TimeStampedModel):
     def __str__(self):
         return f"Linha {self.numero_linha}: {self.descricao} - {self.quantidade} × {self.preco_unitario}"
 
-# apps/fiscal/models.py (adicionar no final do arquivo)
-from django.db import models
-from apps.core.models import Empresa, TimeStampedModel
-from django.utils import timezone
 
 class SAFTExport(TimeStampedModel):
     """

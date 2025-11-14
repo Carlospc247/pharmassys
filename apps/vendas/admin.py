@@ -20,16 +20,16 @@ class ItemVendaInline(admin.TabularInline):
 
 @admin.register(Venda)
 class VendaAdmin(admin.ModelAdmin):
-    list_display = ['numero_venda', 'empresa', 'cliente', 'tipo_venda', 'total', 'data_venda', 'status']
+    list_display = ['numero_documento', 'empresa', 'cliente', 'tipo_venda', 'total', 'data_venda', 'status']
     list_filter = ['status', 'tipo_venda', 'empresa', 'loja', 'forma_pagamento']
-    search_fields = ['numero_venda', 'cliente__nome']
-    readonly_fields = ['numero_venda', 'data_venda', 'desconto_percentual', 'margem_lucro_total', 'quantidade_itens', 'troco', 'valor_pago', 'subtotal']
+    search_fields = ['numero_documento', 'cliente__nome']
+    readonly_fields = ['numero_documento', 'data_venda', 'desconto_percentual', 'margem_lucro_total', 'quantidade_itens', 'troco', 'valor_pago', 'subtotal']
     
     inlines = [ItemVendaInline]
     
     fieldsets = (
         ('Dados Básicos', {
-            'fields': ('empresa', 'loja', 'numero_venda', 'data_venda', 'status', 'tipo_venda')
+            'fields': ('empresa', 'loja', 'numero_documento', 'data_venda', 'status', 'tipo_venda')
         }),
         ('Participantes', {
             'fields': ('cliente', 'vendedor', 'forma_pagamento')
@@ -47,7 +47,7 @@ class VendaAdmin(admin.ModelAdmin):
 class ItemVendaAdmin(admin.ModelAdmin):
     list_display = ['venda', 'produto', 'quantidade', 'preco_unitario', 'total']
     list_filter = ['venda__empresa', 'venda__data_venda']
-    search_fields = ['venda__numero_venda', 'produto__nome_comercial']
+    search_fields = ['venda__numero_documento', 'produto__nome_comercial']
 
 @admin.register(FormaPagamento)
 class FormaPagamentoAdmin(admin.ModelAdmin):
@@ -105,7 +105,7 @@ class PagamentoVendaAdmin(admin.ModelAdmin):
     ]
     list_filter = ['status', 'forma_pagamento', 'numero_parcelas', 'data_processamento']
     search_fields = [
-        'venda__numero_venda', 'numero_autorizacao', 'nsu', 'tid'
+        'venda__numero_documento', 'numero_autorizacao', 'nsu', 'tid'
     ]
     readonly_fields = ['valor_taxa', 'valor_liquido', 'valor_parcela']
     
@@ -143,7 +143,7 @@ class DevolucaoVendaAdmin(admin.ModelAdmin):
         'data_devolucao', 'aprovada', 'processada', 'solicitante'
     ]
     list_filter = ['motivo', 'aprovada', 'processada', 'data_devolucao']
-    search_fields = ['numero_devolucao', 'venda_original__numero_venda', 'descricao_motivo']
+    search_fields = ['numero_devolucao', 'venda_original__numero_documento', 'descricao_motivo']
     readonly_fields = ['numero_devolucao', 'data_devolucao']
     
     fieldsets = (
@@ -185,7 +185,7 @@ class HistoricoVendaAdmin(admin.ModelAdmin):
         'venda', 'status_anterior', 'status_novo', 'usuario', 'created_at'
     ]
     list_filter = ['status_anterior', 'status_novo', 'created_at', 'usuario']
-    search_fields = ['venda__numero_venda', 'observacoes']
+    search_fields = ['venda__numero_documento', 'observacoes']
     readonly_fields = ['created_at']
     
     def has_add_permission(self, request):
@@ -258,7 +258,7 @@ class NotaCreditoAdmin(admin.ModelAdmin):
     )
     search_fields = (
         'numero_nota', 'cliente__nome_completo', 'cliente__nif',
-        'venda_origem__numero_venda', 'fatura_credito_origem__numero_fatura'
+        'venda_origem__numero_documento', 'fatura_credito_origem__numero_fatura'
     )
     readonly_fields = (
         'numero_nota', 'created_at', 'updated_at', 'data_aplicacao',
@@ -343,7 +343,7 @@ class NotaDebitoAdmin(admin.ModelAdmin):
     )
     search_fields = (
         'numero_nota', 'cliente__nome_completo', 'cliente__nif',
-        'descricao_motivo', 'venda_origem__numero_venda', 
+        'descricao_motivo', 'venda_origem__numero_documento', 
         'fatura_credito_origem__numero_fatura'
     )
     readonly_fields = (
@@ -432,7 +432,7 @@ class DocumentoTransporteAdmin(admin.ModelAdmin):
     search_fields = (
         'numero_documento', 'destinatario_nome', 'destinatario_nif',
         'transportador_nome', 'veiculo_matricula', 'condutor_nome',
-        'venda_origem__numero_venda', 'fatura_credito_origem__numero_fatura'
+        'venda_origem__numero_documento', 'fatura_credito_origem__numero_fatura'
     )
     readonly_fields = (
         'numero_documento', 'created_at', 'updated_at', 'data_entrega_real',

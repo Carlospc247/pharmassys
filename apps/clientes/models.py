@@ -87,7 +87,7 @@ class Cliente(TimeStampedModel):
     
     # Pessoa Física
     # Razão Social é o nome oficial de uma empresa, usado em documentos legais
-    nome_completo = models.CharField(max_length=255, help_text="Nome completo do cliente")
+    nome_completo = models.CharField(max_length=255, blank=True, help_text="Nome completo do cliente")
     nome_social = models.CharField(max_length=255, blank=True, null=True, help_text="Nome usado para tratamento social")
     bi = models.CharField(max_length=13, blank=True, help_text="Se for pessoa física")
     

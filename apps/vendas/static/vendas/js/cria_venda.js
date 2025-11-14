@@ -104,7 +104,7 @@ async function submeterVenda(event) {
             // SUCESSO: Documento assinado e salvo!
             
             // Apresentar os dados CRÍTICOS ao operador:
-            document.getElementById('display-numero').textContent = data.documento.numero_venda;
+            document.getElementById('display-numero').textContent = data.documento.numero_documento;
             document.getElementById('display-atcud').textContent = data.documento.atcud;
             document.getElementById('display-hash').textContent = data.documento.hash_documento;
             
@@ -113,7 +113,7 @@ async function submeterVenda(event) {
             document.getElementById('itens-container').innerHTML = ''; // Limpa os itens
 
             // Ação de Logística: Imprimir o documento (chamada a outra função)
-            console.log(`Documento ${data.documento.numero_venda} pronto para impressão.`);
+            console.log(`Documento ${data.documento.numero_documento} pronto para impressão.`);
 
         } else {
             // ERRO: Erro de validação do Serializer ou Erro CRÍTICO do Service Fiscal

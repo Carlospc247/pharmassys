@@ -68,7 +68,7 @@ class AnalyticsService:
             acao='venda_finalizada',
             valor=venda.total,
             propriedades={
-                'numero_venda': venda.numero_venda,
+                'numero_documento': venda.numero_documento,
                 'forma_pagamento': venda.forma_pagamento.nome,
                 'itens_count': venda.itens.count(),
                 'vendedor_id': venda.vendedor.id if venda.vendedor else None

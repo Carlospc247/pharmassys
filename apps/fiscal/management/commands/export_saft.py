@@ -130,7 +130,7 @@ class Command(BaseCommand):
             invoice = ET.SubElement(sales_invoices, 'Invoice')
             
             # Cabeçalho da Fatura (Invoice Header)
-            ET.SubElement(invoice, 'InvoiceNo').text = fatura.numero_venda
+            ET.SubElement(invoice, 'InvoiceNo').text = fatura.numero_documento
             ET.SubElement(invoice, 'ATCID').text = fatura.atcud or '' # O ATCUD
             ET.SubElement(invoice, 'Hash').text = fatura.hash_documento
             ET.SubElement(invoice, 'InvoiceDate').text = fatura.data_venda.strftime('%Y-%m-%d')

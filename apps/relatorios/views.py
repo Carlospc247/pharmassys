@@ -1759,7 +1759,7 @@ class RelatorioVendasProdutoView(BaseViewMixin, TemplateView):
         ).annotate(
             quantidade_vendida=Sum('quantidade'),
             faturamento=Sum(F('quantidade') * F('preco_unitario')),
-            numero_vendas=Count('venda', distinct=True),
+            numero_documentos=Count('venda', distinct=True),
             ticket_medio=Avg(F('quantidade') * F('preco_unitario')),
             margem_media=Avg(F('preco_unitario') - F('produto__preco_custo'))
         ).order_by('-faturamento')[:100]
@@ -1935,7 +1935,7 @@ class RelatorioVendasCategoriaView(BaseViewMixin, TemplateView):
             quantidade_vendida=Sum('quantidade'),
             faturamento=Sum(F('quantidade') * F('preco_unitario')),
             numero_produtos=Count('produto', distinct=True),
-            numero_vendas=Count('venda', distinct=True),
+            numero_documentos=Count('venda', distinct=True),
             ticket_medio=Avg(F('quantidade') * F('preco_unitario'))
         ).order_by('-faturamento')
         

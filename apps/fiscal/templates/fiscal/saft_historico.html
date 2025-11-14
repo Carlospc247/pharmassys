@@ -1,103 +1,207 @@
-{% extends "base.html" %}
+<!-- templates/saft/saft_historico.html -->
+{% extends 'base.html' %}
 {% load static %}
-{% load humanize %}
 
-{% block title %}Histórico de Ficheiros SAF-T{% endblock %}
+{% block title %}Histórico SAF-T{% endblock %}
+
+{% block breadcrumbs %}
+<li><a href="{% url 'core:dashboard' %}" class="text-gray-400 hover:text-gray-500">
+    <i class="fas fa-home h-5 w-5"></i>
+</a></li>
+<li class="flex items-center">
+    <i class="fas fa-chevron-right h-5 w-5 text-gray-400 mx-2"></i>
+    <span class="text-gray-500">Fiscal</span>
+</li>
+<li class="flex items-center">
+    <i class="fas fa-chevron-right h-5 w-5 text-gray-400 mx-2"></i>
+    <a href="{% url 'fiscal:saft-export-web' %}" class="text-gray-500 hover:text-gray-700">SAF-T</a>
+</li>
+<li class="flex items-center">
+    <i class="fas fa-chevron-right h-5 w-5 text-gray-400 mx-2"></i>
+    <span class="text-gray-700 font-medium">Histórico</span>
+</li>
+{% endblock %}
+
+{% block page_title %}Histórico de Exportações SAF-T{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'fiscal:saft' %}" 
+   class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+    <i class="fas fa-plus mr-2"></i>
+    Nova Exportação
+</a>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
-    <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white">
-            <h4 class="mb-0">
-                <i class="fas fa-file-invoice me-2"></i>
-                Histórico de Geração de Ficheiros SAF-T ({{ empresa.nome }})
-            </h4>
-        </div>
-        <div class="card-body">
+<div class="space-y-6">
+    <!-- Filtros -->
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Período</label>
+                <select name="periodo" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+                    <option value="">Todos os períodos</option>
+                    <option value="7" {% if filtros_ativos.periodo == "7" %}selected{% endif %}>Últimos 7 dias</option>
+                    <option value="30" {% if filtros_ativos.periodo == "30" %}selected{% endif %}>Últimos 30 dias</option>
+                    <option value="90" {% if filtros_ativos.periodo == "90" %}selected{% endif %}>Últimos 90 dias</option>
+                </select>
+            </div>
             
-            {% if historicos %}
-            <p class="text-muted">Lista de todos os ficheiros SAF-T gerados para a sua empresa. Clique no ícone de download para obter o ficheiro.</p>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                <select name="status" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+                    <option value="">Todos os status</option>
+                    <option value="sucesso" {% if filtros_ativos.status == "sucesso" %}selected{% endif %}>Sucesso</option>
+                    <option value="erro" {% if filtros_ativos.status == "erro" %}selected{% endif %}>Erro</option>
+                </select>
+            </div>
 
-            <div class="table-responsive">
-                <table class="table table-striped table-hover align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th scope="col">ID</th>
-                            <th scope="col">Período Fiscal</th>
-                            <th scope="col">Data de Geração</th>
-                            <th scope="col">Tipo de Dados</th>
-                            <th scope="col">Status</th>
-                            <th scope="col" class="text-center">Ficheiro</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for historico in historicos %}
-                        <tr>
-                            <td>#{{ historico.pk }}</td>
-                            <td>
-                                {% if historico.data_inicio_periodo and historico.data_fim_periodo %}
-                                    {{ historico.data_inicio_periodo|date:"d/m/Y" }} a {{ historico.data_fim_periodo|date:"d/m/Y" }}
-                                {% else %}
-                                    Completo
-                                {% endif %}
-                            </td>
-                            <td>
-                                {{ historico.data_criacao|date:"d/m/Y H:i" }}
-                            </td>
-                            <td>
-                                <span class="badge bg-secondary">{{ historico.get_tipo_dados_display|default:"Geral" }}</span>
-                            </td>
-                            <td>
-                                {% if historico.status == 'concluido' %}
-                                    <span class="badge bg-success"><i class="fas fa-check-circle"></i> Concluído</span>
-                                {% elif historico.status == 'erro' %}
-                                    <span class="badge bg-danger" data-bs-toggle="tooltip" title="{{ historico.mensagem_erro|default:'Detalhes do erro não disponíveis.' }}">
-                                        <i class="fas fa-exclamation-triangle"></i> Erro
-                                    </span>
-                                {% else %}
-                                    <span class="badge bg-warning text-dark"><i class="fas fa-hourglass-half"></i> Em Processamento</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-center">
-                                {% if historico.ficheiro_saft %}
-                                <a href="{{ historico.ficheiro_saft.url }}" class="btn btn-sm btn-outline-success" target="_blank" download>
-                                    <i class="fas fa-download me-1"></i> Download ({{ historico.tamanho_ficheiro|filesizeformat }})
-                                </a>
-                                {% elif historico.status == 'erro' %}
-                                <span class="text-danger small">Ficheiro Indisponível</span>
-                                {% else %}
-                                <span class="text-muted small">Aguarde...</span>
-                                {% endif %}
-                            </td>
-                        </tr>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Início</label>
+                <input type="date" name="data_inicio" value="{{ filtros_ativos.data_inicio }}" 
+                       class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Fim</label>
+                <input type="date" name="data_fim" value="{{ filtros_ativos.data_fim }}" 
+                       class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+            </div>
+
+            
+            
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Utilizador</label>
+                    <input type="text" name="usuario" value="{{ filtros_ativos.usuario }}" 
+                        class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+                </div>
+            
+
+
+            <div class="md:col-span-4 flex items-end space-x-2">
+                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                    <i class="fas fa-search mr-1"></i>
+                    Filtrar
+                </button>
+                <a href="?" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
+                    <i class="fas fa-undo mr-1"></i>
+                    Limpar
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Lista de Exportações -->
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Exportações Realizadas</h3>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Data/Hora</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Período Fiscal</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Utilizador</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tamanho</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for saft in exports %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                            {{ saft.data_exportacao|date:"d/m/Y H:i" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                            {{ saft.periodo_inicio|date:"d/m/Y" }} - {{ saft.periodo_fim|date:"d/m/Y" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                            {{ saft.usuario.get_full_name }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if saft.sucesso %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <i class="fas fa-check mr-1"></i> Sucesso
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <i class="fas fa-times mr-1"></i> Erro
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                            {{ saft.tamanho_arquivo|filesizeformat }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                            <a href="{{ saft.arquivo.url }}" class="text-indigo-600 hover:text-indigo-900">
+                                <i class="fas fa-download"></i>
+                            </a>
+                            {% if not saft.sucesso %}
+                            <a href="{% url 'saft:reprocessar' saft.id %}" class="text-red-600 hover:text-red-900">
+                                <i class="fas fa-redo"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-300">
+                            Nenhuma exportação encontrada.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Paginação -->
+        <div class="bg-white dark:bg-gray-800 px-4 py-3 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 sm:px-6">
+            <div class="flex-1 flex justify-between sm:hidden">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    Anterior
+                </a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    Próximo
+                </a>
+                {% endif %}
+            </div>
+            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm text-gray-700 dark:text-gray-300">
+                        Mostrando {{ page_obj.start_index }} a {{ page_obj.end_index }} de {{ page_obj.paginator.count }} resultados
+                    </p>
+                </div>
+                <div>
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                        {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i class="fas fa-chevron-left h-5 w-5"></i>
+                        </a>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <span class="px-4 py-2 bg-indigo-100 text-indigo-700">{{ num }}</span>
+                            {% else %}
+                                <a href="?page={{ num }}" class="px-4 py-2 border border-gray-300 bg-white hover:bg-gray-50 text-sm font-medium">{{ num }}</a>
+                            {% endif %}
                         {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            
-            {% else %}
-            <div class="alert alert-info" role="alert">
-                <h4 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Nenhum Histórico Encontrado</h4>
-                <p>Ainda não foram encontrados registos de ficheiros SAF-T gerados para a empresa {{ empresa.nome }}.</p>
-                <hr>
-                <p class="mb-0">Aceda à área de Geração SAF-T para criar um novo ficheiro fiscal.</p>
-            </div>
-            {% endif %}
 
-        </div>
-        <div class="card-footer text-muted">
-            Última atualização: {{ now|date:"d/m/Y H:i:s" }}
+                        {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i class="fas fa-chevron-right h-5 w-5"></i>
+                        </a>
+                        {% endif %}
+                    </nav>
+                </div>
+            </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extrascript %}
-<script>
-    // Inicializa tooltips do Bootstrap
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
-    })
-</script>
 {% endblock %}
