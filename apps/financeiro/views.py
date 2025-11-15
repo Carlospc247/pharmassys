@@ -1036,128 +1036,343 @@ from django.db.models import Sum
 # IMPORTAÇÕES: Certifique-se que ContaPagar, ContaReceber, MovimentoCaixa, MovimentacaoFinanceira e LancamentoFinanceiro 
 # estão corretamente importados no topo do seu views.py
 
+
+
+
+
+from django.db.models import Sum, Count, Q
+from django.db.models.functions import TruncMonth, TruncWeek
+from django.utils import timezone
+from datetime import date, timedelta
+import json
+from decimal import Decimal
+
 class FinanceiroDashboardView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
     acao_requerida = 'acessar_financeiro'
     template_name = 'financeiro/dashboard.html'
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        empresa = self.request.user.empresa  # ou self.get_empresa()
         hoje = date.today()
         inicio_mes = hoje.replace(day=1)
         
-        # Resumo financeiro - CORRIGIDO: Usa valor_saldo e status__in
+        # ====== RESUMO FINANCEIRO ======
         context['total_receber'] = ContaReceber.objects.filter(
-            status__in=['aberta', 'vencida'] # Filtra contas não liquidadas
-        ).aggregate(total=Sum('valor_saldo'))['total'] or 0 # CORRIGIDO: Usa valor_saldo
+            empresa=empresa,
+            status__in=['aberta', 'vencida']
+        ).aggregate(total=Sum('valor_saldo'))['total'] or Decimal('0.00')
         
         context['total_pagar'] = ContaPagar.objects.filter(
-            status__in=['aberta', 'vencida'] # Filtra contas não liquidadas
-        ).aggregate(total=Sum('valor_saldo'))['total'] or 0 # CORRIGIDO: Usa valor_saldo
+            empresa=empresa,
+            status__in=['aberta', 'vencida']
+        ).aggregate(total=Sum('valor_saldo'))['total'] or Decimal('0.00')
         
-        context['saldo_caixa'] = self._calcular_saldo_caixa()
-        context['saldo_bancos'] = self._calcular_saldo_bancos()
+        context['saldo_caixa'] = self._calcular_saldo_caixa(empresa)
+        context['saldo_bancos'] = self._calcular_saldo_bancos(empresa)
         
-        # Contas vencidas - CORRIGIDO: Usa status__in
+        # ====== CONTAS VENCIDAS ======
         context['contas_receber_vencidas'] = ContaReceber.objects.filter(
-            status__in=['aberta', 'vencida'], # CORRIGIDO: Filtra status válidos
+            empresa=empresa,
+            status__in=['aberta', 'vencida'],
             data_vencimento__lt=hoje
         ).count()
         
         context['contas_pagar_vencidas'] = ContaPagar.objects.filter(
-            status__in=['aberta', 'vencida'], # CORRIGIDO: Filtra status válidos
+            empresa=empresa,
+            status__in=['aberta', 'vencida'],
             data_vencimento__lt=hoje
         ).count()
         
-        # Receitas e despesas do mês - CORRIGIDO: Usa 'data'
+        # ====== RECEITAS E DESPESAS DO MÊS ======
+        # CORRIGIDO: Usar plano_contas__tipo_conta em vez de tipo
         context['receitas_mes'] = LancamentoFinanceiro.objects.filter(
-        tipo='receita',
-        data_lancamento__gte=inicio_mes,
-        data_lancamento__lte=hoje
+            empresa=empresa,
+            plano_contas__tipo_conta='receita',  # CORRIGIDO
+            data_lancamento__gte=inicio_mes,
+            data_lancamento__lte=hoje
         ).aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
         
         context['despesas_mes'] = LancamentoFinanceiro.objects.filter(
-            tipo='despesa',
+            empresa=empresa,
+            plano_contas__tipo_conta='despesa',  # CORRIGIDO
             data_lancamento__gte=inicio_mes,
             data_lancamento__lte=hoje
-        ).aggregate(total=Sum('valor'))['total'] or Decimal('0.00') 
+        ).aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
+        
+        # ====== CONTAS VENCENDO (próximos 7 dias) ======
+        proximos_7_dias = hoje + timedelta(days=7)
+        
+        context['contas_receber_vencendo'] = ContaReceber.objects.filter(
+            empresa=empresa,
+            status='aberta',
+            data_vencimento__gte=hoje,
+            data_vencimento__lte=proximos_7_dias
+        ).count()
+        
+        context['contas_pagar_vencendo'] = ContaPagar.objects.filter(
+            empresa=empresa,
+            status='aberta',
+            data_vencimento__gte=hoje,
+            data_vencimento__lte=proximos_7_dias
+        ).count()
+        
+        # ====== IMPOSTOS ======
+        context['impostos_pendentes'] = ImpostoTributo.objects.filter(
+            empresa=empresa,
+            situacao__in=['pendente', 'calculado', 'vencido']
+        ).count()
+        
+        context['impostos_valor_devido'] = ImpostoTributo.objects.filter(
+            empresa=empresa,
+            situacao__in=['calculado', 'vencido']
+        ).aggregate(total=Sum('valor_devido'))['total'] or Decimal('0.00')
+
+        # ====== VENDAS DO MÊS ======
+        context['total_vendas_mes'] = Venda.objects.filter(
+            empresa=empresa,
+            data_venda__gte=inicio_mes,
+            data_venda__lte=hoje,
+            status='confirmada'
+        ).aggregate(total=Sum('valor_total'))['total'] or Decimal('0.00')
+
+        # ====== CÁLCULOS ======
+        context['lucro_mes'] = context['total_vendas_mes'] - context['despesas_mes']
+        context['liquidez'] = context['saldo_caixa'] + context['saldo_bancos']
+        context['saldo_liquido'] = context['total_receber'] - context['total_pagar']
 
         
-        # Gráficos
+        # ====== CÁLCULOS ======
         context['lucro_mes'] = context['receitas_mes'] - context['despesas_mes']
-        context['dados_fluxo_caixa'] = self._get_dados_fluxo_caixa()
-        context['receitas_por_categoria'] = self._get_receitas_por_categoria()
-        context['despesas_por_categoria'] = self._get_despesas_por_categoria()
+        context['liquidez'] = context['saldo_caixa'] + context['saldo_bancos']
+        context['saldo_liquido'] = context['total_receber'] - context['total_pagar']
+        
+        # ====== DADOS PARA GRÁFICOS ======
+        context['dados_fluxo_caixa'] = json.dumps(self._get_dados_fluxo_caixa(empresa))
+        context['receitas_por_categoria'] = json.dumps(self._get_receitas_por_categoria(empresa))
+        context['despesas_por_categoria'] = json.dumps(self._get_despesas_por_categoria(empresa))
+        context['evolucao_saldos'] = json.dumps(self._get_evolucao_saldos(empresa))
+        context['contas_vencimento'] = json.dumps(self._get_contas_por_vencimento(empresa))
         
         return context
     
-    # As funções _calcular_saldo_caixa e _calcular_saldo_bancos não foram alteradas, 
-    # mas devem ser verificadas se o erro persistir.
+    def _calcular_saldo_caixa(self, empresa):
+        """Calcula saldo atual do caixa"""
+        return MovimentoCaixa.objects.filter(
+            empresa=empresa,
+            confirmado=True
+        ).aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
     
-    def _calcular_saldo_caixa(self):
-        return MovimentoCaixa.objects.aggregate(
-            saldo=Sum('valor')
-        )['saldo'] or 0
+    def _calcular_saldo_bancos(self, empresa):
+        """Calcula saldo total das contas bancárias"""
+        return ContaBancaria.objects.filter(
+            empresa=empresa,
+            ativa=True
+        ).aggregate(total=Sum('saldo_atual'))['total'] or Decimal('0.00')
     
-    def _calcular_saldo_bancos(self):
-        return MovimentacaoFinanceira.objects.aggregate(
-            saldo=Sum('valor')
-        )['saldo'] or 0
-    
-    def _get_dados_fluxo_caixa(self):
-        # Implementar dados para gráfico de fluxo de caixa
-        return {}
-    
-    def _get_receitas_por_categoria(self):
-        # Implementar dados para gráfico de receitas por categoria
-        return {}
-    
-    def _get_despesas_por_categoria(self):
-        # Implementar dados para gráfico de despesas por categoria
-        return {}
-
-
-class FluxoCaixaView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
-    acao_requerida = 'acessar_financeiro'
-    template_name = 'financeiro/fluxo_caixa.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
+    def _get_dados_fluxo_caixa(self, empresa):
+        """Dados para gráfico de fluxo de caixa (próximos 30 dias)"""
+        hoje = date.today()
+        dados = {'labels': [], 'entradas': [], 'saidas': [], 'saldo_acumulado': []}
         
-        # Período de análise
+        saldo_atual = self._calcular_saldo_caixa(empresa) + self._calcular_saldo_bancos(empresa)
+        
+        for i in range(30):
+            data_ref = hoje + timedelta(days=i)
+            
+            # Entradas previstas (contas a receber)
+            entradas = ContaReceber.objects.filter(
+                empresa=empresa,
+                data_vencimento=data_ref,
+                status='aberta'
+            ).aggregate(total=Sum('valor_saldo'))['total'] or Decimal('0.00')
+            
+            # Saídas previstas (contas a pagar)
+            saidas = ContaPagar.objects.filter(
+                empresa=empresa,
+                data_vencimento=data_ref,
+                status='aberta'
+            ).aggregate(total=Sum('valor_saldo'))['total'] or Decimal('0.00')
+            
+            saldo_atual = saldo_atual + entradas - saidas
+            
+            dados['labels'].append(data_ref.strftime('%d/%m'))
+            dados['entradas'].append(float(entradas))
+            dados['saidas'].append(float(saidas))
+            dados['saldo_acumulado'].append(float(saldo_atual))
+        
+        return dados
+    
+    def _get_receitas_por_categoria(self, empresa):
+        """Dados para gráfico de receitas por categoria (mês atual)"""
+        inicio_mes = date.today().replace(day=1)
+        
+        receitas = LancamentoFinanceiro.objects.filter(
+            empresa=empresa,
+            plano_contas__tipo_conta='receita',
+            data_lancamento__gte=inicio_mes
+        ).values(
+            'plano_contas__nome'
+        ).annotate(
+            total=Sum('valor')
+        ).order_by('-total')
+        
+        return {
+            'labels': [item['plano_contas__nome'] for item in receitas],
+            'valores': [float(item['total']) for item in receitas]
+        }
+    
+    def _get_despesas_por_categoria(self, empresa):
+        """Dados para gráfico de despesas por categoria (mês atual)"""
+        inicio_mes = date.today().replace(day=1)
+        
+        despesas = LancamentoFinanceiro.objects.filter(
+            empresa=empresa,
+            plano_contas__tipo_conta='despesa',
+            data_lancamento__gte=inicio_mes
+        ).values(
+            'plano_contas__nome'
+        ).annotate(
+            total=Sum('valor')
+        ).order_by('-total')
+        
+        return {
+            'labels': [item['plano_contas__nome'] for item in despesas],
+            'valores': [float(item['total']) for item in despesas]
+        }
+    
+    def _get_evolucao_saldos(self, empresa):
+        """Evolução dos saldos bancários (últimos 12 meses)"""
+        dados = {'labels': [], 'valores': []}
+        
+        for i in range(12):
+            if i == 0:
+                mes_ref = date.today().replace(day=1)
+            else:
+                mes_anterior = mes_ref - timedelta(days=1)
+                mes_ref = mes_anterior.replace(day=1)
+            
+            fim_mes = mes_ref.replace(day=28)  # Aproximação
+            
+            # Calcular saldo no final do mês
+            movimentacoes = MovimentacaoFinanceira.objects.filter(
+                empresa=empresa,
+                data_movimentacao__lte=fim_mes,
+                confirmada=True
+            )
+            
+            entradas = movimentacoes.filter(tipo_movimentacao='entrada').aggregate(
+                total=Sum('valor')
+            )['total'] or Decimal('0.00')
+            
+            saidas = movimentacoes.filter(tipo_movimentacao='saida').aggregate(
+                total=Sum('valor')
+            )['total'] or Decimal('0.00')
+            
+            saldo_mes = entradas - saidas
+            
+            dados['labels'].insert(0, mes_ref.strftime('%b/%Y'))
+            dados['valores'].insert(0, float(saldo_mes))
+        
+        return dados
+    
+    def _get_contas_por_vencimento(self, empresa):
+        """Distribuição de contas por status de vencimento"""
+        hoje = date.today()
+        
+        # Contas a receber
+        receber_aberta = ContaReceber.objects.filter(
+            empresa=empresa, status='aberta', data_vencimento__gte=hoje
+        ).aggregate(total=Sum('valor_saldo'))['total'] or Decimal('0.00')
+        
+        receber_vencida = ContaReceber.objects.filter(
+            empresa=empresa, status='vencida'
+        ).aggregate(total=Sum('valor_saldo'))['total'] or Decimal('0.00')
+        
+        # Contas a pagar
+        pagar_aberta = ContaPagar.objects.filter(
+            empresa=empresa, status='aberta', data_vencimento__gte=hoje
+        ).aggregate(total=Sum('valor_saldo'))['total'] or Decimal('0.00')
+        
+        pagar_vencida = ContaPagar.objects.filter(
+            empresa=empresa, status='vencida'
+        ).aggregate(total=Sum('valor_saldo'))['total'] or Decimal('0.00')
+        
+        return {
+            'labels': ['A Receber em Dia', 'A Receber Vencidas', 'A Pagar em Dia', 'A Pagar Vencidas'],
+            'valores': [float(receber_aberta), float(receber_vencida), float(pagar_aberta), float(pagar_vencida)],
+            'cores': ['#10B981', '#EF4444', '#F59E0B', '#DC2626']
+        }
+
+
+# views.py
+from django.views.generic import ListView, CreateView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Sum
+from .models import FluxoCaixa
+from .forms import FluxoCaixaForm
+from datetime import datetime, date
+
+class FluxoCaixaView(LoginRequiredMixin, ListView):
+    model = FluxoCaixa
+    template_name = 'financeiro/fluxo_caixa/lista.html'
+    context_object_name = 'fluxos'
+    paginate_by = 25
+
+    def get_queryset(self):
+        empresa = self.request.user.empresa
+        qs = FluxoCaixa.objects.filter(empresa=empresa)
         data_inicio = self.request.GET.get('data_inicio')
         data_fim = self.request.GET.get('data_fim')
-        
-        if not data_inicio:
-            data_inicio = date.today().replace(day=1)
-        if not data_fim:
-            data_fim = date.today()
-        
-        # Entradas
-        entradas = LancamentoFinanceiro.objects.filter(
-            tipo='receita',
-            data_lancamento__range=[data_inicio, data_fim]
-        ).aggregate(total=Sum('valor'))['total'] or 0
-        
-        # Saídas
-        saidas = LancamentoFinanceiro.objects.filter(
-            tipo='despesa',
-            data_lancamento__range=[data_inicio, data_fim]
-        ).aggregate(total=Sum('valor'))['total'] or 0
-        
-        context.update({
-            'data_inicio': data_inicio,
-            'data_fim': data_fim,
-            'entradas': entradas,
-            'saidas': saidas,
-            'saldo_periodo': entradas - saidas,
-            'fluxo_diario': self._get_fluxo_diario(data_inicio, data_fim)
-        })
-        
+
+        if data_inicio:
+            data_inicio = datetime.strptime(data_inicio, '%Y-%m-%d').date()
+            qs = qs.filter(data_referencia__gte=data_inicio)
+        if data_fim:
+            data_fim = datetime.strptime(data_fim, '%Y-%m-%d').date()
+            qs = qs.filter(data_referencia__lte=data_fim)
+        return qs.order_by('data_referencia')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        fluxos = self.get_queryset()
+        entradas = fluxos.filter(tipo='entrada').aggregate(total=Sum('valor_previsto'))['total'] or 0
+        saidas = fluxos.filter(tipo='saida').aggregate(total=Sum('valor_previsto'))['total'] or 0
+        context['entradas'] = entradas
+        context['saidas'] = saidas
+        context['saldo_periodo'] = entradas - saidas
+        context['data_inicio'] = self.request.GET.get('data_inicio', date.today().replace(day=1))
+        context['data_fim'] = self.request.GET.get('data_fim', date.today())
         return context
-    
-    def _get_fluxo_diario(self, data_inicio, data_fim):
-        # Implementar cálculo do fluxo diário
-        return []
+
+
+from django.urls import reverse_lazy
+from django.views.generic import CreateView, UpdateView
+from .models import FluxoCaixa
+from .forms import FluxoCaixaForm
+from django.contrib.auth.mixins import LoginRequiredMixin
+
+class FluxoCaixaCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+    acao_requerida = 'acessar_financeiro'
+    model = FluxoCaixa
+    form_class = FluxoCaixaForm
+    template_name = 'financeiro/fluxo_caixa/form.html'
+    success_url = reverse_lazy('financeiro:fluxo_caixa')
+
+    def form_valid(self, form):
+        # Associa automaticamente a empresa do usuário
+        form.instance.empresa = self.request.user.empresa
+        return super().form_valid(form)
+
+
+class FluxoCaixaUpdateView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
+    acao_requerida = 'acessar_financeiro'
+    model = FluxoCaixa
+    form_class = FluxoCaixaForm
+    template_name = 'financeiro/fluxo_caixa/form.html'
+    success_url = reverse_lazy('financeiro:fluxo_caixa')
+
+
 
 class DREView(LoginRequiredMixin, PermissaoAcaoMixin, TemplateView):
    acao_requerida = 'acessar_financeiro'

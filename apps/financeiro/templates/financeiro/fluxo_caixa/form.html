@@ -1,20 +1,37 @@
-<!-- templates/financeiro/fluxo_caixa/form.html -->
+<!-- apps/financeiro/templates/financeiro/fluxo_caixa/form.html -->
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ form.instance.pk|yesno:"Editar Fluxo de Caixa,Novo Fluxo de Caixa" }}{% endblock %}
-{% block page_title %}{{ form.instance.pk|yesno:"Editar Fluxo de Caixa,Novo Fluxo de Caixa" }}{% endblock %}
+{% block title %}Fluxo de Caixa{% endblock %}
+{% block page_title %}{% if object %}Editar{% else %}Adicionar{% endif %} Fluxo de Caixa{% endblock %}
 
 {% block content %}
-<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-        {{ form.instance.pk|yesno:"Editar Fluxo de Caixa,Novo Fluxo de Caixa" }}
-    </h1>
-
+<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 max-w-3xl mx-auto">
     <form method="POST">
         {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Salvar</button>
+        {{ form.non_field_errors }}
+
+        <div class="grid grid-cols-2 gap-4">
+            {% for field in form %}
+                <div class="col-span-2 sm:col-span-1">
+                    <label class="block font-semibold text-gray-700 dark:text-gray-200">
+                        {{ field.label_tag }}
+                    </label>
+                    {{ field }}
+                    {% if field.help_text %}
+                        <small class="text-gray-500">{{ field.help_text }}</small>
+                    {% endif %}
+                    {% for error in field.errors %}
+                        <p class="text-red-600 text-sm">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="mt-4 flex justify-end space-x-2">
+            <a href="{% url 'financeiro:fluxo_caixa' %}" class="bg-gray-500 text-white px-4 py-2 rounded">Cancelar</a>
+            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Salvar</button>
+        </div>
     </form>
 </div>
 {% endblock %}

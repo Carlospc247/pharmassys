@@ -1,21 +1,27 @@
-<!-- templates/financeiro/fluxo_caixa/lista.html -->
 {% extends 'base.html' %}
 {% load static %}
 
 {% block title %}Fluxo de Caixa{% endblock %}
-{% block page_title %}Lista de Fluxo de Caixa{% endblock %}
+{% block page_title %}Fluxo de Caixa{% endblock %}
 
 {% block content %}
 <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-        Fluxo de Caixa
-    </h1>
 
+    <h1 class="text-2xl font-bold mb-4">Fluxo de Caixa</h1>
+
+    <!-- Filtro por datas -->
     <form method="GET" class="flex space-x-4 mb-4">
-        <input type="date" name="data_inicio" class="border p-2 rounded" />
-        <input type="date" name="data_fim" class="border p-2 rounded" />
+        <input type="date" name="data_inicio" value="{{ data_inicio }}" class="border p-2 rounded" />
+        <input type="date" name="data_fim" value="{{ data_fim }}" class="border p-2 rounded" />
         <input type="submit" value="Filtrar" class="bg-blue-500 text-white px-4 py-2 rounded" />
+        <a href="{% url 'financeiro:fluxo_caixa_create' %}" class="ml-auto bg-green-500 text-white px-4 py-2 rounded">Adicionar</a>
     </form>
+
+    <div class="mb-4">
+        <span class="font-semibold">Entradas:</span> {{ entradas|floatformat:2 }} Kz
+        <span class="ml-4 font-semibold">Saídas:</span> {{ saidas|floatformat:2 }} Kz
+        <span class="ml-4 font-semibold">Saldo:</span> {{ saldo_periodo|floatformat:2 }} Kz
+    </div>
 
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -26,28 +32,43 @@
                     <th class="px-6 py-3 text-left">Tipo</th>
                     <th class="px-6 py-3 text-left">Valor Previsto</th>
                     <th class="px-6 py-3 text-left">Valor Realizado</th>
+                    <th class="px-6 py-3 text-left">Saldo Acumulado</th>
                     <th class="px-6 py-3 text-left">Ações</th>
                 </tr>
             </thead>
             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {% for fluxo in fluxos %}
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td class="px-6 py-4">{{ fluxo.data_referencia|date:"d/m/Y" }}</td>
-                    <td class="px-6 py-4">{{ fluxo.descricao }}</td>
-                    <td class="px-6 py-4">{{ fluxo.tipo }}</td>
-                    <td class="px-6 py-4">{{ fluxo.valor_previsto|floatformat:2 }} Kz</td>
-                    <td class="px-6 py-4">{{ fluxo.valor_realizado|floatformat:2 }} Kz</td>
-                    <td class="px-6 py-4">
+                    <td>{{ fluxo.data_referencia|date:"d/m/Y" }}</td>
+                    <td>{{ fluxo.descricao }}</td>
+                    <td>{{ fluxo.get_tipo_display }}</td>
+                    <td>{{ fluxo.valor_previsto|floatformat:2 }}</td>
+                    <td>{{ fluxo.valor_realizado|floatformat:2 }}</td>
+                    <td>{{ fluxo.saldo_acumulado|floatformat:2 }}</td>
+                    <td>
                         <a href="{% url 'financeiro:fluxo_caixa_update' fluxo.id %}" class="text-yellow-600 hover:text-yellow-900">Editar</a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Nenhum fluxo encontrado.</td>
+                    <td colspan="7" class="text-center text-gray-500">Nenhum fluxo encontrado.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+
+    {% if is_paginated %}
+    <div class="mt-4 flex justify-center space-x-2">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&data_inicio={{ data_inicio }}&data_fim={{ data_fim }}" class="px-3 py-1 bg-gray-300 rounded">Anterior</a>
+        {% endif %}
+        <span class="px-3 py-1">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&data_inicio={{ data_inicio }}&data_fim={{ data_fim }}" class="px-3 py-1 bg-gray-300 rounded">Próximo</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
 </div>
 {% endblock %}

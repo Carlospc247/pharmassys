@@ -797,49 +797,57 @@ class ContaReceber(TimeStampedModel):
 
         return movimentacao
 
-    
-class FluxoCaixa(TimeStampedModel):
-    """Projeção de fluxo de caixa"""
+
+# models.py
+from django.db import models
+from django.utils import timezone
+from decimal import Decimal
+
+class FluxoCaixa(models.Model):
     TIPO_CHOICES = [
         ('entrada', 'Entrada'),
         ('saida', 'Saída'),
     ]
-    
-    # Data e tipo
+
+    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE)
     data_referencia = models.DateField()
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
-    
-    # Valores
     valor_previsto = models.DecimalField(max_digits=12, decimal_places=2)
     valor_realizado = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    saldo_acumulado = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    
-    # Classificação
-    categoria = models.CharField(max_length=100, help_text="Categoria da movimentação")
+    categoria = models.CharField(max_length=100)
     descricao = models.CharField(max_length=255)
-    
-    # Relacionamentos
     conta_bancaria = models.ForeignKey(ContaBancaria, on_delete=models.CASCADE)
     centro_custo = models.ForeignKey(CentroCusto, on_delete=models.SET_NULL, null=True, blank=True)
-    
-    # Origem da projeção
     conta_pagar = models.ForeignKey(ContaPagar, on_delete=models.SET_NULL, null=True, blank=True)
     conta_receber = models.ForeignKey(ContaReceber, on_delete=models.SET_NULL, null=True, blank=True)
-    
-    # Status
     realizado = models.BooleanField(default=False)
     observacoes = models.TextField(blank=True)
-    
-    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
-    
+
     class Meta:
         verbose_name = "Fluxo de Caixa"
         verbose_name_plural = "Fluxos de Caixa"
         ordering = ['data_referencia']
-    
+
     def __str__(self):
         sinal = '+' if self.tipo == 'entrada' else '-'
-        return f"{self.data_referencia} - {sinal}R$ {self.valor_previsto} - {self.categoria}"
+        return f"{self.data_referencia} - {sinal} AKZ {self.valor_previsto} - {self.categoria}"
+
+    @property
+    def saldo_acumulado(self):
+        # Calcula dinamicamente
+        entradas = FluxoCaixa.objects.filter(
+            empresa=self.empresa,
+            data_referencia__lte=self.data_referencia,
+            tipo='entrada'
+        ).aggregate(total=models.Sum('valor_previsto'))['total'] or Decimal('0')
+        saidas = FluxoCaixa.objects.filter(
+            empresa=self.empresa,
+            data_referencia__lte=self.data_referencia,
+            tipo='saida'
+        ).aggregate(total=models.Sum('valor_previsto'))['total'] or Decimal('0')
+        return entradas - saidas
+
+
 
 class ConciliacaoBancaria(TimeStampedModel):
     """Conciliação bancária"""

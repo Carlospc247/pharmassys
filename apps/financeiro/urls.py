@@ -19,6 +19,9 @@ urlpatterns = [
     # =====================================
     path('', views.FinanceiroDashboardView.as_view(), name='dashboard'),
     path('fluxo-caixa/', views.FluxoCaixaView.as_view(), name='fluxo_caixa'),
+    path('fluxo-caixa/novo/', views.FluxoCaixaCreateView.as_view(), name='fluxo_caixa_create'),
+    # Se for editar
+    path('fluxo-caixa/<int:pk>/editar/', views.FluxoCaixaUpdateView.as_view(), name='fluxo_caixa_update'),
     path('dre/', views.DREView.as_view(), name='dre'),
     path('balanco/', views.BalancoPatrimonialView.as_view(), name='balanco'),
     

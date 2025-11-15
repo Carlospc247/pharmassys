@@ -840,5 +840,26 @@ class ImpostoTributoForm(forms.ModelForm):
         }
 
 
+# forms.py
+from django import forms
+from .models import FluxoCaixa
+
+class FluxoCaixaForm(forms.ModelForm):
+    class Meta:
+        model = FluxoCaixa
+        fields = [
+            'data_referencia', 'tipo', 'valor_previsto', 'valor_realizado',
+            'categoria', 'descricao', 'conta_bancaria', 'centro_custo',
+            'conta_pagar', 'conta_receber', 'realizado', 'observacoes'
+        ]
+        widgets = {
+            'data_referencia': forms.DateInput(attrs={'type': 'date', 'class': 'border p-2 rounded'}),
+            'tipo': forms.Select(attrs={'class': 'border p-2 rounded'}),
+            'valor_previsto': forms.NumberInput(attrs={'class': 'border p-2 rounded'}),
+            'valor_realizado': forms.NumberInput(attrs={'class': 'border p-2 rounded'}),
+            'categoria': forms.TextInput(attrs={'class': 'border p-2 rounded'}),
+            'descricao': forms.TextInput(attrs={'class': 'border p-2 rounded'}),
+            'observacoes': forms.Textarea(attrs={'class': 'border p-2 rounded', 'rows': 3}),
+        }
 
 

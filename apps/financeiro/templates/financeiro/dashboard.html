@@ -9,62 +9,374 @@
 <div class="bg-white dark:bg-gray-900 shadow-lg rounded-2xl p-8 transition-all duration-300">
     <div class="flex items-center justify-between mb-6">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white">📊 Dashboard Financeiro</h1>
+        <div class="text-sm text-gray-500 dark:text-gray-400">
+            Atualizado em: {% now "d/m/Y H:i" %}
+        </div>
     </div>
 
     <!-- Cards principais -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div class="p-6 bg-green-100 dark:bg-green-800 rounded-xl shadow hover:scale-[1.02] transition-transform">
-            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Total a Receber</h2>
-            <p class="text-3xl font-bold text-green-700 dark:text-green-300 mt-2">{{ total_receber|floatformat:2 }} Kz</p>
-            <a href="{% url 'financeiro:conta_receber_lista' %}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline mt-2 inline-block">Ver Contas a Receber</a>
+            <div class="flex items-center">
+                <div class="p-3 bg-green-500 rounded-full">
+                    <i class="fas fa-arrow-up text-white text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Total a Receber</h2>
+                    <p class="text-3xl font-bold text-green-700 dark:text-green-300 mt-2">{{ total_receber|floatformat:2 }} Kz</p>
+                    {% if contas_receber_vencidas > 0 %}
+                        <p class="text-sm text-red-600 mt-1">{{ contas_receber_vencidas }} vencidas</p>
+                    {% endif %}
+                </div>
+            </div>
         </div>
 
         <div class="p-6 bg-red-100 dark:bg-red-800 rounded-xl shadow hover:scale-[1.02] transition-transform">
-            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Total a Pagar</h2>
-            <p class="text-3xl font-bold text-red-700 dark:text-red-300 mt-2">{{ total_pagar|floatformat:2 }} Kz</p>
-            <a href="{% url 'financeiro:conta_pagar_lista' %}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline mt-2 inline-block">Ver Contas a Pagar</a>
+            <div class="flex items-center">
+                <div class="p-3 bg-red-500 rounded-full">
+                    <i class="fas fa-arrow-down text-white text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Total a Pagar</h2>
+                    <p class="text-3xl font-bold text-red-700 dark:text-red-300 mt-2">{{ total_pagar|floatformat:2 }} Kz</p>
+                    {% if contas_pagar_vencidas > 0 %}
+                        <p class="text-sm text-red-600 mt-1">{{ contas_pagar_vencidas }} vencidas</p>
+                    {% endif %}
+                </div>
+            </div>
         </div>
 
         <div class="p-6 bg-blue-100 dark:bg-blue-800 rounded-xl shadow hover:scale-[1.02] transition-transform">
-            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Saldo em Caixa</h2>
-            <p class="text-3xl font-bold text-blue-700 dark:text-blue-300 mt-2">{{ saldo_caixa|floatformat:2 }} Kz</p>
-            <a href="{% url 'financeiro:caixa' %}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline mt-2 inline-block">Gerenciar Caixa</a>
+            <div class="flex items-center">
+                <div class="p-3 bg-blue-500 rounded-full">
+                    <i class="fas fa-wallet text-white text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Saldo em Caixa</h2>
+                    <p class="text-3xl font-bold text-blue-700 dark:text-blue-300 mt-2">{{ saldo_caixa|floatformat:2 }} Kz</p>
+                </div>
+            </div>
         </div>
 
-        <div class="p-6 bg-yellow-100 dark:bg-yellow-800 rounded-xl shadow hover:scale-[1.02] transition-transform">
-            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Saldo em Bancos</h2>
-            <p class="text-3xl font-bold text-yellow-700 dark:text-yellow-300 mt-2">{{ saldo_bancos|floatformat:2 }} Kz</p>
-            <a href="{% url 'financeiro:banco_lista' %}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline mt-2 inline-block">Ver Contas Bancárias</a>
+        <div class="p-6 bg-purple-100 dark:bg-purple-800 rounded-xl shadow hover:scale-[1.02] transition-transform">
+            <div class="flex items-center">
+                <div class="p-3 bg-purple-500 rounded-full">
+                    <i class="fas fa-university text-white text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Saldo em Bancos</h2>
+                    <p class="text-3xl font-bold text-purple-700 dark:text-purple-300 mt-2">{{ saldo_bancos|floatformat:2 }} Kz</p>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Resumo do Mês -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Receitas do Mês</h3>
+            <p class="text-2xl font-bold text-green-600">{{ receitas_mes|floatformat:2 }} Kz</p>
+        </div>
+        
+        <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Despesas do Mês</h3>
+            <p class="text-2xl font-bold text-red-600">{{ despesas_mes|floatformat:2 }} Kz</p>
+        </div>
+        
+        <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Resultado do Mês</h3>
+            <p class="text-2xl font-bold {% if lucro_mes >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                {{ lucro_mes|floatformat:2 }} Kz
+            </p>
+        </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Fluxo de Caixa -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Fluxo de Caixa (30 dias)</h3>
+            <div style="height: 300px;">
+                <canvas id="fluxoCaixaChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Receitas por Categoria -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Receitas por Categoria</h3>
+            <div style="height: 300px;">
+                <canvas id="receitasChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Evolução dos Saldos -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Evolução dos Saldos</h3>
+            <div style="height: 300px;">
+                <canvas id="saldosChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Contas por Vencimento -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Situação das Contas</h3>
+            <div style="height: 300px;">
+                <canvas id="vencimentoChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alertas -->
+    {% if contas_receber_vencidas > 0 or contas_pagar_vencidas > 0 or contas_receber_vencendo > 0 or contas_pagar_vencendo > 0 %}
+    <div class="bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded-xl p-6 mb-8">
+        <h3 class="text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-4">⚠️ Alertas Financeiros</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {% if contas_receber_vencidas > 0 %}
+                <div class="bg-red-100 dark:bg-red-800 p-4 rounded-lg">
+                    <p class="text-sm font-medium text-red-800 dark:text-red-200">Contas a Receber Vencidas</p>
+                    <p class="text-2xl font-bold text-red-900 dark:text-red-100">{{ contas_receber_vencidas }}</p>
+                </div>
+            {% endif %}
+            
+            {% if contas_pagar_vencidas > 0 %}
+                <div class="bg-red-100 dark:bg-red-800 p-4 rounded-lg">
+                    <p class="text-sm font-medium text-red-800 dark:text-red-200">Contas a Pagar Vencidas</p>
+                    <p class="text-2xl font-bold text-red-900 dark:text-red-100">{{ contas_pagar_vencidas }}</p>
+                </div>
+            {% endif %}
+            
+            {% if contas_receber_vencendo > 0 %}
+                <div class="bg-orange-100 dark:bg-orange-800 p-4 rounded-lg">
+                    <p class="text-sm font-medium text-orange-800 dark:text-orange-200">A Receber (7 dias)</p>
+                    <p class="text-2xl font-bold text-orange-900 dark:text-orange-100">{{ contas_receber_vencendo }}</p>
+                </div>
+            {% endif %}
+            
+            {% if contas_pagar_vencendo > 0 %}
+                <div class="bg-orange-100 dark:bg-orange-800 p-4 rounded-lg">
+                    <p class="text-sm font-medium text-orange-800 dark:text-orange-200">A Pagar (7 dias)</p>
+                    <p class="text-2xl font-bold text-orange-900 dark:text-orange-100">{{ contas_pagar_vencendo }}</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Acessos rápidos -->
     <div class="mt-10">
         <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">⚡ Acessos Rápidos</h3>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            <a href="{% url 'financeiro:fluxo_caixa' %}" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Fluxo de Caixa</a>
-            <a href="{% url 'financeiro:dre' %}" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">DRE</a>
-            <a href="{% url 'financeiro:balanco' %}" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Balanço Patrimonial</a>
-            <a href="{% url 'financeiro:lancamento_lista' %}" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Lançamentos</a>
-            <a href="{% url 'financeiro:categoria_lista' %}" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Categorias</a>
-            <a href="{% url 'financeiro:centro_custo_lista' %}" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Centros de Custo</a>
-            <a href="{% url 'financeiro:orcamento' %}" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Orçamento</a>
-            <a href="{% url 'financeiro:relatorios' %}" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Relatórios</a>
-            <a href="{% url 'financeiro:contas_vencidas' %}" class="bg-gradient-to-r from-red-600 to-red-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Contas Vencidas</a>
-            <a href="{% url 'financeiro:contas_vencendo' %}" class="bg-gradient-to-r from-yellow-500 to-yellow-400 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Contas Vencendo</a>
-            <a href="{% url 'financeiro:agenda_pagamentos' %}" class="bg-gradient-to-r from-indigo-600 to-indigo-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Agendar Pagamento</a>
-            <a href="{% url 'financeiro:aprovacao_pagamentos' %}" class="bg-gradient-to-r from-green-600 to-green-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Aprovação Pagamento</a>
-            <a href="{% url 'financeiro:pagamento_lote' %}" class="bg-gradient-to-r from-cyan-600 to-cyan-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Pagamento Lote</a>
-            <a href="{% url 'financeiro:receitas' %}" class="bg-gradient-to-r from-green-600 to-green-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Receitas</a>
-            <a href="{% url 'financeiro:despesas' %}" class="bg-gradient-to-r from-red-600 to-red-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Despesas</a>
-            <a href="{% url 'financeiro:transferencias' %}" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Transferências</a>
-            <a href="{% url 'financeiro:caixa' %}" class="bg-gradient-to-r from-gray-700 to-gray-600 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Ver Caixa</a>
-            <a href="{% url 'financeiro:sangria_caixa' %}" class="bg-gradient-to-r from-orange-600 to-orange-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Retirar Sangria</a>
-            <a href="{% url 'financeiro:suprimento_caixa' %}" class="bg-gradient-to-r from-amber-600 to-amber-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Suprimento Caixa</a>
-            <a href="{% url 'financeiro:conferencia_caixa' %}" class="bg-gradient-to-r from-blue-700 to-blue-600 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Conferência Caixa</a>
-            <a href="{% url 'financeiro:relatorio_caixa_diario' %}" class="bg-gradient-to-r from-purple-600 to-purple-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Relatório Caixa Diário</a>
-            <a href="{% url 'financeiro:banco_lista' %}" class="bg-gradient-to-r from-slate-600 to-slate-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Contas Bancárias</a>
+            <a href="#" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Fluxo de Caixa</a>
+            <a href="#" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">DRE</a>
+            <a href="#" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Balanço Patrimonial</a>
+            <a href="#" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Lançamentos</a>
+            <a href="#" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Categorias</a>
+            <a href="#" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Centros de Custo</a>
+            <a href="#" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Orçamento</a>
+            <a href="#" class="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Relatórios</a>
+            <a href="#" class="bg-gradient-to-r from-red-600 to-red-500 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Contas Vencidas</a>
+            <a href="#" class="bg-gradient-to-r from-yellow-500 to-yellow-400 text-white py-3 rounded-lg text-center shadow hover:shadow-lg transition-all">Contas Vencendo</a>
         </div>
     </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Dados do backend
+    const dadosFluxoCaixa = {{ dados_fluxo_caixa|safe }};
+    const receitasPorCategoria = {{ receitas_por_categoria|safe }};
+    const despesasPorCategoria = {{ despesas_por_categoria|safe }};
+    const evolucaoSaldos = {{ evolucao_saldos|safe }};
+    const contasVencimento = {{ contas_vencimento|safe }};
+    
+    // Cores
+    const cores = {
+        primary: '#5D5CDE',
+        success: '#10B981',
+        warning: '#F59E0B',
+        danger: '#EF4444',
+        info: '#3B82F6'
+    };
+    
+    // Gráfico de Fluxo de Caixa
+    if (dadosFluxoCaixa.labels && dadosFluxoCaixa.labels.length > 0) {
+        const ctxFluxo = document.getElementById('fluxoCaixaChart').getContext('2d');
+        new Chart(ctxFluxo, {
+            type: 'line',
+            data: {
+                labels: dadosFluxoCaixa.labels,
+                datasets: [
+                    {
+                        label: 'Entradas',
+                        data: dadosFluxoCaixa.entradas,
+                        borderColor: cores.success,
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: false
+                    },
+                    {
+                        label: 'Saídas',
+                        data: dadosFluxoCaixa.saidas,
+                        borderColor: cores.danger,
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        fill: false
+                    },
+                    {
+                        label: 'Saldo Acumulado',
+                        data: dadosFluxoCaixa.saldo_acumulado,
+                        borderColor: cores.primary,
+                        backgroundColor: 'rgba(93, 92, 222, 0.1)',
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y.toLocaleString('pt-AO', {
+                                    minimumFractionDigits: 2
+                                }) + ' Kz';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString('pt-AO') + ' Kz';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Gráfico de Receitas por Categoria
+    if (receitasPorCategoria.labels && receitasPorCategoria.labels.length > 0) {
+        const ctxReceitas = document.getElementById('receitasChart').getContext('2d');
+        new Chart(ctxReceitas, {
+            type: 'doughnut',
+            data: {
+                labels: receitasPorCategoria.labels,
+                datasets: [{
+                    data: receitasPorCategoria.valores,
+                    backgroundColor: [cores.success, cores.primary, cores.info, cores.warning, '#8B5CF6', '#EC4899']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentual = ((context.parsed / total) * 100).toFixed(1);
+                                return context.label + ': ' + context.parsed.toLocaleString('pt-AO', {
+                                    minimumFractionDigits: 2
+                                }) + ' Kz (' + percentual + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Gráfico de Evolução dos Saldos
+    if (evolucaoSaldos.labels && evolucaoSaldos.labels.length > 0) {
+        const ctxSaldos = document.getElementById('saldosChart').getContext('2d');
+        new Chart(ctxSaldos, {
+            type: 'line',
+            data: {
+                labels: evolucaoSaldos.labels,
+                datasets: [{
+                    label: 'Saldo Total',
+                    data: evolucaoSaldos.valores,
+                    borderColor: cores.primary,
+                    backgroundColor: 'rgba(93, 92, 222, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Saldo: ' + context.parsed.y.toLocaleString('pt-AO', {
+                                    minimumFractionDigits: 2
+                                }) + ' Kz';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString('pt-AO') + ' Kz';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Gráfico de Contas por Vencimento
+    if (contasVencimento.labels && contasVencimento.labels.length > 0) {
+        const ctxVencimento = document.getElementById('vencimentoChart').getContext('2d');
+        new Chart(ctxVencimento, {
+            type: 'bar',
+            data: {
+                labels: contasVencimento.labels,
+                datasets: [{
+                    data: contasVencimento.valores,
+                    backgroundColor: contasVencimento.cores,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + context.parsed.y.toLocaleString('pt-AO', {
+                                    minimumFractionDigits: 2
+                                }) + ' Kz';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString('pt-AO') + ' Kz';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

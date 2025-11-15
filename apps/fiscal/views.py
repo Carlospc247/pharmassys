@@ -1069,26 +1069,25 @@ class RetencaoFonteDetailView(LoginRequiredMixin, PermissaoAcaoMixin, DetailView
         return obj
 
 
-class RetencaoFonteCreateView(LoginRequiredMixin, PermissaoAcaoMixin, CreateView):
+from django.urls import reverse_lazy
+from django.contrib import messages
+from django.views.generic import CreateView
+from .models import RetencaoFonte
+from .forms import RetencaoFonteForm
+
+class RetencaoFonteCreateView(PermissaoAcaoMixin, CreateView):
     acao_requerida = 'criar_retencoes_na_fonte'
-    """
-    Criação de nova retenção na fonte.
-    """
     model = RetencaoFonte
-    fields = ["fornecedor", "documento_referencia", "valor_bruto", "percentual", "descricao"]
+    form_class = RetencaoFonteForm
     template_name = "fiscal/retencao_form.html"
     success_url = reverse_lazy("fiscal:retencoes-list")
-    permission_classes = [MultiplePermissions]
-    multiple_permissions = {
-        'AND': [EmpresaPermission, FiscalPermission]
-    }
 
     def form_valid(self, form):
+        # Define empresa automaticamente
         form.instance.empresa = self.request.user.empresa
-        form.instance.valor_retido = (form.instance.valor_bruto * form.instance.percentual) / 100
-        form.instance.status = "pendente"
         messages.success(self.request, "Retenção criada com sucesso.")
         return super().form_valid(form)
+
 
 
 class RetencaoFonteUpdateView(LoginRequiredMixin, PermissaoAcaoMixin, UpdateView):
